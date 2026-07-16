@@ -1,0 +1,1 @@
+ALTER TABLE public.formula_rules ADD COLUMN formula_quantity text DEFAULT NULL;

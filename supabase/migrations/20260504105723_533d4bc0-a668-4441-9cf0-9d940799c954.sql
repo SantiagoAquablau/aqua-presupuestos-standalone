@@ -1,0 +1,1 @@
+ALTER TABLE public.budgets ADD COLUMN IF NOT EXISTS acc_basics_color text DEFAULT 'blanc';

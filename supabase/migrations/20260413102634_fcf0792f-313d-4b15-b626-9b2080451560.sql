@@ -1,0 +1,1 @@
+ALTER TABLE public.budgets DROP COLUMN IF EXISTS acc_plat_dutxa_model_id;

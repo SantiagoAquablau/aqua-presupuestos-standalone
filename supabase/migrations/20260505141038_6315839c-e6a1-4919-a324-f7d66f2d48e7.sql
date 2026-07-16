@@ -1,0 +1,4 @@
+DELETE FROM public.obra_cost_items WHERE obra_id IN (SELECT o.id FROM public.obras o LEFT JOIN public.budgets b ON b.id=o.budget_id WHERE b.id IS NULL OR b.deleted = true);
+DELETE FROM public.obra_phases WHERE obra_id IN (SELECT o.id FROM public.obras o LEFT JOIN public.budgets b ON b.id=o.budget_id WHERE b.id IS NULL OR b.deleted = true);
+DELETE FROM public.obra_activity WHERE obra_id IN (SELECT o.id FROM public.obras o LEFT JOIN public.budgets b ON b.id=o.budget_id WHERE b.id IS NULL OR b.deleted = true);
+DELETE FROM public.obras WHERE id IN (SELECT o2.id FROM public.obras o2 LEFT JOIN public.budgets b2 ON b2.id=o2.budget_id WHERE b2.id IS NULL OR b2.deleted = true);

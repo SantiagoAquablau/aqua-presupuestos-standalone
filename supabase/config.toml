@@ -1,0 +1,4 @@
+project_id = "sonovyqqgpkbhezsbvgy"
+
+[functions.compute-transport-km]
+verify_jwt = false

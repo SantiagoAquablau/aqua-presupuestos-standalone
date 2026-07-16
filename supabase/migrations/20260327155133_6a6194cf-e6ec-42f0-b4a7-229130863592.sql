@@ -1,0 +1,1 @@
+ALTER TABLE public.articles ADD COLUMN IF NOT EXISTS sale_price_supply_only integer NOT NULL DEFAULT 0;

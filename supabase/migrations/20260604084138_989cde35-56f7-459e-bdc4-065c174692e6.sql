@@ -1,0 +1,1 @@
+ALTER TABLE public.budgets ADD COLUMN IF NOT EXISTS margin_pct_adjustment numeric NOT NULL DEFAULT 0;

@@ -1,0 +1,1 @@
+ALTER TABLE public.pressupost_annexos ADD COLUMN IF NOT EXISTS assisted_meta JSONB NOT NULL DEFAULT '{}'::jsonb;
