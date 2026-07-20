@@ -14,8 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { loadBudgetAsDraft } from "@/lib/budgetMapper";
 import { buildVisitPeriodsText } from "@/lib/maintenanceVisits";
 import { formatEuro, pdfPageStyle } from "@/components/pdf/pdfStyles";
-import contractBgAsset from "@/assets/contract-bg.jpg.asset.json";
-import signatureAsset from "@/assets/aquablau-signature.png.asset.json";
+import contractBgAsset from "@/assets/contract-bg.jpg";
+import signatureAsset from "@/assets/aquablau-signature.png";
 
 const IVA_PCT = 0.21;
 const CALIBRI = 'Calibri, "Helvetica Neue", Helvetica, Arial, sans-serif';
@@ -130,7 +130,7 @@ function Page({ children, showHeader = false }: { children: React.ReactNode; sho
           left: 0,
           width: "100%",
           height: "100%",
-          backgroundImage: `url(${contractBgAsset.url})`,
+          backgroundImage: `url(${contractBgAsset})`,
           backgroundSize: "210mm 297mm",
           backgroundRepeat: "no-repeat",
           backgroundPosition: "top left",
@@ -178,7 +178,7 @@ function SignatureBlock({ contractantName }: { contractantName: string }) {
           style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "22mm", marginBottom: 0 }}
         >
           <img
-            src={signatureAsset.url}
+            src={signatureAsset}
             alt="Signatura AquaBlau"
             crossOrigin="anonymous"
             style={{ height: "22mm", width: "auto", objectFit: "contain" }}

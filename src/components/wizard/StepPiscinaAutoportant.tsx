@@ -7,9 +7,9 @@ import { useBudgetStore } from '@/stores/budgetStore';
 import { ArrowLeft, ArrowRight, Check, ZoomIn, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import confortAsset from '@/assets/autoportant-line-confort.png.asset.json';
-import luxeAsset from '@/assets/autoportant-line-luxe.png.asset.json';
-import luxePlusAsset from '@/assets/autoportant-line-luxe-plus.png.asset.json';
+import confortAsset from '@/assets/autoportant-line-confort.png';
+import luxeAsset from '@/assets/autoportant-line-luxe.png';
+import luxePlusAsset from '@/assets/autoportant-line-luxe-plus.png';
 
 type ModelKey = 'line_confort' | 'line_luxe' | 'line_luxe_plus';
 
@@ -36,7 +36,7 @@ const models: ModelDef[] = [
     key: 'line_confort',
     name: 'LINE CONFORT',
     tagline: "L'essencial del sistema Desingpool",
-    image: confortAsset.url,
+    image: confortAsset,
     features: [
       'Estructura autoportant amb sistema patentat Desingpool',
       'Piscina prefabricada provada en fàbrica (estanqueïtat garantida)',
@@ -56,7 +56,7 @@ const models: ModelDef[] = [
     key: 'line_luxe',
     name: 'LINE LUXE',
     tagline: 'Disseny premium amb cristall panoràmic',
-    image: luxeAsset.url,
+    image: luxeAsset,
     features: [
       'Totes les característiques estructurals del sistema Desingpool',
       'Escala interior amb banc integrat en tot el llarg',
@@ -74,7 +74,7 @@ const models: ModelDef[] = [
     key: 'line_luxe_plus',
     name: 'LINE LUXE PLUS',
     tagline: 'La màxima expressió: cristall LARGE i cascada LED',
-    image: luxePlusAsset.url,
+    image: luxePlusAsset,
     features: [
       'Totes les característiques estructurals del sistema Desingpool',
       'Escala interior amb banc integrat en tot el llarg',

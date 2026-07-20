@@ -3,27 +3,27 @@
  * Duplicates the model/finish tables so PDF pages can render without
  * pulling wizard code (and its React/UI dependencies).
  */
-import confortAsset from '@/assets/autoportant-line-confort.png.asset.json';
-import luxeAsset from '@/assets/autoportant-line-luxe.png.asset.json';
-import luxePlusAsset from '@/assets/autoportant-line-luxe-plus.png.asset.json';
-import aerisAsset from '@/assets/finishes/AERIS.webp.asset.json';
-import argentiumAsset from '@/assets/finishes/ARGENTIUM.webp.asset.json';
-import nacreAsset from '@/assets/finishes/NACRE.webp.asset.json';
-import sabbiaAsset from '@/assets/finishes/SABBIA.webp.asset.json';
-import stelaArticAsset from '@/assets/finishes/STELA_ARTIC.webp.asset.json';
-import varaderoAsset from '@/assets/finishes/VARADERO.webp.asset.json';
-import menorcaAsset from '@/assets/finishes/MENORCA.webp.asset.json';
-import gr3000Asset from '@/assets/finishes/gresite/3000.webp.asset.json';
-import gr3002Asset from '@/assets/finishes/gresite/3002.webp.asset.json';
-import gr3003Asset from '@/assets/finishes/gresite/3003.webp.asset.json';
-import gr3004Asset from '@/assets/finishes/gresite/3004.webp.asset.json';
-import gr3057Asset from '@/assets/finishes/gresite/3057.webp.asset.json';
-import gr3800Asset from '@/assets/finishes/gresite/3800.webp.asset.json';
-import gr3802Asset from '@/assets/finishes/gresite/3802.webp.asset.json';
-import gr3807Asset from '@/assets/finishes/gresite/3807.webp.asset.json';
-import grNC7723Asset from '@/assets/finishes/gresite/NC7723.webp.asset.json';
-import grNC7733Asset from '@/assets/finishes/gresite/NC7733.webp.asset.json';
-import grNC7734Asset from '@/assets/finishes/gresite/NC7734.webp.asset.json';
+import confortAsset from '@/assets/autoportant-line-confort.png';
+import luxeAsset from '@/assets/autoportant-line-luxe.png';
+import luxePlusAsset from '@/assets/autoportant-line-luxe-plus.png';
+import aerisAsset from '@/assets/finishes/AERIS.webp';
+import argentiumAsset from '@/assets/finishes/ARGENTIUM.webp';
+import nacreAsset from '@/assets/finishes/NACRE.webp';
+import sabbiaAsset from '@/assets/finishes/SABBIA.webp';
+import stelaArticAsset from '@/assets/finishes/STELA_ARTIC.webp';
+import varaderoAsset from '@/assets/finishes/VARADERO.webp';
+import menorcaAsset from '@/assets/finishes/MENORCA.webp';
+import gr3000Asset from '@/assets/finishes/gresite/3000.webp';
+import gr3002Asset from '@/assets/finishes/gresite/3002.webp';
+import gr3003Asset from '@/assets/finishes/gresite/3003.webp';
+import gr3004Asset from '@/assets/finishes/gresite/3004.webp';
+import gr3057Asset from '@/assets/finishes/gresite/3057.webp';
+import gr3800Asset from '@/assets/finishes/gresite/3800.webp';
+import gr3802Asset from '@/assets/finishes/gresite/3802.webp';
+import gr3807Asset from '@/assets/finishes/gresite/3807.webp';
+import grNC7723Asset from '@/assets/finishes/gresite/NC7723.webp';
+import grNC7733Asset from '@/assets/finishes/gresite/NC7733.webp';
+import grNC7734Asset from '@/assets/finishes/gresite/NC7734.webp';
 
 export type AutoportantModelKey = 'line_confort' | 'line_luxe' | 'line_luxe_plus';
 
@@ -40,7 +40,7 @@ export const AUTOPORTANT_MODELS: Record<AutoportantModelKey, AutoportantModelMet
     key: 'line_confort',
     name: 'LINE CONFORT',
     tagline: "L'essencial del sistema Desingpool",
-    image: confortAsset.url,
+    image: confortAsset,
     features: [
       'Estructura autoportant amb sistema patentat Desingpool',
       'Piscina prefabricada provada en fàbrica (estanqueïtat garantida)',
@@ -60,7 +60,7 @@ export const AUTOPORTANT_MODELS: Record<AutoportantModelKey, AutoportantModelMet
     key: 'line_luxe',
     name: 'LINE LUXE',
     tagline: 'Disseny premium amb cristall panoràmic',
-    image: luxeAsset.url,
+    image: luxeAsset,
     features: [
       'Totes les característiques estructurals del sistema Desingpool',
       'Escala interior amb banc integrat en tot el llarg',
@@ -78,7 +78,7 @@ export const AUTOPORTANT_MODELS: Record<AutoportantModelKey, AutoportantModelMet
     key: 'line_luxe_plus',
     name: 'LINE LUXE PLUS',
     tagline: 'La màxima expressió: cristall LARGE i cascada LED',
-    image: luxePlusAsset.url,
+    image: luxePlusAsset,
     features: [
       'Totes les característiques estructurals del sistema Desingpool',
       'Escala interior amb banc integrat en tot el llarg',
@@ -96,28 +96,28 @@ export const AUTOPORTANT_MODELS: Record<AutoportantModelKey, AutoportantModelMet
 
 /** Porcelànic finish images keyed by canonical name (as shown in the wizard). */
 export const AUTOPORTANT_PORC_IMAGES: Record<string, string> = {
-  AERIS: aerisAsset.url,
-  ARGENTIUM: argentiumAsset.url,
-  NACRE: nacreAsset.url,
-  SABBIA: sabbiaAsset.url,
-  STELA_ARTIC: stelaArticAsset.url,
-  'STELA ARTIC': stelaArticAsset.url,
-  VARADERO: varaderoAsset.url,
-  MENORCA: menorcaAsset.url,
+  AERIS: aerisAsset,
+  ARGENTIUM: argentiumAsset,
+  NACRE: nacreAsset,
+  SABBIA: sabbiaAsset,
+  STELA_ARTIC: stelaArticAsset,
+  'STELA ARTIC': stelaArticAsset,
+  VARADERO: varaderoAsset,
+  MENORCA: menorcaAsset,
 };
 
 export const AUTOPORTANT_GRESITE_IMAGES: Record<string, string> = {
-  '3000': gr3000Asset.url,
-  '3002': gr3002Asset.url,
-  '3003': gr3003Asset.url,
-  '3004': gr3004Asset.url,
-  '3057': gr3057Asset.url,
-  NC7723: grNC7723Asset.url,
-  NC7733: grNC7733Asset.url,
-  NC7734: grNC7734Asset.url,
-  '3800': gr3800Asset.url,
-  '3802': gr3802Asset.url,
-  '3807': gr3807Asset.url,
+  '3000': gr3000Asset,
+  '3002': gr3002Asset,
+  '3003': gr3003Asset,
+  '3004': gr3004Asset,
+  '3057': gr3057Asset,
+  NC7723: grNC7723Asset,
+  NC7733: grNC7733Asset,
+  NC7734: grNC7734Asset,
+  '3800': gr3800Asset,
+  '3802': gr3802Asset,
+  '3807': gr3807Asset,
 };
 
 /** Resolve a finish key (as stored on the draft, e.g. `corona_porc_sabbia`

@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import iconoAquablau from "@/assets/iconoAquablau.png.asset.json";
+import iconoAquablau from "@/assets/iconoAquablau.png";
 
 type NavItem = {
   label: string;
@@ -58,7 +58,7 @@ export function AppSidebar() {
       >
         <div className="flex items-center gap-3 px-5 h-16 border-b border-sidebar-border">
           <div className="w-9 h-9 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0 p-1">
-            <img src={iconoAquablau.url} alt="Aquablau" className="w-full h-full object-contain" />
+            <img src={iconoAquablau} alt="Aquablau" className="w-full h-full object-contain" />
           </div>
           {!collapsed && (
             <div className="animate-fade-in">
