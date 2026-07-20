@@ -189,10 +189,17 @@ function FinishGrid({ title, options, selectedKey, onSelect, onZoom }: FinishGri
                       : 'border-border hover:border-primary/40 hover:shadow-md'
                   )}
                 >
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onSelect(opt.key)}
-                    className="w-full text-left"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelect(opt.key);
+                      }
+                    }}
+                    className="w-full text-left cursor-pointer"
                     aria-label={`Seleccionar ${opt.name}`}
                   >
                     <div className="relative aspect-square" style={{ background: opt.swatch }}>
@@ -219,7 +226,7 @@ function FinishGrid({ title, options, selectedKey, onSelect, onZoom }: FinishGri
                     <div className="p-2">
                       <div className="text-xs font-medium text-foreground truncate">{opt.name}</div>
                     </div>
-                  </button>
+                  </div>
                 </div>
               );
             })}
