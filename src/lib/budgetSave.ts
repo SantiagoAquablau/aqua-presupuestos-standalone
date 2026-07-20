@@ -571,6 +571,12 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     return buildMaintenancePdf(draft);
   }
 
+  // ─── Piscina Autoportant: dedicated short document (Portada + Model +
+  //     Acabats + [Opcionals sel] + Resum + [Opcionals catàleg] + Contacte).
+  if (draft.type === "piscina_autoportant") {
+    return buildAutoportantPdf(draft);
+  }
+
   // Resolve article names + image URLs needed by the PDF template.
   const articleIds = [
     draft.instalFiltrePoliesId,
@@ -865,7 +871,18 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
           .reduce((s: number, it: any) => s + Math.ceil((it.quantity || 0) * (it.unitSale || 0)), 0)
       : 0;
   const coronamentTotal = sumBySubPhase("coronament");
-  const revestimentTotal = sumBySubPhase("revestiment");
+  // Split "revestiment" between INTERIOR (subPhase includes "revestiment" but
+  // NOT "exterior") and EXTERIOR (subPhase includes "exterior").
+  const sumBySubPhaseMatch = (fn: (sub: string) => boolean) =>
+    acabatsPhaseRaw
+      ? acabatsPhaseRaw.items
+          .filter((it: any) => fn(String(it.subPhase || "").toLowerCase()))
+          .reduce((s: number, it: any) => s + Math.ceil((it.quantity || 0) * (it.unitSale || 0)), 0)
+      : 0;
+  const revestimentTotal = sumBySubPhaseMatch(
+    (sub) => sub.includes("revestiment") && !sub.includes("exterior"),
+  );
+  const revestimentExteriorTotal = sumBySubPhaseMatch((sub) => sub.includes("exterior"));
 
   // Compute coronament metres lineals (the wizard never stores it; recreate here).
   const PIECE_W: Record<string, number> = {
@@ -1065,6 +1082,11 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     };
   })();
 
+  const _fmtDim = (n?: number | null) =>
+    typeof n === "number" && !isNaN(n)
+      ? `${n.toLocaleString("ca-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}m`
+      : "";
+
   const data: NewPdfData = {
     budgetNumber: draft.budgetNumber || "-",
     budgetDate: draft.budgetDate || new Date().toISOString(),
@@ -1088,21 +1110,41 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     hasExteriorStairs: draft.hasExteriorStairs,
     extStairsLength: draft.extStairsLength,
     extStairsWidth: draft.extStairsWidth,
+    poolDisposition: draft.poolDisposition,
+    alturaVista: draft.alturaVista,
+    hasAccessStair:
+      draft.poolDisposition === 'semi_enterrada' && !!draft.hasAccessStair,
+    accessStairWidth: Number(draft.accessStairWidth ?? 0.70) || undefined,
+    accessStairLength: (() => {
+      const alt = Number(draft.alturaVista || 0);
+      const steps = alt > 0 ? Math.max(0, alt / 0.20 - 1) : 0;
+      return Math.round(steps * 0.30 * 100) / 100 || undefined;
+    })(),
+    accessPlatformWidth: Number(draft.accessStairWidth ?? 0.70) || undefined,
+    accessPlatformLength: (() => {
+      const alt = Number(draft.alturaVista || 0);
+      const totalL = Number(
+        draft.accessTotalLength ?? ((Number(draft.poolWidth || 0) || 0) + 0.60),
+      );
+      const steps = alt > 0 ? Math.max(0, alt / 0.20 - 1) : 0;
+      const stairL = Math.round(steps * 0.30 * 100) / 100;
+      return Math.max(0, Math.round((totalL - stairL) * 100) / 100) || undefined;
+    })(),
     waterproofingSystem: draft.waterproofingSystem,
     constructionSystem: draft.constructionSystem,
     poolType: draft.poolType,
     poolShape: draft.poolShape,
     stairsDimensions: draft.stairsLength
-      ? `${draft.stairsLength} x ${draft.stairsWidth || ""} x ${draft.stairsHeight || ""}`
+      ? `${_fmtDim(draft.stairsWidth)} x ${_fmtDim(draft.stairsLength)} x ${_fmtDim(draft.stairsHeight)}`
       : undefined,
     hasPlatform: !!(draft.platformLength || draft.platformWidth || draft.benchLength || draft.benchWidth),
     platformDimensions:
       draft.interiorStairsType === "banc"
         ? draft.benchLength
-          ? `${draft.benchLength} x ${draft.benchWidth || ""} x ${draft.benchHeight || ""}`
+          ? `${_fmtDim(draft.benchWidth)} x ${_fmtDim(draft.benchLength)} x ${_fmtDim(draft.benchHeight)}`
           : undefined
         : draft.platformLength
-          ? `${draft.platformLength} x ${draft.platformWidth || ""} x ${draft.platformHeight || ""}`
+          ? `${_fmtDim(draft.platformWidth)} x ${_fmtDim(draft.platformLength)} x ${_fmtDim(draft.platformHeight)}`
           : undefined,
     coronamentDescription: a(draft.coronamentModelId)?.name,
     revestimentDescription: revestimentArt?.name,
@@ -1136,6 +1178,8 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     coronamentModelImageUrl: a(draft.coronamentModelId)?.image_url || undefined,
     coronamentTotal: coronamentTotal || undefined,
     revestimentTotal: revestimentTotal || undefined,
+    revestimentExteriorInclos: !!draft.revestimentExteriorInclos,
+    revestimentExteriorTotal: revestimentExteriorTotal || undefined,
     coronamentInclos: draft.coronamentInclos !== false,
     revestimentInclos: draft.revestimentInclos !== false,
     // ---- Revestiment interior details for Page 4 ----
@@ -1939,7 +1983,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     })(),
     phases: pdfPhases as any,
     totalSale,
-    paymentConditions: draft.type === "piscina_autoportant" ? AUTOPORTANT_PAYMENT_CONDITIONS : draft.paymentConditions,
+    paymentConditions: draft.paymentConditions,
     observations: draft.observations,
     contractantName: (draft as any).contractantName || undefined,
     contractantNif: (draft as any).contractantNif || undefined,
@@ -2242,6 +2286,185 @@ async function buildMaintenancePdf(draft: BudgetDraft): Promise<{ blob: Blob; fi
     phaseElectricitatTotal: 0,
     totalSale: totalAnual,
     paymentConditions: draft.paymentConditions || "Mensual",
+    observations: draft.observations,
+  };
+
+  const blob = await buildPdfBlob(data);
+  const stripAccents = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const cleanName = draft.clientName
+    ? stripAccents(draft.clientName).replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, " ").trim()
+    : "";
+  const cleanTown = draft.clientTown
+    ? stripAccents(draft.clientTown).replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, " ").trim()
+    : "";
+  const parts: string[] = [];
+  if (draft.budgetNumber) parts.push(draft.budgetNumber);
+  if (cleanName) parts.push(` ${cleanName}`);
+  const base = (parts.join("-") + (cleanTown ? ` (${cleanTown})` : "")).trim() || "pressupost";
+  return { blob, filename: `${base}.pdf` };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Piscina Autoportant PDF
+// ──────────────────────────────────────────────────────────────────────────
+async function buildAutoportantPdf(draft: BudgetDraft): Promise<{ blob: Blob; filename: string }> {
+  const { buildPdfBlob } = await import("@/lib/pdfRender");
+  const { AUTOPORTANT_MODELS, resolveAutoportantFinish } = await import("@/lib/autoportantMeta");
+  const {
+    AUTOPORTANT_OPCIONALS,
+    buildAutoportantPhases,
+    findAutoportantPrice,
+    resolveCubiertaSize,
+  } = await import("@/lib/autoportantOptions");
+
+  const modelKey = draft.autoportantModel as keyof typeof AUTOPORTANT_MODELS | undefined;
+  const modelMeta = modelKey ? AUTOPORTANT_MODELS[modelKey] : undefined;
+
+  // Load autoportant catalog + pricing tables (best-effort).
+  const [artsRes, pricesRes, transportRes] = await Promise.all([
+    supabase.from("articles").select("id, name, unit, cost_price, sale_price, category").ilike("category", "Autoportant"),
+    (supabase as any).from("autoportant_prices").select("*"),
+    (supabase as any).from("autoportant_transport_config").select("*").limit(1).maybeSingle(),
+  ]);
+  const articles = ((artsRes.data as any[]) || []).map((a) => ({
+    id: a.id,
+    name: a.name,
+    unit: a.unit,
+    cost_price: a.cost_price,
+    sale_price: a.sale_price,
+    category: a.category,
+  }));
+  const prices = (pricesRes as any).data || [];
+  const transportCfg = (transportRes as any).data || undefined;
+
+  const phases = buildAutoportantPhases(draft, articles as any, prices as any, transportCfg as any);
+  const totalSale = phases.reduce(
+    (s, p) => s + p.items.reduce((ps, it) => ps + (it.unitSale || 0) * (it.quantity || 0), 0),
+    0,
+  );
+
+  // Selected opcionals (with amounts) — sourced from the phase we just built.
+  const opcPhase = phases.find((p) => p.name === "Opcionals");
+  const selectedOpcionals = (opcPhase?.items || []).map((it) => {
+    const def = AUTOPORTANT_OPCIONALS.find((d) => `autoportant_opc_${d.key}` === it.wizardKey);
+    return {
+      label: def?.label || it.description,
+      description: def?.description,
+      unit: it.unit || def?.unit || "ud",
+      qty: it.quantity || 0,
+      unitSale: it.unitSale || 0,
+      total: (it.unitSale || 0) * (it.quantity || 0),
+    };
+  });
+
+  // Full catalog of opcionals compatible with the chosen model (no total).
+  const normalize = (v: string) =>
+    String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
+  const matchArticle = (tokens: string[]) => {
+    const upper = tokens.map(normalize);
+    return articles.find((a) => {
+      if ((a.category || "").toLowerCase() !== "autoportant") return false;
+      const n = normalize(a.name || "");
+      return upper.every((t) => n.includes(t));
+    });
+  };
+  const allOpcionals = modelKey
+    ? AUTOPORTANT_OPCIONALS.filter((def) => def.models.includes(modelKey as any)).map((def) => {
+        let article: any;
+        if (def.key === "cubierta_electrica") {
+          const size = resolveCubiertaSize(draft);
+          article = matchArticle(["CUBIERTA", "ELECTRICA", "ELEVADA", `${size}X3`]);
+        } else {
+          article = matchArticle(def.articleMatch);
+        }
+        const sale = article ? (Number(article.sale_price) || 0) / 100 : 0;
+        return {
+          label: def.label,
+          description: def.description,
+          unit: (article?.unit as string) || def.unit,
+          unitSale: sale,
+        };
+      })
+    : [];
+
+  // Acabats: resolve the display metadata for the selected finish keys.
+  const corona = resolveAutoportantFinish(draft.autoportantCoronaKey);
+  const revestiment = resolveAutoportantFinish(draft.autoportantRevestimentKey);
+  const exteriorNote = (() => {
+    if (modelKey === "line_confort") {
+      const c = draft.autoportantMorterColor;
+      const label = c === "blanc" ? "Blanc" : c === "beige" ? "Beige" : c === "gris" ? "Gris" : undefined;
+      return `morter acrílic texturat${label ? ` — ${label}` : ""}.`;
+    }
+    if (modelKey === "line_luxe" || modelKey === "line_luxe_plus") {
+      if (corona) return `s'aplica el mateix acabat que la coronació — ${corona.name} (${corona.family}).`;
+      return "s'aplica el mateix acabat que la coronació.";
+    }
+    return undefined;
+  })();
+
+  // Comercial info (best-effort).
+  let comercialName: string | undefined;
+  let comercialEmail: string | undefined;
+  let comercialId = draft.comercialId;
+  if (!comercialId) {
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      comercialId = auth?.user?.id;
+    } catch { /* ignore */ }
+  }
+  if (comercialId) {
+    try {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", comercialId)
+        .maybeSingle();
+      if (prof) {
+        comercialName = (prof as any).full_name || undefined;
+        comercialEmail = (prof as any).email || undefined;
+      }
+    } catch { /* ignore */ }
+  }
+
+  void findAutoportantPrice; // referenced indirectly via buildAutoportantPhases
+
+  const data: NewPdfData = {
+    budgetNumber: draft.budgetNumber || "-",
+    budgetDate: draft.budgetDate || new Date().toISOString(),
+    type: "Piscina Autoportant",
+    clientName: draft.clientName || "-",
+    clientNif: draft.clientNif,
+    clientAddress: draft.clientAddress,
+    clientTown: draft.clientTown,
+    clientPhone: draft.clientPhone,
+    clientEmail: draft.clientEmail,
+    comercialName,
+    comercialEmail,
+    isAutoportant: true,
+    autoportantModelKey: modelKey,
+    autoportantModelName: modelMeta?.name,
+    autoportantModelTagline: modelMeta?.tagline,
+    autoportantModelImage: modelMeta?.image,
+    autoportantModelFeatures: modelMeta?.features,
+    autoportantAmple: draft.autoportantAmple,
+    autoportantLlarg: draft.autoportantLlarg,
+    autoportantAlturaAigua: draft.autoportantAlturaAigua,
+    autoportantCoronaName: corona?.name,
+    autoportantCoronaFamily: corona?.family,
+    autoportantCoronaImage: corona?.image,
+    autoportantRevestimentName: revestiment?.name,
+    autoportantRevestimentFamily: revestiment?.family,
+    autoportantRevestimentImage: revestiment?.image,
+    autoportantExteriorNote: exteriorNote,
+    autoportantSelectedOpcionals: selectedOpcionals,
+    autoportantAllOpcionals: allOpcionals,
+    phaseStructuralTotal: 0,
+    phaseAcabatsTotal: 0,
+    phaseDepuracioTotal: 0,
+    phaseElectricitatTotal: 0,
+    totalSale: Math.ceil(totalSale),
+    paymentConditions: AUTOPORTANT_PAYMENT_CONDITIONS,
     observations: draft.observations,
   };
 

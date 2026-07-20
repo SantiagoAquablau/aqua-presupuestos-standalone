@@ -21,9 +21,10 @@ const pageStyle: React.CSSProperties = {
 export function PageResum({ data }: { data: PdfData }) {
   const isM = !!data.isMaintenance;
   if (isM) return <MaintenanceResum data={data} />;
+  const isA = !!data.isAutoportant;
   const annexTotal = data.phaseAnnexTotal || 0;
-  const rawRows: Array<{ label: string; value: number }> = isM
-    ? [{ label: "MANTENIMENT ANUAL", value: data.maintenanceTotalAnual || 0 }]
+  const rawRows: Array<{ label: string; value: number }> = isA
+    ? [{ label: "PISCINA AUTOPORTANT", value: data.totalSale || 0 }]
     : [
         { label: "ESTRUCTURA", value: data.phaseStructuralTotal || 0 },
         { label: "ACABATS", value: data.phaseAcabatsTotal || 0 },

@@ -26,9 +26,13 @@ const POOL_SHAPE_LABEL: Record<string, string> = {
 
 export function PageCover({ data }: { data: PdfData }) {
   const isM = !!data.isMaintenance;
+  const isA = !!data.isAutoportant;
   const tipusLine = (() => {
     const t = data.poolType ? POOL_TYPE_LABEL[data.poolType] : undefined;
     const s = data.poolShape ? POOL_SHAPE_LABEL[data.poolShape] : undefined;
+    if (isA) {
+      return data.autoportantModelName ? `Model: ${data.autoportantModelName}` : undefined;
+    }
     if (isM) {
       if (!t) return undefined;
       const electroSuffix =
@@ -146,7 +150,7 @@ export function PageCover({ data }: { data: PdfData }) {
             lineHeight: 1,
           }}
         >
-          {isM ? "MANTENIMENT" : "PISCINA"}
+          {isM ? "MANTENIMENT" : isA ? "PISCINA" : "PISCINA"}
         </div>
         <div
           style={{
@@ -170,6 +174,8 @@ export function PageCover({ data }: { data: PdfData }) {
                     ? "Particular"
                     : ""
               }`.trim()
+            : isA
+              ? "Autoportant"
             : `d'${data.type || "Obra Nova"}`}
         </div>
         <div
@@ -191,7 +197,18 @@ export function PageCover({ data }: { data: PdfData }) {
           }}
         >
           {tipusLine && <div>{tipusLine}</div>}
-          {typeof data.poolLength === "number" && typeof data.poolWidth === "number" && (
+          {isA ? (
+            <>
+              {(data.autoportantAmple || data.autoportantLlarg) && (
+                <div>
+                  Mides: {data.autoportantAmple || "—"} d'ample × {data.autoportantLlarg || "—"} de llarg
+                </div>
+              )}
+              {data.autoportantAlturaAigua && (
+                <div>Altura d'aigua: {data.autoportantAlturaAigua}</div>
+              )}
+            </>
+          ) : typeof data.poolLength === "number" && typeof data.poolWidth === "number" && (
             <div>
               Mides: {data.poolLength.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m x{" "}
               {data.poolWidth.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m
@@ -206,19 +223,20 @@ export function PageCover({ data }: { data: PdfData }) {
               )}
             </div>
           )}
-          {!isM && stairsLine && <div>{stairsLine}</div>}
+          {!isM && !isA && stairsLine && <div>{stairsLine}</div>}
           {isM && typeof data.poolDepthAvg === "number" && data.poolDepthAvg > 0 ? (
             <div>
               Profunditat mitjana{" "}
               {data.poolDepthAvg.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m
             </div>
           ) : null}
-          {!isM && typeof data.poolDepthMin === "number" && typeof data.poolDepthMax === "number" && (
+          {!isM && !isA && typeof data.poolDepthMin === "number" && typeof data.poolDepthMax === "number" && (
             <div>
               Profunditat total {data.poolDepthMin.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m{" - "}
               {data.poolDepthMax.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m
             </div>
           )}
+          {!isM && !isA && data.poolDisposition === "semi_enterrada" && <div>Semi-soterrada</div>}
         </div>
       </div>
     </section>

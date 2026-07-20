@@ -17,7 +17,19 @@ export function PageElementsEstructurals({ data }: { data: PdfData }) {
   const sectionAmount = typeof data.elementsEstructuralsTotal === "number" ? data.elementsEstructuralsTotal : 0;
   const t = data.interiorStairsType;
   const isPlatformOrBench = t === "plataforma" || t === "banc";
-  const stairsTitle = t ? `${TYPE_LABEL[t] ?? t}:`.toUpperCase() : null;
+  const hasAccess = !!data.hasAccessStair;
+  const interiorLabel = t ? (TYPE_LABEL[t] ?? t) : null;
+  const stairsTitle = (() => {
+    if (!interiorLabel && !hasAccess) return null;
+    if (interiorLabel && hasAccess) {
+      if (t === "plataforma") return `ESCALA + PLATAFORMA INTERIOR I EXTERIOR:`;
+      if (t === "banc") return `ESCALA + BANC INTERIOR I ESCALA I PLATAFORMA D'ACCÉS:`;
+      if (t === "tot_ample") return `ESCALA A TOT L'AMPLE + ESCALA I PLATAFORMA D'ACCÉS:`;
+      return `${interiorLabel} + ESCALA I PLATAFORMA D'ACCÉS:`.toUpperCase();
+    }
+    if (hasAccess) return `ESCALA I PLATAFORMA D'ACCÉS EXTERIOR:`;
+    return `${interiorLabel}:`.toUpperCase();
+  })();
   const stairsLine = isPlatformOrBench
     ? `Formació d'escala d'obra de mides ${data.stairsDimensions ?? ""}*`
     : t
@@ -27,6 +39,19 @@ export function PageElementsEstructurals({ data }: { data: PdfData }) {
     isPlatformOrBench && data.platformDimensions
       ? `Formació de ${t === "banc" ? "banc annexat" : "plataforma annexada"} a escala de mides ${data.platformDimensions}*`
       : null;
+  const accessLine = (() => {
+    if (!hasAccess) return null;
+    const sw = data.accessStairWidth;
+    const sl = data.accessStairLength;
+    const alt = data.alturaVista;
+    const pw = data.accessPlatformWidth;
+    const pl = data.accessPlatformLength;
+    const steps = alt && alt > 0 ? Math.max(0, Math.round(alt / 0.2 - 1)) : 0;
+    const stairPart = `${fmt(sw)}m x ${fmt(sl)}m x ${fmt(alt)}m`;
+    const platPart = pl && pl > 0 ? ` i plataforma de ${fmt(pw)}m x ${fmt(pl)}m` : "";
+    const stepsPart = steps > 0 ? ` (${steps} esgraons)` : "";
+    return `Formació d'escala d'accés exterior de mides ${stairPart}${platPart}${stepsPart}*`;
+  })();
 
   const bullets = [
     "Subministrament i col·locació de blocs de formigó per a la seva execució.",
@@ -137,6 +162,12 @@ export function PageElementsEstructurals({ data }: { data: PdfData }) {
                 {platformLine}
               </li>
             )}
+            {accessLine && (
+              <li style={{ marginBottom: 2 }}>
+                <span style={{ marginRight: 6 }}>-</span>
+                {accessLine}
+              </li>
+            )}
             {bullets.map((b) => (
               <li key={b} style={{ marginBottom: 2 }}>
                 <span style={{ marginRight: 6 }}>-</span>
@@ -144,9 +175,9 @@ export function PageElementsEstructurals({ data }: { data: PdfData }) {
               </li>
             ))}
           </ul>
-          <div style={{ fontStyle: "italic", marginTop: 8, color: "#2f4494" }}>
+          <span style={{ fontStyle: "italic", marginTop: 8, color: "#2f4494", marginRight: 8 }}>
             *Mides encara a concretar en la seva totalitat.
-          </div>
+          </span>
         </div>
       </div>
 

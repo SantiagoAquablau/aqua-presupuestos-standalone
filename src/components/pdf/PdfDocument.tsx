@@ -28,8 +28,43 @@ import { PageContacte } from './PageContacte';
 import { PageManteniment } from './PageManteniment';
 import { PagePostaPunt } from './PagePostaPunt';
 import { PageCondicionsGenerals } from './PageCondicionsGenerals';
+import { PageAutoportantModel } from './PageAutoportantModel';
+import { PageAutoportantAcabats } from './PageAutoportantAcabats';
+import { PageAutoportantOpcionalsSel, PageAutoportantOpcionalsAll } from './PageAutoportantOpcionals';
 
 export function PdfDocument({ data }: { data: PdfData }) {
+  // Piscina Autoportant variant: Portada → Model → Acabats →
+  //   [Opcionals inclosos] → Resum → [Opcionals catàleg] → Contacte.
+  if (data.isAutoportant) {
+    const selected = data.autoportantSelectedOpcionals || [];
+    const hasSelected = selected.length > 0;
+    const aPages = [
+      <PageCover key="cover" data={data} />,
+      <PageAutoportantModel key="a-model" data={data} />,
+      <PageAutoportantAcabats key="a-acabats" data={data} />,
+      ...(hasSelected ? [<PageAutoportantOpcionalsSel key="a-opc-sel" data={data} />] : []),
+      <PageResum key="resum" data={data} />,
+      ...(!hasSelected ? [<PageAutoportantOpcionalsAll key="a-opc-all" data={data} />] : []),
+      <PageContacte key="contacte" data={data} />,
+    ];
+    return (
+      <div id="pdf-document" style={{ width: '210mm', margin: '0 auto', background: '#ffffff' }}>
+        {aPages.map((page, i) => (
+          <div
+            key={i}
+            style={
+              i < aPages.length - 1
+                ? { breakAfter: 'page', pageBreakAfter: 'always' }
+                : undefined
+            }
+          >
+            {page}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   // Maintenance variant: Portada → Manteniment → Resum → Contacte.
   if (data.isMaintenance) {
     const mPages = [

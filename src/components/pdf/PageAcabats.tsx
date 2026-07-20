@@ -15,11 +15,11 @@ export function PageAcabats({ data }: { data: PdfData }) {
   const revestimentAmount = data.revestimentTotal ?? 0;
   const coronaOn = data.coronamentInclos !== false;
   const revestOn = data.revestimentInclos !== false;
-  const totalLabel = coronaOn && revestOn
-    ? "ACABATS"
-    : coronaOn
-      ? "CORONAMENT"
-      : "REVESTIMENT";
+  const revestExteriorAmount = data.revestimentExteriorTotal ?? 0;
+  const showExteriorInCorona = !!data.revestimentExteriorInclos && revestExteriorAmount > 0;
+  const coronaPillTitle = showExteriorInCorona ? "CORONAMENT I REVESTIMENT EXTERIOR" : "CORONAMENT";
+  const coronaPillAmount = coronaAmount + (showExteriorInCorona ? revestExteriorAmount : 0);
+  const totalLabel = coronaOn && revestOn ? "ACABATS" : coronaOn ? "CORONAMENT" : "REVESTIMENT";
 
   const fmtMl = (n?: number) =>
     typeof n === "number" && n > 0
@@ -84,186 +84,219 @@ export function PageAcabats({ data }: { data: PdfData }) {
       />
 
       <div style={{ padding: "0 14mm", position: "relative", zIndex: 1 }}>
-        {coronaOn && (<>
-        {/* Section 1 pill — CORONAMENT */}
-        <SectionPillTenor number="1" title="CORONAMENT" amount={coronaAmount} />
+        {coronaOn && (
+          <>
+            {/* Section 1 pill — CORONAMENT */}
+            <SectionPillTenor number="1" title={coronaPillTitle} amount={coronaPillAmount} />
 
-        <div
-          style={{
-            paddingLeft: 6,
-            fontSize: "10.5pt",
-            lineHeight: 1.4,
-            marginBottom: "3mm",
-            color: PDF_COLORS.textBody,
-          }}
-        >
-          <ul style={{ margin: 0, paddingLeft: 14, lineHeight: 1.4, listStyle: "none" }}>
-            <li style={{ marginBottom: 2 }}>
-              <span style={{ marginRight: 6 }}>-</span>
-              {actuacio} de {fmtMl(data.coronamentMl)} metres lineals de coronament.
-            </li>
-            <li style={{ marginBottom: 2 }}>
-              <span style={{ marginRight: 6 }}>-</span>
-              {beuradaLabel} color:{" "}
-              <span style={{ fontStyle: data.coronamentBeuradaColor ? "normal" : "italic" }}>{beuradaColor}</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Two-column block: Tipus + Model */}
-        <div style={{ display: "flex", gap: "8mm", marginBottom: "5mm" }}>
-          {/* Tipus de coronament */}
-          <div style={{ flex: 1 }}>
             <div
               style={{
-                fontFamily: '"Tenor Sans", serif',
-                color: "#2f4494",
-                fontSize: "11.5pt",
-                letterSpacing: 1,
-                marginBottom: 6,
+                paddingLeft: 6,
+                fontSize: "10.5pt",
+                lineHeight: 1.4,
+                marginBottom: "3mm",
+                color: PDF_COLORS.textBody,
               }}
             >
-              TIPUS DE CORONAMENT
-            </div>
-            <div style={{ fontSize: "11pt", fontWeight: 700, color: PDF_COLORS.textDark, lineHeight: 1.3 }}>
-              {data.coronamentTipusLabel || "Per definir"}
-            </div>
-            {data.coronamentTipusFormat && (
-              <div style={{ fontSize: "10pt", color: PDF_COLORS.textMuted, marginTop: 2 }}>
-                {data.coronamentTipusFormat}
-              </div>
-            )}
-          </div>
-
-          {/* Model */}
-          <div style={{ flex: 1 }}>
-            <div
-              style={{
-                fontFamily: '"Tenor Sans", serif',
-                color: "#2f4494",
-                fontSize: "11.5pt",
-                letterSpacing: 1,
-                marginBottom: 6,
-              }}
-            >
-              MODEL
-            </div>
-            {data.coronamentModelName ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {data.coronamentModelImageUrl && (
-                  <img
-                    src={data.coronamentModelImageUrl}
-                    alt=""
-                    crossOrigin="anonymous"
-                    style={{
-                      width: 56,
-                      height: 56,
-                      objectFit: "cover",
-                      borderRadius: 6,
-                      border: "1px solid #d8d2cc",
-                      flexShrink: 0,
-                    }}
-                  />
+              <ul style={{ margin: 0, paddingLeft: 14, lineHeight: 1.4, listStyle: "none" }}>
+                <li style={{ marginBottom: 2, display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span>
+                    <span style={{ marginRight: 6 }}>-</span>
+                    {actuacio} de {fmtMl(data.coronamentMl)} metres lineals de coronament.
+                  </span>
+                  {showExteriorInCorona && (
+                    <span
+                      style={{ whiteSpace: "nowrap", color: "#2f4494", fontFamily: "PDF_FONTS.sans", fontWeight: 600 }}
+                    >
+                      {coronaAmount.toLocaleString("ca-ES")} €
+                    </span>
+                  )}
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <span style={{ marginRight: 6 }}></span>
+                  {beuradaLabel} color:{" "}
+                  <span style={{ fontStyle: data.coronamentBeuradaColor ? "normal" : "italic" }}>{beuradaColor}</span>
+                </li>
+                {showExteriorInCorona && (
+                  <li style={{ marginBottom: 2, display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <span>
+                      <span style={{ marginRight: 6 }}>-</span>
+                      Subministrament i col·locació de revestiment exterior a les cares vistes de la piscina.
+                    </span>
+                    <span
+                      style={{
+                        whiteSpace: "nowrap",
+                        color: "#2f4494",
+                        fontFamily: "PDF_FONTS.sans",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {revestExteriorAmount.toLocaleString("ca-ES")} €
+                    </span>
+                  </li>
                 )}
-                <div style={{ fontSize: "11pt", fontWeight: 700, color: PDF_COLORS.textDark, lineHeight: 1.3 }}>
-                  {data.coronamentModelName}
+              </ul>
+            </div>
+
+            {/* Two-column block: Tipus + Model */}
+            <div style={{ display: "flex", gap: "8mm", marginBottom: "5mm" }}>
+              {/* Tipus de coronament */}
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontFamily: '"Tenor Sans", serif',
+                    color: "#2f4494",
+                    fontSize: "11.5pt",
+                    letterSpacing: 1,
+                    marginBottom: 6,
+                  }}
+                >
+                  TIPUS DE CORONAMENT
                 </div>
-              </div>
-            ) : (
-              <div style={{ fontSize: "11pt", fontStyle: "italic", color: PDF_COLORS.textMuted }}>A determinar</div>
-            )}
-          </div>
-        </div>
-        </>)}
-
-        {revestOn && (<>
-        {/* Section 2 pill — REVESTIMENT INTERIOR */}
-        <SectionPillTenor number={coronaOn ? "2" : "1"} title="REVESTIMENT INTERIOR" amount={revestimentAmount} />
-
-        <div
-          style={{
-            paddingLeft: 6,
-            fontSize: "10.5pt",
-            lineHeight: 1.4,
-            marginBottom: "3mm",
-            color: PDF_COLORS.textBody,
-          }}
-        >
-          <ul style={{ margin: 0, paddingLeft: 14, lineHeight: 1.4, listStyle: "none" }}>
-            <li style={{ marginBottom: 2 }}>
-              <span style={{ marginRight: 6 }}>-</span>
-              {revActuacio} {revSurface}.
-            </li>
-            <li style={{ marginBottom: 2 }}>
-              <span style={{ marginRight: 6 }}>-</span>
-              {revBeuradaLabel} color:{" "}
-              <span style={{ fontStyle: data.revestimentBeuradaColor ? "normal" : "italic" }}>{revBeuradaColor}</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Two-column block: Tipus de revestiment + Model */}
-        <div style={{ display: "flex", gap: "8mm", marginBottom: "4mm" }}>
-          <div style={{ flex: 1 }}>
-            <div
-              style={{
-                fontFamily: '"Tenor Sans", serif',
-                color: "#2f4494",
-                fontSize: "11.5pt",
-                letterSpacing: 1,
-                marginBottom: 6,
-              }}
-            >
-              TIPUS DE REVESTIMENT
-            </div>
-            <div style={{ fontSize: "11pt", fontWeight: 700, color: PDF_COLORS.textDark, lineHeight: 1.3 }}>
-              {data.revestimentTipusLabel || "Per definir"}
-            </div>
-            {data.revestimentTipusFormat && (
-              <div style={{ fontSize: "10pt", color: PDF_COLORS.textMuted, marginTop: 2 }}>
-                {data.revestimentTipusFormat}
-              </div>
-            )}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div
-              style={{
-                fontFamily: '"Tenor Sans", serif',
-                color: "#2f4494",
-                fontSize: "11.5pt",
-                letterSpacing: 1,
-                marginBottom: 6,
-              }}
-            >
-              MODEL
-            </div>
-            {data.revestimentModelName ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {data.revestimentModelImageUrl && (
-                  <img
-                    src={data.revestimentModelImageUrl}
-                    alt=""
-                    crossOrigin="anonymous"
-                    style={{
-                      width: 56,
-                      height: 56,
-                      objectFit: "cover",
-                      borderRadius: 6,
-                      border: "1px solid #d8d2cc",
-                      flexShrink: 0,
-                    }}
-                  />
+                <div style={{ fontSize: "11pt", fontWeight: 700, color: PDF_COLORS.textDark, lineHeight: 1.3 }}>
+                  {data.coronamentTipusLabel || "Per definir"}
+                </div>
+                {data.coronamentTipusFormat && (
+                  <div style={{ fontSize: "10pt", color: PDF_COLORS.textMuted, marginTop: 2 }}>
+                    {data.coronamentTipusFormat}
+                  </div>
                 )}
-                <div style={{ fontSize: "11pt", fontWeight: 700, color: PDF_COLORS.textDark, lineHeight: 1.3 }}>
-                  {data.revestimentModelName}
-                </div>
               </div>
-            ) : (
-              <div style={{ fontSize: "11pt", fontStyle: "italic", color: PDF_COLORS.textMuted }}>A determinar</div>
-            )}
-          </div>
-        </div>
-        </>)}
+
+              {/* Model */}
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontFamily: '"Tenor Sans", serif',
+                    color: "#2f4494",
+                    fontSize: "11.5pt",
+                    letterSpacing: 1,
+                    marginBottom: 6,
+                  }}
+                >
+                  MODEL
+                </div>
+                {data.coronamentModelName ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {data.coronamentModelImageUrl && (
+                      <img
+                        src={data.coronamentModelImageUrl}
+                        alt=""
+                        crossOrigin="anonymous"
+                        style={{
+                          width: 56,
+                          height: 56,
+                          objectFit: "cover",
+                          borderRadius: 6,
+                          border: "1px solid #d8d2cc",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <div style={{ fontSize: "11pt", fontWeight: 700, color: PDF_COLORS.textDark, lineHeight: 1.3 }}>
+                      {data.coronamentModelName}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: "11pt", fontStyle: "italic", color: PDF_COLORS.textMuted }}>A determinar</div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {revestOn && (
+          <>
+            {/* Section 2 pill — REVESTIMENT INTERIOR */}
+            <SectionPillTenor number={coronaOn ? "2" : "1"} title="REVESTIMENT INTERIOR" amount={revestimentAmount} />
+
+            <div
+              style={{
+                paddingLeft: 6,
+                fontSize: "10.5pt",
+                lineHeight: 1.4,
+                marginBottom: "3mm",
+                color: PDF_COLORS.textBody,
+              }}
+            >
+              <ul style={{ margin: 0, paddingLeft: 14, lineHeight: 1.4, listStyle: "none" }}>
+                <li style={{ marginBottom: 2 }}>
+                  <span style={{ marginRight: 6 }}>-</span>
+                  {revActuacio} {revSurface}.
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <span style={{ marginRight: 6 }}></span>
+                  {revBeuradaLabel} color:{" "}
+                  <span style={{ fontStyle: data.revestimentBeuradaColor ? "normal" : "italic" }}>
+                    {revBeuradaColor}
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Two-column block: Tipus de revestiment + Model */}
+            <div style={{ display: "flex", gap: "8mm", marginBottom: "4mm" }}>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontFamily: '"Tenor Sans", serif',
+                    color: "#2f4494",
+                    fontSize: "11.5pt",
+                    letterSpacing: 1,
+                    marginBottom: 6,
+                  }}
+                >
+                  TIPUS DE REVESTIMENT
+                </div>
+                <div style={{ fontSize: "11pt", fontWeight: 700, color: PDF_COLORS.textDark, lineHeight: 1.3 }}>
+                  {data.revestimentTipusLabel || "Per definir"}
+                </div>
+                {data.revestimentTipusFormat && (
+                  <div style={{ fontSize: "10pt", color: PDF_COLORS.textMuted, marginTop: 2 }}>
+                    {data.revestimentTipusFormat}
+                  </div>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontFamily: '"Tenor Sans", serif',
+                    color: "#2f4494",
+                    fontSize: "11.5pt",
+                    letterSpacing: 1,
+                    marginBottom: 6,
+                  }}
+                >
+                  MODEL
+                </div>
+                {data.revestimentModelName ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {data.revestimentModelImageUrl && (
+                      <img
+                        src={data.revestimentModelImageUrl}
+                        alt=""
+                        crossOrigin="anonymous"
+                        style={{
+                          width: 56,
+                          height: 56,
+                          objectFit: "cover",
+                          borderRadius: 6,
+                          border: "1px solid #d8d2cc",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <div style={{ fontSize: "11pt", fontWeight: 700, color: PDF_COLORS.textDark, lineHeight: 1.3 }}>
+                      {data.revestimentModelName}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: "11pt", fontStyle: "italic", color: PDF_COLORS.textMuted }}>A determinar</div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* TOTAL ACABATS — lower on the page, on the background photo */}

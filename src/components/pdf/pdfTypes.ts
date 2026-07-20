@@ -44,6 +44,14 @@ export interface PdfData {
   hasExteriorStairs?: boolean;
   extStairsLength?: number;
   extStairsWidth?: number;
+  // Disposició piscina (Obra Nova)
+  poolDisposition?: 'enterrada' | 'semi_enterrada' | 'elevada' | string;
+  alturaVista?: number;
+  hasAccessStair?: boolean;
+  accessStairWidth?: number;
+  accessStairLength?: number;
+  accessPlatformWidth?: number;
+  accessPlatformLength?: number;
   waterproofingSystem?: string; // 'impertot' | 'hidrofix' | 'lamina_proof'
   constructionSystem?: string; // 'gunite' | 'bloc_encofrat'
   poolType?: string; // 'particular' | 'comunitaria'
@@ -83,6 +91,10 @@ export interface PdfData {
   revestimentBeuradaColor?: string;   // chosen color (may be empty → "a determinar")
   revestimentModelName?: string;
   revestimentModelImageUrl?: string;
+  /** When true, the exterior wall revestiment sub-phase is included. */
+  revestimentExteriorInclos?: boolean;
+  /** Sum of the "Revestiment exterior" sub-phase (used to split the pill). */
+  revestimentExteriorTotal?: number;
   // Depuració
   depuracioCapacityM3?: number;
   filtreSorraName?: string;
@@ -313,4 +325,39 @@ export interface PdfData {
   maintenanceTotalAnual?: number;
   maintenanceTotalMensual?: number;
   maintenanceKitTotal?: number;
+  // ── Piscina Autoportant (alternate document layout) ─────────────────
+  /** When true, PdfDocument renders the autoportant variant
+   *  (Portada → Model → Acabats → [Opcionals sel] → Resum → [Opcionals catàleg] → Contacte). */
+  isAutoportant?: boolean;
+  autoportantModelKey?: string;
+  autoportantModelName?: string;
+  autoportantModelTagline?: string;
+  autoportantModelImage?: string;
+  autoportantModelFeatures?: string[];
+  autoportantAmple?: string;         // e.g. "2,50 m"
+  autoportantLlarg?: string;
+  autoportantAlturaAigua?: string;
+  autoportantCoronaName?: string;
+  autoportantCoronaFamily?: string;
+  autoportantCoronaImage?: string;
+  autoportantRevestimentName?: string;
+  autoportantRevestimentFamily?: string;
+  autoportantRevestimentImage?: string;
+  autoportantExteriorNote?: string;
+  /** Opcionals inclosos al pressupost (amb import). */
+  autoportantSelectedOpcionals?: Array<{
+    label: string;
+    description?: string;
+    unit: string;
+    qty: number;
+    unitSale: number;
+    total: number;
+  }>;
+  /** Catàleg complet d'opcionals compatibles amb el model (sense import total). */
+  autoportantAllOpcionals?: Array<{
+    label: string;
+    description?: string;
+    unit: string;
+    unitSale: number;
+  }>;
 }
