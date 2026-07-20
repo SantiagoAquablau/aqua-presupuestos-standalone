@@ -5,7 +5,7 @@
  */
 import type { PdfData } from "./pdfTypes";
 import { PDF_COLORS, PDF_FONTS, pdfPageStyle } from "./pdfStyles";
-import { PdfPageHeader, PdfHeaderRule } from "./PdfShared";
+import { PdfLogo } from "./PdfShared";
 
 const NAVY = "#2f4494";
 
@@ -16,11 +16,48 @@ export function PageAutoportantModel({ data }: { data: PdfData }) {
   const image = data.autoportantModelImage;
   return (
     <section style={pdfPageStyle}>
-      <PdfPageHeader title="MODEL" />
-      <PdfHeaderRule />
+      {/* Header */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          padding: "14mm 14mm 0 14mm",
+        }}
+      >
+        <h1
+          style={{
+            fontFamily: '"Tenor Sans", serif',
+            fontWeight: 400,
+            fontSize: "46pt",
+            color: NAVY,
+            letterSpacing: 4,
+            margin: 0,
+            lineHeight: 1,
+          }}
+        >
+          MODEL
+        </h1>
+        <PdfLogo size={85} />
+      </div>
 
-      <div style={{ padding: "0 14mm", display: "flex", gap: "10mm", height: "calc(297mm - 55mm)" }}>
-        <div style={{ flex: "0 0 92mm", display: "flex", flexDirection: "column" }}>
+      {/* Divider */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          height: 6,
+          background: NAVY,
+          margin: "10mm 14mm 8mm 0",
+          marginLeft: "0mm",
+          width: "calc(100% - 36mm)",
+        }}
+      />
+
+      <div style={{ padding: "0 14mm", display: "flex", gap: "8mm", height: "calc(297mm - 55mm)" }}>
+        <div style={{ flex: "0 0 80mm", display: "flex", flexDirection: "column" }}>
           <div
             style={{
               fontFamily: '"Tenor Sans", serif',
@@ -85,7 +122,7 @@ export function PageAutoportantModel({ data }: { data: PdfData }) {
                     marginTop: 2,
                   }}
                 >
-                  ▸
+                  •
                 </span>
                 <span>{f}</span>
               </li>
@@ -94,19 +131,31 @@ export function PageAutoportantModel({ data }: { data: PdfData }) {
           {(data.autoportantAmple || data.autoportantLlarg || data.autoportantAlturaAigua) && (
             <div
               style={{
-                marginTop: "auto",
-                padding: "10px 14px",
+                marginTop: "6mm",
                 background: "#FFFFFF",
-                borderRadius: 8,
-                border: `1px solid ${NAVY}33`,
-                fontSize: "10pt",
-                color: NAVY,
+                borderRadius: 12,
+                border: `1px solid ${NAVY}22`,
+                overflow: "hidden",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
               }}
             >
-              <div style={{ fontWeight: 700, marginBottom: 4, letterSpacing: 1 }}>MIDES ESCOLLIDES</div>
-              <div>Ample: {data.autoportantAmple || "—"}</div>
-              <div>Llarg: {data.autoportantLlarg || "—"}</div>
-              <div>Altura d'aigua: {data.autoportantAlturaAigua || "—"}</div>
+              <div
+                style={{
+                  padding: "7px 14px",
+                  background: NAVY,
+                  color: "#FFFFFF",
+                  fontFamily: '"Tenor Sans", serif',
+                  fontSize: "11pt",
+                  letterSpacing: 2,
+                }}
+              >
+                MIDES ESCOLLIDES
+              </div>
+              <div style={{ padding: "8px 14px" }}>
+                <MidaRow label="Ample" value={data.autoportantAmple} />
+                <MidaRow label="Llarg" value={data.autoportantLlarg} />
+                <MidaRow label="Altura d'aigua" value={data.autoportantAlturaAigua} last />
+              </div>
             </div>
           )}
         </div>
@@ -119,7 +168,7 @@ export function PageAutoportantModel({ data }: { data: PdfData }) {
               crossOrigin="anonymous"
               style={{
                 maxWidth: "100%",
-                maxHeight: "220mm",
+                maxHeight: "236mm",
                 objectFit: "contain",
                 borderRadius: 8,
                 boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
@@ -129,5 +178,22 @@ export function PageAutoportantModel({ data }: { data: PdfData }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function MidaRow({ label, value, last }: { label: string; value?: string; last?: boolean }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        padding: "4px 0",
+        borderBottom: last ? "none" : `1px dotted ${NAVY}33`,
+        fontSize: "10pt",
+      }}
+    >
+      <span style={{ color: PDF_COLORS.textMuted }}>{label}</span>
+      <span style={{ fontWeight: 700, color: NAVY }}>{value || "—"}</span>
+    </div>
   );
 }
