@@ -358,7 +358,7 @@ function SectionPillTenor({ number, title, amount }: { number: string; title: st
         fontFamily: '"Tenor Sans", serif',
         fontSize: "14pt",
         letterSpacing: 1,
-        margin: "0 0 6mm 0",
+        margin: "0 0 3mm 0",
         fontWeight: 400,
       }}
     >
