@@ -28,8 +28,7 @@ import {
   type CatalogArticle,
   type AutoportantPriceRow,
 } from "@/lib/autoportantOptions";
-
-const AUTOPORTANT_PAYMENT_CONDITIONS = "60 % acceptació de l'obra\n40 % finalització de l'obra";
+import { AUTOPORTANT_PAYMENT_CONDITIONS, DEFAULT_OBRA_NUEVA_PAYMENT_CONDITIONS } from "@/lib/paymentConditions";
 
 /** Build a PDF filename matching the format used by buildBudgetPdf:
  *  e.g. "AD030626-5- Iris Rodriguez Costoya (Granollers)". */
@@ -82,6 +81,17 @@ export function StepRevisio() {
     }
     if (draft.type === "piscina_autoportant" && !draft.paymentConditions) {
       updateDraft({ paymentConditions: AUTOPORTANT_PAYMENT_CONDITIONS });
+    }
+    // Leftover default from mantenimiento/autoportant after switching type
+    // mid-wizard (e.g. StepTipus without a page reload).
+    const isContaminated =
+      draft.type !== "mantenimiento" &&
+      draft.type !== "piscina_autoportant" &&
+      (draft.paymentConditions === "Mensual" || draft.paymentConditions === AUTOPORTANT_PAYMENT_CONDITIONS);
+    if ((draft.type === "obra_nueva" || draft.type === "rehabilitacion") && (!draft.paymentConditions || isContaminated)) {
+      updateDraft({ paymentConditions: DEFAULT_OBRA_NUEVA_PAYMENT_CONDITIONS });
+    } else if (isContaminated) {
+      updateDraft({ paymentConditions: undefined });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.type]);

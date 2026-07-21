@@ -4,6 +4,7 @@
 import type { PdfData } from "./pdfTypes";
 import { PDF_COLORS, PDF_FONTS, formatEuro } from "./pdfStyles";
 import { PdfLogo } from "./PdfShared";
+import { DEFAULT_OBRA_NUEVA_PAYMENT_CONDITIONS } from "@/lib/paymentConditions";
 
 const NAVY = "#2f4494";
 
@@ -36,13 +37,7 @@ export function PageResum({ data }: { data: PdfData }) {
 
   const paymentLines = data.paymentConditions
     ? data.paymentConditions.split("\n")
-    : [
-        "20 % acceptació de l'obra",
-        "25 % inici d'obra",
-        "25 % gunitat",
-        "25 % revestiment",
-        "5 % finalització de l'obra",
-      ];
+    : DEFAULT_OBRA_NUEVA_PAYMENT_CONDITIONS.split("\n");
 
   return (
     <section style={pageStyle}>
@@ -233,104 +228,106 @@ export function PageResum({ data }: { data: PdfData }) {
           </div>
 
           {/* Right: exclusions */}
-          <div style={{ flex: 1, display: "flex", alignItems: "flex-start", gap: "6mm" }}>
-            <div
-              style={{
-                flex: "0 0 320px",
-                marginLeft: "-8mm",
-              }}
-            >
+          {!isA && (
+            <div style={{ flex: 1, display: "flex", alignItems: "flex-start", gap: "6mm" }}>
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 6,
-                  fontSize: "9pt",
-                  fontWeight: 700,
-                  color: "#1a1a1a",
-                  width: "220px",
+                  flex: "0 0 320px",
+                  marginLeft: "-8mm",
                 }}
               >
-                <span
+                <div
                   style={{
-                    width: 16,
-                    height: 16,
-                    //borderRadius: 3,
-                    display: "inline-flex",
+                    display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    //background: "#bdbdbd",
-                    color: "#bdbdbd",
+                    gap: 8,
+                    marginBottom: 6,
                     fontSize: "9pt",
-                    fontWeight: 900,
-                    lineHeight: 1,
-                    //marginTop: "10px",
-                    marginLeft: "-10px",
+                    fontWeight: 700,
+                    color: "#1a1a1a",
+                    width: "220px",
                   }}
                 >
-                  ×
-                </span>
-                <span>No s'inclou en aquesta oferta:</span>
+                  <span
+                    style={{
+                      width: 16,
+                      height: 16,
+                      //borderRadius: 3,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      //background: "#bdbdbd",
+                      color: "#bdbdbd",
+                      fontSize: "9pt",
+                      fontWeight: 900,
+                      lineHeight: 1,
+                      //marginTop: "10px",
+                      marginLeft: "-10px",
+                    }}
+                  >
+                    ×
+                  </span>
+                  <span>No s'inclou en aquesta oferta:</span>
+                </div>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    padding: 0,
+                    margin: 0,
+                    fontSize: "9pt",
+                    lineHeight: 1.5,
+                    color: "#1a1a1a",
+                    width: "200px",
+                  }}
+                >
+                  {[
+                    { strong: "Permisos d'obres i llicències", rest: " o taxes municipals." },
+                    {
+                      strong: "Despeses financeres",
+                      rest: " derivades de mitjans de pagament confirming o serveis equivalent.",
+                    },
+                  ].map((it, i) => (
+                    <li key={i} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+                      <span style={{ color: "#ff751f", fontWeight: 900 }}>·</span>
+                      <span>
+                        <strong style={{ color: "#ff751f" }}>{it.strong}</strong>
+                        {it.rest}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul
+
+              <div
                 style={{
-                  listStyle: "none",
-                  padding: 0,
-                  margin: 0,
-                  fontSize: "9pt",
-                  lineHeight: 1.5,
-                  color: "#1a1a1a",
-                  width: "200px",
+                  position: "absolute",
+                  top: 428,
+                  left: 550,
+                  //left: "-248px",
+                  width: 50,
+                  height: 50,
+                  background: "#f6c5af",
+                  borderRadius: 12,
+                  zIndex: -1,
                 }}
-              >
-                {[
-                  { strong: "Permisos d'obres i llicències", rest: " o taxes municipals." },
-                  {
-                    strong: "Despeses financeres",
-                    rest: " derivades de mitjans de pagament confirming o serveis equivalent.",
-                  },
-                ].map((it, i) => (
-                  <li key={i} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
-                    <span style={{ color: "#ff751f", fontWeight: 900 }}>·</span>
-                    <span>
-                      <strong style={{ color: "#ff751f" }}>{it.strong}</strong>
-                      {it.rest}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              />
+
+              {/* Papers icon */}
+              <img
+                src="/pdf/simbolo-papeles.webp"
+                crossOrigin="anonymous"
+                alt=""
+                style={{
+                  width: 70,
+                  height: "auto",
+                  flex: "0 0 auto",
+                  marginTop: -4,
+                  marginLeft: -120,
+                  zIndex: 1,
+                }}
+              />
             </div>
-
-            <div
-              style={{
-                position: "absolute",
-                top: 428,
-                left: 550,
-                //left: "-248px",
-                width: 50,
-                height: 50,
-                background: "#f6c5af",
-                borderRadius: 12,
-                zIndex: -1,
-              }}
-            />
-
-            {/* Papers icon */}
-            <img
-              src="/pdf/simbolo-papeles.webp"
-              crossOrigin="anonymous"
-              alt=""
-              style={{
-                width: 70,
-                height: "auto",
-                flex: "0 0 auto",
-                marginTop: -4,
-                marginLeft: -120,
-                zIndex: 1,
-              }}
-            />
-          </div>
+          )}
         </div>
       </div>
     </section>

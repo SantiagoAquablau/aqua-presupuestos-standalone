@@ -36,6 +36,7 @@ export function StepTipus() {
         constructionSystem: undefined, waterproofingSystem: undefined, interiorStairsType: undefined,
         hasExteriorStairs: false, detectedProblems: [], rehabWorks: [], maintenanceServices: [],
         phases: undefined,
+        paymentConditions: undefined,
       });
       setPendingType(null);
       setStep(2);

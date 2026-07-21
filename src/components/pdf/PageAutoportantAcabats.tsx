@@ -149,7 +149,14 @@ function FinishStrip({ options, selectedName }: { options: FinishOption[]; selec
         return (
           <div
             key={opt.key}
-            style={{ flex: "0 0 36mm", width: "36mm", display: "flex", flexDirection: "column", alignItems: "center" }}
+            style={{
+              flex: "0 0 36mm",
+              width: "36mm",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              position: "relative",
+            }}
           >
             <div
               style={{
@@ -186,28 +193,36 @@ function FinishStrip({ options, selectedName }: { options: FinishOption[]; selec
                   sense imatge
                 </div>
               )}
-              {isSelected && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 4,
-                    left: 4,
-                    width: 18,
-                    height: 18,
-                    borderRadius: "50%",
-                    background: NAVY,
-                    color: "#FFFFFF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "9pt",
-                    fontWeight: 900,
-                  }}
-                >
-                  ✓
-                </div>
-              )}
             </div>
+            {isSelected && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  transform: "translate(-50%, -50%)",
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  background: NAVY,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 1,
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" style={{ display: "block" }}>
+                  <polyline
+                    points="4 12 9 17 20 6"
+                    fill="none"
+                    stroke="#FFFFFF"
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            )}
             <div
               style={{
                 marginTop: 4,

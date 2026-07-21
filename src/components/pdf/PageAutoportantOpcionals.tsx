@@ -44,7 +44,7 @@ export function PageAutoportantOpcionalsSel({ data }: { data: PdfData }) {
             lineHeight: 1,
           }}
         >
-          OPCIONALS INCLOSOS
+          OPCIONALS
         </h1>
         <PdfLogo size={85} />
       </div>

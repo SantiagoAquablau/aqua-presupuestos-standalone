@@ -56,8 +56,8 @@ export function PageAutoportantModel({ data }: { data: PdfData }) {
         }}
       />
 
-      <div style={{ padding: "0 14mm", display: "flex", gap: "8mm", height: "calc(297mm - 55mm)" }}>
-        <div style={{ flex: "0 0 80mm", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "0 14mm", display: "flex", flexDirection: "column", height: "calc(297mm - 55mm)" }}>
+        <div>
           <div
             style={{
               fontFamily: '"Tenor Sans", serif',
@@ -91,90 +91,95 @@ export function PageAutoportantModel({ data }: { data: PdfData }) {
               margin: "4mm 0 6mm 0",
             }}
           />
-          <div
-            style={{
-              fontSize: "10.5pt",
-              fontWeight: 700,
-              color: NAVY,
-              marginBottom: 6,
-              letterSpacing: 1,
-            }}
-          >
-            CARACTERÍSTIQUES
-          </div>
-          <ul
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              fontSize: "10pt",
-              lineHeight: 1.55,
-              color: PDF_COLORS.textDark,
-            }}
-          >
-            {features.map((f, i) => (
-              <li key={i} style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                <span
-                  style={{
-                    color: NAVY,
-                    fontWeight: 900,
-                    flex: "0 0 auto",
-                    marginTop: 2,
-                  }}
-                >
-                  •
-                </span>
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-          {(data.autoportantAmple || data.autoportantLlarg || data.autoportantAlturaAigua) && (
-            <div
-              style={{
-                marginTop: "6mm",
-                background: "#FFFFFF",
-                borderRadius: 12,
-                border: `1px solid ${NAVY}22`,
-                overflow: "hidden",
-                boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-              }}
-            >
-              <div
-                style={{
-                  padding: "7px 14px",
-                  background: NAVY,
-                  color: "#FFFFFF",
-                  fontFamily: '"Tenor Sans", serif',
-                  fontSize: "11pt",
-                  letterSpacing: 2,
-                }}
-              >
-                MIDES ESCOLLIDES
-              </div>
-              <div style={{ padding: "8px 14px" }}>
-                <MidaRow label="Ample" value={data.autoportantAmple} />
-                <MidaRow label="Llarg" value={data.autoportantLlarg} />
-                <MidaRow label="Altura d'aigua" value={data.autoportantAlturaAigua} last />
-              </div>
-            </div>
-          )}
         </div>
 
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {image && (
-            <img
-              src={image}
-              alt={name}
-              crossOrigin="anonymous"
+        <div style={{ display: "flex", gap: "8mm", flex: 1 }}>
+          <div style={{ flex: "0 0 80mm", display: "flex", flexDirection: "column" }}>
+            <div
               style={{
-                maxWidth: "100%",
-                maxHeight: "236mm",
-                objectFit: "contain",
-                borderRadius: 8,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+                fontSize: "10.5pt",
+                fontWeight: 700,
+                color: NAVY,
+                marginBottom: 6,
+                letterSpacing: 1,
               }}
-            />
-          )}
+            >
+              CARACTERÍSTIQUES
+            </div>
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                fontSize: "10pt",
+                lineHeight: 1.55,
+                color: PDF_COLORS.textDark,
+              }}
+            >
+              {features.map((f, i) => (
+                <li key={i} style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                  <span
+                    style={{
+                      color: NAVY,
+                      fontWeight: 900,
+                      flex: "0 0 auto",
+                      marginTop: 2,
+                    }}
+                  >
+                    •
+                  </span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            {(data.autoportantAmple || data.autoportantLlarg || data.autoportantAlturaAigua) && (
+              <div
+                style={{
+                  marginTop: "6mm",
+                  background: "#FFFFFF",
+                  borderRadius: 12,
+                  border: `1px solid ${NAVY}22`,
+                  overflow: "hidden",
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "7px 14px",
+                    background: NAVY,
+                    color: "#FFFFFF",
+                    fontFamily: '"Tenor Sans", serif',
+                    fontSize: "11pt",
+                    letterSpacing: 2,
+                  }}
+                >
+                  MIDES ESCOLLIDES
+                </div>
+                <div style={{ padding: "8px 14px" }}>
+                  <MidaRow label="Ample" value={data.autoportantAmple} />
+                  <MidaRow label="Llarg" value={data.autoportantLlarg} />
+                  <MidaRow label="Altura d'aigua" value={data.autoportantAlturaAigua} last />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
+            {image && (
+              <img
+                src={image}
+                alt={name}
+                crossOrigin="anonymous"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "236mm",
+                  objectFit: "contain",
+                  borderRadius: 8,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
     </section>

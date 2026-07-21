@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { DEFAULT_OBRA_NUEVA_PAYMENT_CONDITIONS } from "@/lib/paymentConditions";
 
 /**
  * Editor for payment conditions ("Condicions de Pagament").
@@ -10,16 +11,7 @@ import { Plus, Trash2 } from "lucide-react";
  */
 type Row = { pct: string; label: string };
 
-const DEFAULT_ROWS: Row[] = [
-  { pct: "20", label: "acceptació de l'obra" },
-  { pct: "25", label: "inici d'obra" },
-  { pct: "25", label: "gunitat" },
-  { pct: "25", label: "revestiment" },
-  { pct: "5", label: "finalització de l'obra" },
-];
-
-function parse(text: string): Row[] {
-  if (!text || !text.trim()) return DEFAULT_ROWS;
+function parseLines(text: string): Row[] {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const rows: Row[] = [];
   for (const line of lines) {
@@ -27,6 +19,14 @@ function parse(text: string): Row[] {
     if (m) rows.push({ pct: m[1].replace(",", "."), label: m[2] });
     else rows.push({ pct: "", label: line });
   }
+  return rows;
+}
+
+const DEFAULT_ROWS: Row[] = parseLines(DEFAULT_OBRA_NUEVA_PAYMENT_CONDITIONS);
+
+function parse(text: string): Row[] {
+  if (!text || !text.trim()) return DEFAULT_ROWS;
+  const rows = parseLines(text);
   return rows.length ? rows : DEFAULT_ROWS;
 }
 

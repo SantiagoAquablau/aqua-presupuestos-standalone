@@ -2,8 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { BudgetDraft, BudgetPhase } from "@/stores/budgetStore";
 import { buildPdfHtml, type PdfPhase } from "@/lib/pdfTemplate";
 import type { PdfData as NewPdfData } from "@/components/pdf/pdfTypes";
-
-const AUTOPORTANT_PAYMENT_CONDITIONS = "60 % acceptació de l'obra\n40 % finalització de l'obra";
+import { AUTOPORTANT_PAYMENT_CONDITIONS } from "@/lib/paymentConditions";
 
 export function draftToRow(draft: BudgetDraft, userId: string) {
   return {
