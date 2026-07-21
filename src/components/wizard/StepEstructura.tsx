@@ -1,4 +1,4 @@
-import { useBudgetStore, type InteriorStairsType, type ConstructionSystem, type WaterproofingSystem } from '@/stores/budgetStore';
+import { useBudgetStore, type InteriorStairsType, type ConstructionSystem, type WaterproofingSystem, type PoolDisposition } from '@/stores/budgetStore';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, ArrowRight, ChevronDown, Info, Droplets, Layers, Shield } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -40,6 +40,20 @@ export function StepEstructura() {
   };
 
   const toggle = (key: string) => setOpenSections((s) => ({ ...s, [key]: !s[key] }));
+
+  // Selecting 'Elevada' preselects Bloc Encofrat Armat + Làmina Proof (the usual
+  // technique for elevated pools) and makes the exterior access stair mandatory.
+  // This only fires at the moment of selection — it never re-forces the values
+  // on later renders, so a manual change afterwards sticks.
+  const handleSelectDisposition = (value: PoolDisposition) => {
+    const patch: Partial<typeof draft> = { poolDisposition: value };
+    if (value === 'elevada') {
+      patch.constructionSystem = 'bloc_encofrat';
+      patch.waterproofingSystem = 'lamina_proof';
+      patch.hasAccessStair = true;
+    }
+    updateDraft(patch);
+  };
 
   const { data: stairImages = [] } = useQuery({
     queryKey: ['stair-images'],
@@ -325,7 +339,7 @@ export function StepEstructura() {
                   const current = draft.poolDisposition || 'enterrada';
                   const selected = current === o.v;
                   return (
-                    <button key={o.v} type="button" onClick={() => updateDraft({ poolDisposition: o.v })}
+                    <button key={o.v} type="button" onClick={() => handleSelectDisposition(o.v)}
                       className={cn('py-2.5 rounded-lg border-2 text-sm font-medium transition-all min-h-[44px]',
                         selected ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'
                       )}>{o.l}</button>
@@ -334,8 +348,8 @@ export function StepEstructura() {
               </div>
             </div>
 
-            {draft.poolDisposition === 'semi_enterrada' && (
-              <SemiEnterradaFields inputClass={inputClass} labelClass={labelClass} />
+            {(draft.poolDisposition === 'semi_enterrada' || draft.poolDisposition === 'elevada') && (
+              <DispositionAccessFields disposition={draft.poolDisposition} inputClass={inputClass} labelClass={labelClass} />
             )}
           </div>
         )}
@@ -538,9 +552,32 @@ export function StepEstructura() {
   );
 }
 
-function SemiEnterradaFields({ inputClass, labelClass }: { inputClass: string; labelClass: string }) {
+function DispositionAccessFields({
+  disposition,
+  inputClass,
+  labelClass,
+}: {
+  disposition: 'semi_enterrada' | 'elevada';
+  inputClass: string;
+  labelClass: string;
+}) {
   const { draft, updateDraft } = useBudgetStore();
-  const alt = Number(draft.alturaVista || 0);
+  const isElevada = disposition === 'elevada';
+
+  // Elevada: altura efectiva = profunditat màxima − rebaix (opcional). No hi ha
+  // input manual (a diferència de semi-enterrada, on és "altura vista").
+  const alturaElevada = Math.max(0, Number(draft.poolDepthMax || 0) - (draft.hasRebaix ? Number(draft.rebaixAmount || 0) : 0));
+  const alt = isElevada ? alturaElevada : Number(draft.alturaVista || 0);
+
+  // L'escala i plataforma d'accés exterior és obligatòria per a piscines elevades.
+  // Es força en seleccionar 'elevada' (handleSelectDisposition), però també ho
+  // garantim aquí per si el draft ve d'un pressupost desat abans d'aquest camp.
+  useEffect(() => {
+    if (isElevada && !draft.hasAccessStair) updateDraft({ hasAccessStair: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isElevada, draft.hasAccessStair]);
+
+  const hasAccess = isElevada ? true : !!draft.hasAccessStair;
   const steps = alt > 0 ? Math.max(0, (alt / 0.20) - 1) : 0;
   const stairW = Number(draft.accessStairWidth ?? 0.70);
   const defaultTotal = Math.round(((Number(draft.poolWidth || 0) || 0) + 0.60) * 100) / 100;
@@ -550,28 +587,71 @@ function SemiEnterradaFields({ inputClass, labelClass }: { inputClass: string; l
 
   return (
     <div className="space-y-4 mt-2 p-4 rounded-xl border border-primary/20 bg-primary/5">
-      <div>
-        <label className={labelClass}>Altura vista (m)</label>
-        <DecimalInput className={inputClass}
-          value={draft.alturaVista}
-          onChange={(v) => updateDraft({ alturaVista: v })} />
-        <p className="text-xs text-muted-foreground mt-1">Alçada del vas per damunt del terreny (ex: 0,80 / 1,00 / 1,20).</p>
-      </div>
+      {isElevada ? (
+        <div>
+          <label className={labelClass}>Altura vista (m)</label>
+          <DecimalInput className={inputClass} value={alt || undefined} onChange={() => {}} disabled />
+          <p className="text-xs text-muted-foreground mt-1">
+            = Profunditat màxima{draft.hasRebaix ? ' − rebaix' : ''}.
+          </p>
+
+          <div className="pt-3 mt-3 border-t border-primary/15">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-foreground">Rebaix del vas</p>
+              <button type="button"
+                onClick={() => updateDraft({ hasRebaix: !draft.hasRebaix })}
+                className={cn('w-12 h-6 rounded-full transition-colors relative',
+                  draft.hasRebaix ? 'bg-primary' : 'bg-muted')}>
+                <div className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform',
+                  draft.hasRebaix ? 'translate-x-6' : 'translate-x-0.5')} />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">Redueix l'altura de paret vista respecte a la profunditat màxima.</p>
+            {draft.hasRebaix && (
+              <div className="mt-3">
+                <label className={labelClass}>Rebaix (m)</label>
+                <DecimalInput className={inputClass}
+                  value={draft.rebaixAmount}
+                  onChange={(v) => updateDraft({ rebaixAmount: v })} />
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div>
+          <label className={labelClass}>Altura vista (m)</label>
+          <DecimalInput className={inputClass}
+            value={draft.alturaVista}
+            onChange={(v) => updateDraft({ alturaVista: v })} />
+          <p className="text-xs text-muted-foreground mt-1">Alçada del vas per damunt del terreny (ex: 0,80 / 1,00 / 1,20).</p>
+        </div>
+      )}
 
       <div className="pt-3 border-t border-primary/15">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-foreground">Escala i plataforma d'accés exterior</p>
-          <button type="button"
-            onClick={() => updateDraft({ hasAccessStair: !draft.hasAccessStair })}
-            className={cn('w-12 h-6 rounded-full transition-colors relative',
-              draft.hasAccessStair ? 'bg-primary' : 'bg-muted')}>
-            <div className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform',
-              draft.hasAccessStair ? 'translate-x-6' : 'translate-x-0.5')} />
-          </button>
+          {isElevada ? (
+            <div
+              title="Obligatori per a piscines elevades"
+              className="w-12 h-6 rounded-full relative bg-primary opacity-60 cursor-not-allowed"
+            >
+              <div className="absolute top-0.5 w-5 h-5 rounded-full bg-card shadow translate-x-6" />
+            </div>
+          ) : (
+            <button type="button"
+              onClick={() => updateDraft({ hasAccessStair: !draft.hasAccessStair })}
+              className={cn('w-12 h-6 rounded-full transition-colors relative',
+                draft.hasAccessStair ? 'bg-primary' : 'bg-muted')}>
+              <div className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform',
+                draft.hasAccessStair ? 'translate-x-6' : 'translate-x-0.5')} />
+            </button>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground">¿Incloure escala d'accés?</p>
+        <p className="text-xs text-muted-foreground">
+          {isElevada ? "Obligatòria per a piscines elevades." : "¿Incloure escala d'accés?"}
+        </p>
 
-        {draft.hasAccessStair && (
+        {hasAccess && (
           <div className="mt-4 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
@@ -590,7 +670,7 @@ function SemiEnterradaFields({ inputClass, labelClass }: { inputClass: string; l
               <div>
                 <label className={labelClass}>Alçada (m)</label>
                 <DecimalInput className={inputClass} value={alt || undefined} onChange={() => {}} disabled />
-                <p className="text-[11px] text-muted-foreground mt-1">= Altura vista.</p>
+                <p className="text-[11px] text-muted-foreground mt-1">{isElevada ? "= Altura vista (profunditat màxima − rebaix)." : "= Altura vista."}</p>
               </div>
             </div>
 

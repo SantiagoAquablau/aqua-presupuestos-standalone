@@ -230,6 +230,21 @@ function getReferenceArticleUnitPrices(
   };
 }
 
+// Effective "visible wall" height used for rebossat / escala d'accés / revestiment
+// exterior calculations. Semi-enterrada: manual "altura vista" input. Elevada: computed
+// from pool_depth_max minus an optional "rebaix" (the pool floor sits recessed by this
+// amount, so less wall stays visible above ground).
+function getEffectiveHeight(budget: any): number {
+  const disposition = String(budget.pool_disposition ?? budget.poolDisposition ?? 'enterrada');
+  if (disposition === 'elevada') {
+    const poolDepthMax = Number(budget.pool_depth_max ?? budget.poolDepthMax ?? 0);
+    const hasRebaix = toBoolean(budget.has_rebaix ?? budget.hasRebaix ?? false);
+    const rebaixAmount = Number(budget.rebaix_amount ?? budget.rebaixAmount ?? 0);
+    return Math.max(0, poolDepthMax - (hasRebaix ? rebaixAmount : 0));
+  }
+  return Number(budget.altura_vista ?? budget.alturaVista ?? 0);
+}
+
 // ── Context builder ────────────────────────────────
 export function buildVariablesContext(budget: any, articles: any[] = []): Record<string, any> {
   const poolLength = Number(budget.pool_length ?? budget.poolLength ?? 0);
@@ -296,11 +311,13 @@ export function buildVariablesContext(budget: any, articles: any[] = []): Record
   const guniteDistanciaKm = Number(budget.gunite_distancia_km ?? budget.guniteDistanciaKm ?? 0);
 
   // Pool disposition (enterrada / semi_enterrada / elevada) + altura vista.
+  // For 'elevada' the effective height is computed from pool_depth_max - rebaix
+  // instead of a manual input (see getEffectiveHeight).
   const poolDisposition = String(budget.pool_disposition ?? budget.poolDisposition ?? 'enterrada');
-  const alturaVista = Number(budget.altura_vista ?? budget.alturaVista ?? 0);
-  // Superfície exterior del vas que queda vista (per rebosat en semi-enterrada):
-  // perímetre * altura vista.
-  const exteriorWallSurface = poolDisposition === 'semi_enterrada' && alturaVista > 0
+  const alturaVista = getEffectiveHeight(budget);
+  // Superfície exterior del vas que queda vista (per rebosat en semi-enterrada / elevada):
+  // perímetre * altura efectiva.
+  const exteriorWallSurface = (poolDisposition === 'semi_enterrada' || poolDisposition === 'elevada') && alturaVista > 0
     ? round(poolPerimeter * alturaVista, 2)
     : 0;
 
@@ -643,8 +660,8 @@ export function evaluateFormulaRules(
   // exterior i tractant-la sempre com a "plataforma" (escala + plataforma).
   const disposition = String(budget.pool_disposition ?? budget.poolDisposition ?? 'enterrada');
   const hasAccess = toBoolean(budget.has_access_stair ?? budget.hasAccessStair ?? false);
-  if (disposition === 'semi_enterrada' && hasAccess) {
-    const alt = Number(budget.altura_vista ?? budget.alturaVista ?? 0);
+  if ((disposition === 'semi_enterrada' || disposition === 'elevada') && hasAccess) {
+    const alt = getEffectiveHeight(budget);
     const stairW = Number(budget.access_stair_width ?? budget.accessStairWidth ?? 0.70);
     // The draft carries only accessTotalLength + accessStairWidth; recompute the
     // stair/platform breakdown here so it works both from the wizard (camelCase
@@ -729,7 +746,7 @@ function withExteriorRevestiment(
 
   const poolLength = Number(budget.pool_length ?? budget.poolLength ?? 0);
   const poolWidth = Number(budget.pool_width ?? budget.poolWidth ?? 0);
-  const alt = Number(budget.altura_vista ?? budget.alturaVista ?? 0);
+  const alt = getEffectiveHeight(budget);
   if (alt <= 0 || (poolLength <= 0 && poolWidth <= 0)) return primary;
 
   const perimeter = 2 * (poolLength + poolWidth);
@@ -754,7 +771,7 @@ function withExteriorRevestiment(
   const accessStairLength = Math.round(accessSteps * 0.30 * 100) / 100;
   const accessPlatformWidth = Number(budget.access_platform_width ?? accessStairWidth);
   const accessPlatformLength = Math.max(0, Math.round((accessTotalLength - accessStairLength) * 100) / 100);
-  const accessActive = disposition === 'semi_enterrada' && hasAccess && alt > 0 && accessStairWidth > 0;
+  const accessActive = (disposition === 'semi_enterrada' || disposition === 'elevada') && hasAccess && alt > 0 && accessStairWidth > 0;
   const platformSurface = accessActive
     ? round(accessPlatformWidth * accessPlatformLength, 2)
     : 0;

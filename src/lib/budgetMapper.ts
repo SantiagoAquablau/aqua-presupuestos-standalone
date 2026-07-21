@@ -72,6 +72,8 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
     extStairsWidth: Number(data.ext_stairs_width), interiorStairsType: data.interior_stairs_type as any,
     poolDisposition: ((data as any).pool_disposition as any) || 'enterrada',
     alturaVista: Number((data as any).altura_vista) || undefined,
+    hasRebaix: !!(data as any).has_rebaix,
+    rebaixAmount: Number((data as any).rebaix_amount) || undefined,
     hasAccessStair: !!(data as any).has_access_stair,
     accessStairWidth: Number((data as any).access_stair_width) || undefined,
     accessTotalLength: (() => {

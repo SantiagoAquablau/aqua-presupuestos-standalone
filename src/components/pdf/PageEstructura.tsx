@@ -36,7 +36,7 @@ export function PageEstructura({ data }: { data: PdfData }) {
     ...(showImpertot
       ? ["Impermeabilització de tot el vas de la piscina amb morter flexibe Impertot de la casa Fixcer."]
       : []),
-    ...(data.poolDisposition === "semi_enterrada"
+    ...(data.poolDisposition === "semi_enterrada" || data.poolDisposition === "elevada"
       ? ["Regularitzar/Arrebossar parets exteriors vistes."]
       : []),
   ];

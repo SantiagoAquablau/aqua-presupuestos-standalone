@@ -69,10 +69,14 @@ export interface BudgetDraft {
   extStairsLength?: number;
   extStairsWidth?: number;
   // Disposició de la piscina (Obra Nova). Per defecte 'enterrada' — cap canvi
-  // de comportament respecte al que existia abans. 'semi_enterrada' habilita
-  // camps addicionals per l'escala i plataforma d'accés exteriors.
+  // de comportament respecte al que existia abans. 'semi_enterrada' i 'elevada'
+  // habiliten camps addicionals per l'escala i plataforma d'accés exteriors.
   poolDisposition?: PoolDisposition;
+  /** Manual "altura vista" — només aplicable a semi_enterrada. */
   alturaVista?: number;
+  /** Elevada: rebaix opcional que redueix l'altura efectiva respecte a poolDepthMax. */
+  hasRebaix?: boolean;
+  rebaixAmount?: number;
   hasAccessStair?: boolean;
   accessStairWidth?: number;
   accessTotalLength?: number;

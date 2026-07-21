@@ -4,6 +4,27 @@ import { buildPdfHtml, type PdfPhase } from "@/lib/pdfTemplate";
 import type { PdfData as NewPdfData } from "@/components/pdf/pdfTypes";
 import { AUTOPORTANT_PAYMENT_CONDITIONS } from "@/lib/paymentConditions";
 
+// Effective "visible wall" height: manual "altura vista" for semi-enterrada,
+// or pool_depth_max minus an optional "rebaix" for elevada (mirrors
+// getEffectiveHeight in formulaEngine.ts — keep both in sync).
+function computeEffectiveHeight(draft: BudgetDraft): number {
+  const disposition = draft.poolDisposition || "enterrada";
+  if (disposition === "elevada") {
+    const poolDepthMax = Number(draft.poolDepthMax || 0);
+    const rebaixAmount = draft.hasRebaix ? Number(draft.rebaixAmount || 0) : 0;
+    return Math.max(0, poolDepthMax - rebaixAmount);
+  }
+  return Number(draft.alturaVista || 0);
+}
+
+// Escala i plataforma d'accés exterior: optional (user toggle) for
+// semi-enterrada, always-on/mandatory for elevada.
+function computeHasAccessStair(draft: BudgetDraft): boolean {
+  const disposition = draft.poolDisposition || "enterrada";
+  if (disposition === "elevada") return true;
+  return disposition === "semi_enterrada" && !!draft.hasAccessStair;
+}
+
 export function draftToRow(draft: BudgetDraft, userId: string) {
   return {
     type: draft.type || "obra_nueva",
@@ -45,11 +66,11 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     has_exterior_stairs: draft.hasExteriorStairs || false,
     ext_stairs_length: draft.extStairsLength || 0,
     ext_stairs_width: draft.extStairsWidth || 0,
-    // Disposició piscina (Obra Nova) + escala d'accés exterior (semi-enterrada)
+    // Disposició piscina (Obra Nova) + escala d'accés exterior (semi-enterrada / elevada)
     ...(function() {
       const disposition = draft.poolDisposition || 'enterrada';
-      const alt = Number(draft.alturaVista || 0);
-      const hasAcc = disposition === 'semi_enterrada' && !!draft.hasAccessStair;
+      const alt = computeEffectiveHeight(draft);
+      const hasAcc = computeHasAccessStair(draft);
       const stairW = Number(draft.accessStairWidth ?? 0.70);
       const totalL = Number(draft.accessTotalLength ?? ((Number(draft.poolWidth || 0) || 0) + 0.60));
       const steps = alt > 0 ? Math.max(0, (alt / 0.20) - 1) : 0;
@@ -58,6 +79,8 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
       return {
         pool_disposition: disposition,
         altura_vista: alt,
+        has_rebaix: disposition === 'elevada' && !!draft.hasRebaix,
+        rebaix_amount: disposition === 'elevada' ? Number(draft.rebaixAmount || 0) : 0,
         has_access_stair: hasAcc,
         access_stair_width: hasAcc ? stairW : 0,
         access_stair_length: hasAcc ? stairL : 0,
@@ -1110,18 +1133,17 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     extStairsLength: draft.extStairsLength,
     extStairsWidth: draft.extStairsWidth,
     poolDisposition: draft.poolDisposition,
-    alturaVista: draft.alturaVista,
-    hasAccessStair:
-      draft.poolDisposition === 'semi_enterrada' && !!draft.hasAccessStair,
+    alturaVista: computeEffectiveHeight(draft) || undefined,
+    hasAccessStair: computeHasAccessStair(draft),
     accessStairWidth: Number(draft.accessStairWidth ?? 0.70) || undefined,
     accessStairLength: (() => {
-      const alt = Number(draft.alturaVista || 0);
+      const alt = computeEffectiveHeight(draft);
       const steps = alt > 0 ? Math.max(0, alt / 0.20 - 1) : 0;
       return Math.round(steps * 0.30 * 100) / 100 || undefined;
     })(),
     accessPlatformWidth: Number(draft.accessStairWidth ?? 0.70) || undefined,
     accessPlatformLength: (() => {
-      const alt = Number(draft.alturaVista || 0);
+      const alt = computeEffectiveHeight(draft);
       const totalL = Number(
         draft.accessTotalLength ?? ((Number(draft.poolWidth || 0) || 0) + 0.60),
       );

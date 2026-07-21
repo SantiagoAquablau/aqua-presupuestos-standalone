@@ -237,6 +237,7 @@ export function PageCover({ data }: { data: PdfData }) {
             </div>
           )}
           {!isM && !isA && data.poolDisposition === "semi_enterrada" && <div>Semi-soterrada</div>}
+          {!isM && !isA && data.poolDisposition === "elevada" && <div>Elevada</div>}
         </div>
       </div>
     </section>
