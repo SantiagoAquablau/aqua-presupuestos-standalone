@@ -52,6 +52,19 @@ export function StepEstructura() {
       patch.waterproofingSystem = 'lamina_proof';
       patch.hasAccessStair = true;
     }
+    if (value === 'enterrada') {
+      // "Revestiment exterior" + "altura vista" only make sense with a visible
+      // wall (semi-enterrada / elevada). Clear them so a stale value from a
+      // previous disposition doesn't silently keep generating partides/import
+      // in the PDF after switching back to enterrada.
+      patch.revestimentExteriorInclos = false;
+      patch.revestimentExteriorFormat = undefined;
+      patch.revestimentExteriorModelId = undefined;
+      patch.revestimentExteriorModelADeterminar = undefined;
+      patch.revestimentExteriorBeurada = undefined;
+      patch.revestimentExteriorBeuradaColor = undefined;
+      patch.alturaVista = undefined;
+    }
     updateDraft(patch);
   };
 

@@ -96,6 +96,26 @@ export function StepRevisio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.type]);
 
+  // Safety net: "revestiment exterior" (+ altura vista) only make sense with a
+  // visible wall (semi-enterrada / elevada). Clears a stale value left over from
+  // a previous disposition — e.g. a budget loaded from a saved draft, or a route
+  // that bypasses StepEstructura::handleSelectDisposition — so it doesn't keep
+  // generating partides/import in the PDF after switching to enterrada.
+  useEffect(() => {
+    if (draft.poolDisposition === 'enterrada' && (draft.revestimentExteriorInclos || draft.alturaVista)) {
+      updateDraft({
+        revestimentExteriorInclos: false,
+        revestimentExteriorFormat: undefined,
+        revestimentExteriorModelId: undefined,
+        revestimentExteriorModelADeterminar: undefined,
+        revestimentExteriorBeurada: undefined,
+        revestimentExteriorBeuradaColor: undefined,
+        alturaVista: undefined,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.poolDisposition]);
+
   // Fetch articles so we can recompute fontaneria/electrica totals live,
   // mirroring exactly what StepInstalacions and Step 8 (Partides) show.
   const { data: articles = [] } = useQuery({

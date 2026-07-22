@@ -57,6 +57,7 @@ const SUB_PHASES: Record<string, string[]> = {
 const CONDITION_FIELDS: { value: string; label: string; options: string[] }[] = [
   { value: 'waterproofing_system', label: 'Sistema impermeabilización', options: ['impertot', 'hidrofix', 'lamina_proof'] },
   { value: 'construction_system', label: 'Sistema constructivo', options: ['gunite', 'bloc_encofrat'] },
+  { value: 'pool_disposition', label: 'Disposició piscina', options: ['enterrada', 'semi_enterrada', 'elevada'] },
   { value: 'interior_stair_type', label: 'Tipo escalera interior', options: ['estandard', 'plataforma', 'banc', 'tot_ample', 'sense'] },
   { value: 'has_exterior_stair', label: 'Tiene escalera exterior', options: ['true', 'false'] },
   { value: 'coronament_actuacio', label: 'Actuación coronamiento', options: ['suministre_col', 'suministre', 'col'] },
@@ -530,17 +531,27 @@ export function FormulaEnginePanel() {
               ) : (
                 <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full table-fixed text-sm">
+                      <colgroup>
+                        <col className="w-7" />
+                        <col className="w-[150px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[140px]" />
+                        <col className="w-[210px]" />
+                        <col className="w-[90px]" />
+                        <col className="w-[55px]" />
+                        <col className="w-[70px]" />
+                      </colgroup>
                       <thead>
                         <tr className="border-b border-border bg-muted/50">
-                          <th className="w-8 px-2 py-2.5"></th>
-                          <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Nom</th>
-                          <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Subfase</th>
-                          <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Condició</th>
-                          <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Fórmula venda</th>
-                          <th className="text-right px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Resultat (sim.)</th>
-                          <th className="text-center px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Activa</th>
-                          <th className="text-right px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Accions</th>
+                          <th className="px-1 py-2.5"></th>
+                          <th className="text-left px-2 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Nom</th>
+                          <th className="text-left px-2 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Subfase</th>
+                          <th className="text-left px-2 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Condició</th>
+                          <th className="text-left px-2 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Fórmula venda</th>
+                          <th className="text-right px-2 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Resultat (sim.)</th>
+                          <th className="text-center px-1 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Activa</th>
+                          <th className="text-right px-1 py-2.5 text-xs font-semibold text-muted-foreground uppercase">Accions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -549,26 +560,37 @@ export function FormulaEnginePanel() {
                           const conditionSummary = summarizeRuleConditions(rule, CONDITION_FIELD_LABELS);
                           return (
                             <tr key={rule.id} className={cn('hover:bg-muted/30 transition-colors', !rule.is_active && 'opacity-50')}>
-                              <td className="px-2 py-2"><GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" /></td>
-                              <td className="px-3 py-2 font-medium text-foreground max-w-[180px] truncate">{rule.name}</td>
-                              <td className="px-3 py-2">
+                              <td className="px-1 py-2"><GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" /></td>
+                              <td className="px-2 py-2 font-medium text-foreground truncate" title={rule.name}>{rule.name}</td>
+                              <td className="px-2 py-2 overflow-hidden">
                                 {rule.sub_phase && (
-                                  <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground font-medium capitalize">{rule.sub_phase}</span>
+                                  <span
+                                    className="inline-block max-w-full truncate align-bottom px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground font-medium capitalize"
+                                    title={rule.sub_phase}
+                                  >
+                                    {rule.sub_phase}
+                                  </span>
                                 )}
                               </td>
-                              <td className="px-3 py-2">
+                              <td className="px-2 py-2 overflow-hidden">
                                 {rule.is_conditional && conditionSummary && (
-                                  <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-warning/15 text-warning font-medium">
+                                  <span
+                                    className="inline-block max-w-full truncate align-bottom px-2 py-0.5 rounded-full text-xs bg-warning/15 text-warning font-medium"
+                                    title={`si ${conditionSummary}`}
+                                  >
                                     si {conditionSummary}
                                   </span>
                                 )}
                               </td>
-                              <td className="px-3 py-2">
-                                <code className="text-xs bg-muted px-2 py-0.5 rounded font-mono max-w-[200px] truncate block">
+                              <td className="px-2 py-2 overflow-hidden">
+                                <code
+                                  className="text-xs bg-muted px-2 py-0.5 rounded font-mono truncate block"
+                                  title={rule.formula_sale}
+                                >
                                   {rule.formula_sale}
                                 </code>
                               </td>
-                              <td className="px-3 py-2 text-right">
+                              <td className="px-2 py-2 text-right">
                                 {!simResult ? (
                                   <span className="text-muted-foreground text-xs">No aplica</span>
                                 ) : simResult.error ? (
@@ -581,14 +603,14 @@ export function FormulaEnginePanel() {
                                   </span>
                                 )}
                               </td>
-                              <td className="px-3 py-2 text-center">
+                              <td className="px-1 py-2 text-center">
                                 <button onClick={() => toggleActiveMutation.mutate({ id: rule.id, active: !rule.is_active })}>
                                   {rule.is_active
                                     ? <ToggleRight className="w-5 h-5 text-success" />
                                     : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
                                 </button>
                               </td>
-                              <td className="px-3 py-2">
+                              <td className="px-1 py-2">
                                 <div className="flex items-center justify-end gap-1">
                                   <button onClick={() => { setIsNew(false); setEditRule(rule); }} className="p-1.5 rounded-md hover:bg-muted"><Pencil className="w-4 h-4 text-muted-foreground" /></button>
                                   <button onClick={() => setDeleteId(rule.id)} className="p-1.5 rounded-md hover:bg-destructive/10"><Trash2 className="w-4 h-4 text-destructive" /></button>

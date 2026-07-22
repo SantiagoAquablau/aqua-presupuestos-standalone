@@ -863,61 +863,64 @@ export function StepAcabats() {
       {/* ═══ B7 — REVESTIMENT EXTERIOR ═══ */}
       {/* Reutilitza el motor de càlcul del revestiment interior però treballant amb
           la superfície exterior visible del vas (perímetre × altura vista). Sempre
-          porcelànic — no oferim gressite per a l'exterior. */}
-      <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="font-semibold text-foreground">Revestiment exterior de la piscina</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Aplicable a piscines semi-enterrades o elevades (perímetre × altura vista).</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => updateDraft({ revestimentExteriorInclos: !draft.revestimentExteriorInclos })}
-            className={cn('w-12 h-6 rounded-full transition-colors relative flex-shrink-0', draft.revestimentExteriorInclos ? 'bg-primary' : 'bg-muted')}
-            aria-label="Activar revestiment exterior"
-          >
-            <div className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform', draft.revestimentExteriorInclos ? 'translate-x-6' : 'translate-x-0.5')} />
-          </button>
-        </div>
-
-        {draft.revestimentExteriorInclos && (
-          <div className="space-y-4 pl-3 border-l-2 border-primary/20">
-            <div className="text-xs text-primary bg-primary/5 p-2 rounded-lg flex items-center gap-2">
-              <Info className="w-3.5 h-3.5" /> Sempre porcelànic. Els càlculs es fan sobre perímetre × altura vista.
-            </div>
-
+          porcelànic — no oferim gressite per a l'exterior. Només té sentit amb
+          paret vista (semi-enterrada / elevada). */}
+      {(draft.poolDisposition === 'semi_enterrada' || draft.poolDisposition === 'elevada') && (
+        <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <label className={labelClass}>Format del porcelànic</label>
-              <div className="flex gap-2">
-                {['31x62', '49x98'].map(f => (
-                  <button key={f} onClick={() => updateDraft({ revestimentExteriorFormat: f, revestimentExteriorModelId: undefined, revestimentExteriorModelADeterminar: true })}
-                    className={cn('px-4 py-2 rounded-full border-2 text-xs font-medium transition-all',
-                      draft.revestimentExteriorFormat === f ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'
-                    )}>{f === '31x62' ? '31 × 62 cm' : '49 × 98 cm'}</button>
-                ))}
-              </div>
+              <h3 className="font-semibold text-foreground">Revestiment exterior de la piscina</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Aplicable a piscines semi-enterrades o elevades (perímetre × altura vista).</p>
             </div>
-
-            {draft.revestimentExteriorFormat && (
-              <ModelSelector
-                category="porcelanic"
-                format={draft.revestimentExteriorFormat}
-                selectedId={draft.revestimentExteriorModelId}
-                aDeterminar={draft.revestimentExteriorModelADeterminar ?? true}
-                onSelect={(id) => updateDraft({ revestimentExteriorModelId: id, revestimentExteriorModelADeterminar: false })}
-                onSetADeterminar={(v) => updateDraft({ revestimentExteriorModelADeterminar: v, ...(v ? { revestimentExteriorModelId: undefined } : {}) })}
-              />
-            )}
-
-            <GroutSelector
-              beurada={draft.revestimentExteriorBeurada || ''}
-              color={draft.revestimentExteriorBeuradaColor || ''}
-              onBeurada={(v) => updateDraft({ revestimentExteriorBeurada: v })}
-              onColor={(v) => updateDraft({ revestimentExteriorBeuradaColor: v })}
-            />
+            <button
+              type="button"
+              onClick={() => updateDraft({ revestimentExteriorInclos: !draft.revestimentExteriorInclos })}
+              className={cn('w-12 h-6 rounded-full transition-colors relative flex-shrink-0', draft.revestimentExteriorInclos ? 'bg-primary' : 'bg-muted')}
+              aria-label="Activar revestiment exterior"
+            >
+              <div className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform', draft.revestimentExteriorInclos ? 'translate-x-6' : 'translate-x-0.5')} />
+            </button>
           </div>
-        )}
-      </div>
+
+          {draft.revestimentExteriorInclos && (
+            <div className="space-y-4 pl-3 border-l-2 border-primary/20">
+              <div className="text-xs text-primary bg-primary/5 p-2 rounded-lg flex items-center gap-2">
+                <Info className="w-3.5 h-3.5" /> Sempre porcelànic. Els càlculs es fan sobre perímetre × altura vista.
+              </div>
+
+              <div>
+                <label className={labelClass}>Format del porcelànic</label>
+                <div className="flex gap-2">
+                  {['31x62', '49x98'].map(f => (
+                    <button key={f} onClick={() => updateDraft({ revestimentExteriorFormat: f, revestimentExteriorModelId: undefined, revestimentExteriorModelADeterminar: true })}
+                      className={cn('px-4 py-2 rounded-full border-2 text-xs font-medium transition-all',
+                        draft.revestimentExteriorFormat === f ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'
+                      )}>{f === '31x62' ? '31 × 62 cm' : '49 × 98 cm'}</button>
+                  ))}
+                </div>
+              </div>
+
+              {draft.revestimentExteriorFormat && (
+                <ModelSelector
+                  category="porcelanic"
+                  format={draft.revestimentExteriorFormat}
+                  selectedId={draft.revestimentExteriorModelId}
+                  aDeterminar={draft.revestimentExteriorModelADeterminar ?? true}
+                  onSelect={(id) => updateDraft({ revestimentExteriorModelId: id, revestimentExteriorModelADeterminar: false })}
+                  onSetADeterminar={(v) => updateDraft({ revestimentExteriorModelADeterminar: v, ...(v ? { revestimentExteriorModelId: undefined } : {}) })}
+                />
+              )}
+
+              <GroutSelector
+                beurada={draft.revestimentExteriorBeurada || ''}
+                color={draft.revestimentExteriorBeuradaColor || ''}
+                onBeurada={(v) => updateDraft({ revestimentExteriorBeurada: v })}
+                onColor={(v) => updateDraft({ revestimentExteriorBeuradaColor: v })}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex justify-between">

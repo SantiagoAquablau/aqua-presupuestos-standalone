@@ -12,6 +12,25 @@ export function PageEstructura({ data }: { data: PdfData }) {
   const showImpertot = data.waterproofingSystem === "impertot";
   const showLaminaProof = data.waterproofingSystem === "lamina_proof";
   const isBloc = data.constructionSystem === "bloc_encofrat";
+  // Làmina Proof block geometry (text + connector lines + white card). When the
+  // pool is "semi_enterrada" or "elevada" an extra bullet above (paret vista)
+  // pushes this whole block further down, closer to the decorative pool photo
+  // anchored at the page bottom — so we shift it right and shrink the card a bit
+  // to keep clearance. Every value below is derived from laminaShiftX/laminaScale
+  // so the three pieces stay joined; for "enterrada" (laminaCompact=false) these
+  // all resolve to the original constants, unchanged.
+  const laminaCompact = data.poolDisposition === "semi_enterrada" || data.poolDisposition === "elevada";
+  const laminaShiftX = laminaCompact ? 20 : 0; // px — pushes the "Inclou" text row right
+  const laminaScale = laminaCompact ? 0.9 : 1; // shrinks the white card + its content
+  const laminaContentWidthPx = 682; // approx. width inside page margins (210mm - 2×14mm - 6px)
+  const laminaOverlapPx = 128; // how far the horizontal line reaches under the card (hidden behind it)
+  const laminaHorizontalLineLeft = 142 + laminaShiftX;
+  const laminaCardWidthPct = 52 * laminaScale;
+  const laminaCardLeftPx = laminaContentWidthPx * (1 - laminaCardWidthPct / 100);
+  const laminaHorizontalLineWidthPct = laminaCompact
+    ? ((laminaCardLeftPx + laminaOverlapPx - laminaHorizontalLineLeft) / laminaContentWidthPx) * 100
+    : 46;
+  const laminaCardMinHeight = Math.round(200 * laminaScale);
   const fmt = (n?: number) => (typeof n === "number" ? n.toLocaleString("ca-ES", { minimumFractionDigits: 2 }) : "");
   const extStairsLine =
     data.hasExteriorStairs && data.extStairsLength && data.extStairsWidth
@@ -136,7 +155,14 @@ export function PageEstructura({ data }: { data: PdfData }) {
             <div style={{ marginTop: "6mm", position: "relative" }}>
               {/* Inclou text with check */}
               <div
-                style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 4, position: "relative" }}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  marginBottom: 4,
+                  position: "relative",
+                  marginLeft: laminaShiftX,
+                }}
               >
                 <span style={{ color: "#ff751f", fontSize: "14pt", lineHeight: 1.2, fontWeight: 700 }}>✓</span>
                 <div
@@ -168,15 +194,15 @@ export function PageEstructura({ data }: { data: PdfData }) {
               </div>
 
               {/* Connector + card area */}
-              <div style={{ position: "relative", minHeight: 200 }}>
+              <div style={{ position: "relative", minHeight: laminaCardMinHeight }}>
                 {/* Horizontal line — connects vertical line to mid of white card */}
                 <div
                   style={{
                     position: "absolute",
-                    left: 142,
+                    left: laminaHorizontalLineLeft,
                     top: 68,
                     height: 2,
-                    width: "46%",
+                    width: `${laminaHorizontalLineWidthPct}%`,
                     backgroundColor: "#ff751f",
                   }}
                 />
@@ -187,13 +213,15 @@ export function PageEstructura({ data }: { data: PdfData }) {
                     position: "absolute",
                     right: 0,
                     top: 0,
-                    width: "52%",
+                    width: `${laminaCardWidthPct}%`,
                     backgroundColor: "#ffffff",
                     border: "1px solid #f0e7df",
                     borderRadius: 22,
-                    padding: "18px 18px 18px 22px",
+                    padding: laminaCompact
+                      ? `${Math.round(18 * laminaScale)}px ${Math.round(18 * laminaScale)}px ${Math.round(18 * laminaScale)}px ${Math.round(22 * laminaScale)}px`
+                      : "18px 18px 18px 22px",
                     boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-                    minHeight: 200,
+                    minHeight: laminaCardMinHeight,
                   }}
                 >
                   {/* Large floating double-check badge — top-left corner of card */}
@@ -203,10 +231,10 @@ export function PageEstructura({ data }: { data: PdfData }) {
                     crossOrigin="anonymous"
                     style={{
                       position: "absolute",
-                      top: -10,
-                      left: -28,
-                      width: 64,
-                      height: 64,
+                      top: laminaCompact ? Math.round(-10 * laminaScale) : -10,
+                      left: laminaCompact ? Math.round(-28 * laminaScale) : -28,
+                      width: Math.round(64 * laminaScale),
+                      height: Math.round(64 * laminaScale),
                       zIndex: 3,
                     }}
                   />
@@ -215,7 +243,7 @@ export function PageEstructura({ data }: { data: PdfData }) {
                     style={{
                       color: "#ff751f",
                       fontWeight: 700,
-                      fontSize: "13pt",
+                      fontSize: `${13 * laminaScale}pt`,
                       marginBottom: 10,
                       paddingLeft: 14,
                       textAlign: "left",
@@ -228,9 +256,9 @@ export function PageEstructura({ data }: { data: PdfData }) {
                     style={{
                       margin: 0,
                       paddingLeft: 14,
-                      paddingRight: 95,
+                      paddingRight: Math.round(95 * laminaScale),
                       lineHeight: 1.45,
-                      fontSize: "9pt",
+                      fontSize: `${9 * laminaScale}pt`,
                       color: PDF_COLORS.textBody,
                       listStyle: "none",
                     }}
@@ -254,10 +282,10 @@ export function PageEstructura({ data }: { data: PdfData }) {
                     crossOrigin="anonymous"
                     style={{
                       position: "absolute",
-                      right: -8,
-                      bottom: 8,
-                      width: 110,
-                      height: 150,
+                      right: laminaCompact ? Math.round(-8 * laminaScale) : -8,
+                      bottom: Math.round(8 * laminaScale),
+                      width: Math.round(110 * laminaScale),
+                      height: Math.round(150 * laminaScale),
                       objectFit: "contain",
                       zIndex: 2,
                     }}

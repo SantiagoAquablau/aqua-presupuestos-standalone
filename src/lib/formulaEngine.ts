@@ -739,6 +739,12 @@ function withExteriorRevestiment(
   budget: any,
   articles: any[],
 ): FormulaResult[] {
+  // Last-line safeguard, independent of the wizard: "revestiment exterior" only
+  // makes sense with a visible wall (semi-enterrada / elevada). Never generate
+  // it for enterrada, regardless of a stale revestiment_exterior_inclos flag.
+  const dispositionGuard = String(budget.pool_disposition ?? budget.poolDisposition ?? 'enterrada');
+  if (dispositionGuard === 'enterrada') return primary;
+
   const inclos = toBoolean(
     budget.revestiment_exterior_inclos ?? budget.revestimentExteriorInclos ?? false,
   );
