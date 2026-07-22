@@ -480,6 +480,7 @@ export type Database = {
           instal_filtre_especial_opcional: boolean | null
           instal_filtre_especial_qty: number | null
           instal_filtre_polies_id: string | null
+          instal_filtre_polies_opcional: boolean | null
           instal_filtre_polies_qty: number | null
           instal_fontaneria_base_article_id: string | null
           instal_fontaneria_caseta_tipus: string | null
@@ -789,6 +790,7 @@ export type Database = {
           instal_filtre_especial_opcional?: boolean | null
           instal_filtre_especial_qty?: number | null
           instal_filtre_polies_id?: string | null
+          instal_filtre_polies_opcional?: boolean | null
           instal_filtre_polies_qty?: number | null
           instal_fontaneria_base_article_id?: string | null
           instal_fontaneria_caseta_tipus?: string | null
@@ -1098,6 +1100,7 @@ export type Database = {
           instal_filtre_especial_opcional?: boolean | null
           instal_filtre_especial_qty?: number | null
           instal_filtre_polies_id?: string | null
+          instal_filtre_polies_opcional?: boolean | null
           instal_filtre_polies_qty?: number | null
           instal_fontaneria_base_article_id?: string | null
           instal_fontaneria_caseta_tipus?: string | null

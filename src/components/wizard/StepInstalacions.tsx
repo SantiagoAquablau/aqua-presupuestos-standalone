@@ -217,7 +217,16 @@ export function StepInstalacions() {
   const [afmAutoArticle, setAfmAutoArticle] = useState<{ id: string; name: string; sale_price: number } | null>(null);
   const [afmNotFound, setAfmNotFound] = useState(false);
 
+  // Re-runs whenever any of the underlying draft IDs changes (not just on
+  // mount) so a newer write (e.g. the Hayward auto-default effect below, a
+  // manual EquipmentSelector pick, or an applied recommendation) always
+  // supersedes an in-flight load instead of racing it. `cancelled` guards the
+  // superseded run so its late resolution can never clobber fresher state —
+  // a mount-only ([]) effect can't do this: it snapshots the IDs once and any
+  // async response it gets, however late, still wins if a stale check only
+  // guards against unmount.
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       const [fp, fe, cm, bo, bv, ds, hi, qu] = await Promise.all([
         loadArticle(draft.instalFiltrePoliesId),
@@ -229,6 +238,7 @@ export function StepInstalacions() {
         loadArticle(draft.instalHidrolisiId),
         loadArticle(draft.instalQuadreId),
       ]);
+      if (cancelled) return;
       setFiltrePolies(fp);
       setFiltreEspecial(fe);
       setCanviMediArticle(cm);
@@ -239,7 +249,19 @@ export function StepInstalacions() {
       setQuadre(qu);
     };
     load();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    draft.instalFiltrePoliesId,
+    draft.instalFiltreEspecialId,
+    draft.instalCanviMediArticleId,
+    draft.instalBombaOnoffId,
+    draft.instalBombaVariableId,
+    draft.instalDosificacioStdId,
+    draft.instalHidrolisiId,
+    draft.instalQuadreId,
+  ]);
 
   // Auto-find Wi-Fi article — prioritize Dosificació + Mòdul connectivitat, then name search across all categories
   useEffect(() => {

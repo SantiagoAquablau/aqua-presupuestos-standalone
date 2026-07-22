@@ -163,6 +163,16 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
     instalBombaVariableQty: data.instal_bomba_variable_qty ?? undefined,
     instalDosificacioStdQty: data.instal_dosificacio_std_qty ?? undefined,
     instalHidrolisiQty: data.instal_hidrolisi_qty ?? undefined,
+    // Budgets saved before the instal_filtre_polies_opcional column existed
+    // have it as null/undefined — default to opcional=true (safe): if Especial
+    // was the one included, Polies MUST be opcional to respect mutual
+    // exclusivity; if there's no clear signal either way, still default to
+    // opcional rather than silently introducing a new "inclòs" item into an
+    // already-saved/accepted budget.
+    instalFiltrePoliesOpcional:
+      (data as any).instal_filtre_polies_opcional !== null && (data as any).instal_filtre_polies_opcional !== undefined
+        ? (data as any).instal_filtre_polies_opcional
+        : true,
     instalFiltreEspecialOpcional: data.instal_filtre_especial_opcional ?? undefined,
     instalBombaOnoffOpcional: data.instal_bomba_onoff_opcional ?? undefined,
     instalBombaVariableOpcional: data.instal_bomba_variable_opcional ?? undefined,

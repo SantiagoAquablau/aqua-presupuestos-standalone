@@ -203,6 +203,10 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     instal_dosificacio_std_qty: draft.instalDosificacioStdQty || 1,
     instal_hidrolisi_qty: draft.instalHidrolisiQty || 1,
     // Opcional flags
+    // Polies (fibra) defaults to included (false) — mirrors the wizard's own
+    // default convention (StepInstalacions.tsx), the counterpart to Especial
+    // defaulting to opcional (true) below.
+    instal_filtre_polies_opcional: draft.instalFiltrePoliesOpcional ?? false,
     instal_filtre_especial_opcional: draft.instalFiltreEspecialOpcional ?? true,
     instal_bomba_onoff_opcional: draft.instalBombaOnoffOpcional ?? false,
     instal_bomba_variable_opcional: draft.instalBombaVariableOpcional ?? true,
@@ -1276,18 +1280,19 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     filtreCartutxName: a(draft.instalFiltreEspecialId)?.name,
     filtreCartutxImageUrl: a(draft.instalFiltreEspecialId)?.image_url || undefined,
     // Determine which filter is INCLUDED in the budget (the one not flagged
-    // as opcional). Default to "sorra" when both/neither are set.
+    // as opcional). Must key off the _Opcional flag explicitly — the old
+    // fallback assumed "cartutx" was included just because
+    // instalFiltreEspecialId had a value, with no regard for its opcional
+    // flag. That was wrong: Especial gets auto-defaulted (Hayward) as
+    // opcional=true on nearly every budget, so that fallback showed it as
+    // the INCLUDED filter in the PDF even when the wizard itself displayed
+    // it tagged "Opcional". cartutx wins if both ended up marked inclòs
+    // (mirrors the bomba pair's convention below); default to "sorra" when
+    // neither is inclòs.
     ...(function () {
       const sorraInclos = !!draft.instalFiltrePoliesId && !draft.instalFiltrePoliesOpcional;
       const cartutxInclos = !!draft.instalFiltreEspecialId && !draft.instalFiltreEspecialOpcional;
-      const tipus: "sorra" | "cartutx" | undefined =
-        cartutxInclos && !sorraInclos
-          ? "cartutx"
-          : sorraInclos
-            ? "sorra"
-            : draft.instalFiltreEspecialId
-              ? "cartutx"
-              : "sorra";
+      const tipus: "sorra" | "cartutx" = cartutxInclos ? "cartutx" : "sorra";
       const art = tipus === "cartutx" ? a(draft.instalFiltreEspecialId) : a(draft.instalFiltrePoliesId);
       return {
         filtreInclosTipus: tipus,
