@@ -240,7 +240,8 @@ function getEffectiveHeight(budget: any): number {
     const poolDepthMax = Number(budget.pool_depth_max ?? budget.poolDepthMax ?? 0);
     const hasRebaix = toBoolean(budget.has_rebaix ?? budget.hasRebaix ?? false);
     const rebaixAmount = Number(budget.rebaix_amount ?? budget.rebaixAmount ?? 0);
-    return Math.max(0, poolDepthMax - (hasRebaix ? rebaixAmount : 0));
+    // Round to avoid floating-point artifacts (e.g. 1.4 - 0.10 = 1.2999999999999998).
+    return Math.round(Math.max(0, poolDepthMax - (hasRebaix ? rebaixAmount : 0)) * 100) / 100;
   }
   return Number(budget.altura_vista ?? budget.alturaVista ?? 0);
 }

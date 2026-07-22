@@ -579,7 +579,8 @@ function DispositionAccessFields({
 
   // Elevada: altura efectiva = profunditat màxima − rebaix (opcional). No hi ha
   // input manual (a diferència de semi-enterrada, on és "altura vista").
-  const alturaElevada = Math.max(0, Number(draft.poolDepthMax || 0) - (draft.hasRebaix ? Number(draft.rebaixAmount || 0) : 0));
+  // Round to avoid floating-point artifacts (e.g. 1.4 - 0.10 = 1.2999999999999998).
+  const alturaElevada = Math.round(Math.max(0, Number(draft.poolDepthMax || 0) - (draft.hasRebaix ? Number(draft.rebaixAmount || 0) : 0)) * 100) / 100;
   const alt = isElevada ? alturaElevada : Number(draft.alturaVista || 0);
 
   // L'escala i plataforma d'accés exterior és obligatòria per a piscines elevades.

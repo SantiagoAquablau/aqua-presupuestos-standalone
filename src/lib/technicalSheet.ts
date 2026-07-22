@@ -133,7 +133,7 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
     b.acc_control_rgb_model_id, b.acc_escala_model_id, b.acc_dutxa_model_id, b.acc_cascada_model_id,
     b.acc_salvavides_model_id, b.acc_barana_model_id, b.annex_projecte_article_id, b.annex_paviment_model_id,
     b.annex_gespa_article_id, b.annex_robot_article_id, b.annex_bomba_calor_article_id,
-    b.annex_netejafons_article_id,
+    b.annex_netejafons_article_id, b.revestiment_exterior_model_id,
   ].filter(Boolean) as string[];
 
   const articleNames: Record<string, string> = {};
@@ -238,6 +238,51 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
     b.bench_length ? row('Banc', `${num(b.bench_length, ' m')} × ${num(b.bench_width, ' m')} × ${num(b.bench_height, ' m')}`) : null,
   ]);
 
+  // Disposició (enterrada / semi-enterrada / elevada) — mirrors
+  // getEffectiveHeight() in formulaEngine.ts / computeEffectiveHeight() in
+  // budgetSave.ts (keep the three in sync). Elevada: pool_depth_max − rebaix
+  // (rounded to avoid floating-point artifacts, e.g. 1.4 − 0.10). Semi-enterrada:
+  // manual "altura vista" input.
+  const dispositionLabels: Record<string, string> = {
+    enterrada: 'Enterrada', semi_enterrada: 'Semi enterrada', elevada: 'Elevada',
+  };
+  const disposition = String(b.pool_disposition || 'enterrada');
+  const effectiveHeight = disposition === 'elevada'
+    ? Math.round(Math.max(0, Number(b.pool_depth_max || 0) - (b.has_rebaix ? Number(b.rebaix_amount || 0) : 0)) * 100) / 100
+    : disposition === 'semi_enterrada'
+      ? Number(b.altura_vista || 0)
+      : 0;
+
+  const dispositionBody = grid([
+    row('Disposició', dispositionLabels[disposition] || disposition),
+    (disposition === 'elevada' || disposition === 'semi_enterrada')
+      ? row('Altura vista (efectiva)', effectiveHeight > 0
+          ? `${effectiveHeight.toFixed(2)} m${
+              disposition === 'elevada' && b.has_rebaix
+                ? ` (profunditat màx. ${num(b.pool_depth_max, ' m') || '—'} − rebaix ${num(b.rebaix_amount, ' m') || '—'})`
+                : ''
+            }`
+          : null)
+      : null,
+    b.has_access_stair
+      ? row("Escala d'accés exterior",
+          `${num(b.access_stair_length, ' m') || '—'} × ${num(b.access_stair_width, ' m') || '—'} × ${num(b.access_stair_height, ' m') || '—'}` +
+          (Number(b.access_platform_length) > 0
+            ? ` + plataforma ${num(b.access_platform_length, ' m')} × ${num(b.access_platform_width, ' m')}`
+            : ''))
+      : null,
+    b.revestiment_exterior_inclos
+      ? row('Revestiment exterior',
+          `Sí${b.revestiment_exterior_format ? ` — ${escapeHtml(b.revestiment_exterior_format)}` : ''}` +
+          (b.revestiment_exterior_model_a_determinar
+            ? ' (model a determinar)'
+            : an(b.revestiment_exterior_model_id) ? ` — ${escapeHtml(an(b.revestiment_exterior_model_id))}` : '') +
+          (b.revestiment_exterior_beurada
+            ? ` · Beurada: ${escapeHtml(b.revestiment_exterior_beurada)}${b.revestiment_exterior_beurada_color ? ` (${escapeHtml(b.revestiment_exterior_beurada_color)})` : ''}`
+            : ''))
+      : null,
+  ]);
+
   const coronamentBody = grid([
     row('Actuació', escapeHtml(b.coronament_actuacio)),
     row('Tipus', escapeHtml(b.coronament_tipus)),
@@ -265,8 +310,12 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
     subsection('Revestiment interior', revestimentBody) +
     (b.coronament_observacions ? `<p class="note"><strong>Observacions coronament:</strong> ${escapeHtml(b.coronament_observacions)}</p>` : '');
 
-  // Annex — render ONLY annexes that the user explicitly activated
-  const isAnnexActive = (estat: any) => estat && estat !== 'no' && estat !== '';
+  // Annex — render ONLY annexes truly included in the accepted budget.
+  // AnnexEstat is "no" | "inclos" | "opcional" (see StepAnnex.tsx) — "opcional"
+  // means offered to the client but explicitly NOT part of the budget, so it
+  // must not appear here (unlike the old check, which treated anything != "no"
+  // as active and rendered "opcional" annexes as if they were included).
+  const isAnnexActive = (estat: any) => estat === 'inclos';
   const annexSubsections: string[] = [];
 
   if (isAnnexActive(b.annex_projecte_estat)) {
@@ -450,7 +499,7 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
       <h1>FITXA TÈCNICA D'OBRA</h1>
       ${headerBody}
       ${section('1. Dades del client i ubicació', clientBody)}
-      ${section('2. Estructura i mides de la piscina', poolBody + (stairsBody ? subsection('Escales i plataformes', stairsBody) : '') + estructuraTablesBody)}
+      ${section('2. Estructura i mides de la piscina', poolBody + (stairsBody ? subsection('Escales i plataformes', stairsBody) : '') + (dispositionBody ? subsection('Disposició de la piscina', dispositionBody) : '') + estructuraTablesBody)}
       ${section('3. Acabats', acabatsBody + acabatsTablesBody)}
       ${section('4. Accessoris bàsics', accessoriesBody + optionalAccBody)}
       ${section('5. Annex (treballs complementaris)', annexBody)}
@@ -506,10 +555,44 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
       const contentH = pageH - marginT - marginB;
       const pxPerMm = canvas.width / contentW;
       const sliceHeightPx = Math.floor(contentH * pxPerMm);
+
+      // The document is captured as a single continuous raster and then cut by
+      // fixed pixel height — the CSS page-break-inside:avoid rules above have no
+      // effect on that (they only matter for actual browser pagination). To stop
+      // table rows/blocks from being sliced in half, measure the real DOM
+      // boundaries of every row/subsection/phase/section that still fits within
+      // one page's worth of height, map them into canvas-pixel space, and back
+      // the cut point off to the nearest one whenever the natural cut would fall
+      // inside it. Elements taller than a page (e.g. a table spanning several
+      // pages) are excluded — they're still allowed to break between rows.
+      const elRect = el.getBoundingClientRect();
+      const domToCanvasScale = canvas.height / elRect.height;
+      const noBreakBoundaries = Array
+        .from(el.querySelectorAll('.section, .subsection, .phase, .footer, .data-table tr'))
+        .map((node) => {
+          const r = (node as HTMLElement).getBoundingClientRect();
+          return {
+            top: Math.round((r.top - elRect.top) * domToCanvasScale),
+            bottom: Math.round((r.bottom - elRect.top) * domToCanvasScale),
+          };
+        })
+        .filter((b) => b.bottom > b.top && (b.bottom - b.top) <= sliceHeightPx);
+
       let y = 0;
       let pageIndex = 0;
       while (y < canvas.height) {
-        const h = Math.min(sliceHeightPx, canvas.height - y);
+        let sliceEnd = Math.min(y + sliceHeightPx, canvas.height);
+        if (sliceEnd < canvas.height) {
+          for (const b of noBreakBoundaries) {
+            // The natural cut point falls strictly inside this element (and the
+            // element started on the current page) — back off to its top edge
+            // so the whole element moves to the next page instead of splitting.
+            if (b.top > y && b.top < sliceEnd && sliceEnd < b.bottom) {
+              sliceEnd = Math.min(sliceEnd, b.top);
+            }
+          }
+        }
+        const h = sliceEnd - y;
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = canvas.width;
         pageCanvas.height = h;

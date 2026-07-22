@@ -12,7 +12,8 @@ function computeEffectiveHeight(draft: BudgetDraft): number {
   if (disposition === "elevada") {
     const poolDepthMax = Number(draft.poolDepthMax || 0);
     const rebaixAmount = draft.hasRebaix ? Number(draft.rebaixAmount || 0) : 0;
-    return Math.max(0, poolDepthMax - rebaixAmount);
+    // Round to avoid floating-point artifacts (e.g. 1.4 - 0.10 = 1.2999999999999998).
+    return Math.round(Math.max(0, poolDepthMax - rebaixAmount) * 100) / 100;
   }
   return Number(draft.alturaVista || 0);
 }
