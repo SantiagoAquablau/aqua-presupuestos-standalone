@@ -81,22 +81,46 @@ export function StepJacuzzi() {
   // StepInstalacions.tsx (loadArticle per id, sincronitzat amb el draft).
   const [airPumpArticle, setAirPumpArticle] = useState<SelectedArticle | null>(null);
   const [waterPumpArticle, setWaterPumpArticle] = useState<SelectedArticle | null>(null);
+  // Equips addicionals del jacuzzi independent.
+  const [filtrationPumpArticle, setFiltrationPumpArticle] = useState<SelectedArticle | null>(null);
+  const [filterArticle, setFilterArticle] = useState<SelectedArticle | null>(null);
+  const [ledArticle, setLedArticle] = useState<SelectedArticle | null>(null);
+  const [heatPumpArticle, setHeatPumpArticle] = useState<SelectedArticle | null>(null);
+  const [salineElectrolysisArticle, setSalineElectrolysisArticle] = useState<SelectedArticle | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [ap, wp] = await Promise.all([
+      const [ap, wp, fp, fi, led, hp, se] = await Promise.all([
         loadArticle(draft.jacuzziAirPumpArticleId),
         loadArticle(draft.jacuzziWaterPumpArticleId),
+        loadArticle(draft.jacuzziFiltrationPumpArticleId),
+        loadArticle(draft.jacuzziFilterArticleId),
+        loadArticle(draft.jacuzziLedArticleId),
+        loadArticle(draft.jacuzziHeatPumpArticleId),
+        loadArticle(draft.jacuzziSalineElectrolysisArticleId),
       ]);
       if (cancelled) return;
       setAirPumpArticle(ap);
       setWaterPumpArticle(wp);
+      setFiltrationPumpArticle(fp);
+      setFilterArticle(fi);
+      setLedArticle(led);
+      setHeatPumpArticle(hp);
+      setSalineElectrolysisArticle(se);
     })();
     return () => {
       cancelled = true;
     };
-  }, [draft.jacuzziAirPumpArticleId, draft.jacuzziWaterPumpArticleId]);
+  }, [
+    draft.jacuzziAirPumpArticleId,
+    draft.jacuzziWaterPumpArticleId,
+    draft.jacuzziFiltrationPumpArticleId,
+    draft.jacuzziFilterArticleId,
+    draft.jacuzziLedArticleId,
+    draft.jacuzziHeatPumpArticleId,
+    draft.jacuzziSalineElectrolysisArticleId,
+  ]);
 
   // Nom del model de revestiment interior triat per a la piscina principal
   // (fase Acabats) — perquè el jacuzzi reutilitza sempre el mateix model.
@@ -145,6 +169,11 @@ export function StepJacuzzi() {
     if (draft.jacuzziStairsTread === undefined) patch.jacuzziStairsTread = 0.30;
     if (draft.jacuzziAirPumpQty === undefined) patch.jacuzziAirPumpQty = 1;
     if (draft.jacuzziWaterPumpQty === undefined) patch.jacuzziWaterPumpQty = 1;
+    if (draft.jacuzziFiltrationPumpQty === undefined) patch.jacuzziFiltrationPumpQty = 1;
+    if (draft.jacuzziFilterQty === undefined) patch.jacuzziFilterQty = 1;
+    if (draft.jacuzziLedCount === undefined) patch.jacuzziLedCount = 1;
+    if (draft.jacuzziHeatPumpQty === undefined) patch.jacuzziHeatPumpQty = 1;
+    if (draft.jacuzziSalineElectrolysisQty === undefined) patch.jacuzziSalineElectrolysisQty = 1;
     if (Object.keys(patch).length) updateDraft(patch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -323,7 +352,7 @@ export function StepJacuzzi() {
         </div>
       )}
 
-      <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+      <div className="bg-card rounded-xl border border-border shadow-card">
         <div className="px-5 py-4 border-b border-border flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><Wind className="w-4 h-4 text-primary" /></div>
           <h3 className="font-semibold text-foreground">Instal·lació jacuzzi</h3>
@@ -408,6 +437,84 @@ export function StepJacuzzi() {
               />
             </div>
           </div>
+
+          {/* Equips addicionals — només jacuzzi independent */}
+          {isIndependent && (
+            <div className="pt-4 border-t border-border">
+              <p className="text-sm font-semibold text-foreground mb-2">Equips addicionals del jacuzzi</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+                <EquipmentSelector
+                  label="Bomba de filtració"
+                  placeholder="Cercar bomba de filtració..."
+                  categoryFilter="Bomba"
+                  value={filtrationPumpArticle}
+                  onChange={(a) => {
+                    setFiltrationPumpArticle(a);
+                    updateDraft({ jacuzziFiltrationPumpArticleId: a?.id || undefined });
+                  }}
+                  noneLabel="No s'inclou"
+                  quantity={draft.jacuzziFiltrationPumpQty ?? 1}
+                  onQuantityChange={(q) => updateDraft({ jacuzziFiltrationPumpQty: q })}
+                />
+                <EquipmentSelector
+                  label="Filtre"
+                  placeholder="Cercar filtre..."
+                  categoryFilter="Filtració"
+                  subtipusFilter="Especial (diatomees/cartutx)"
+                  value={filterArticle}
+                  onChange={(a) => {
+                    setFilterArticle(a);
+                    updateDraft({ jacuzziFilterArticleId: a?.id || undefined });
+                  }}
+                  noneLabel="No s'inclou"
+                  quantity={draft.jacuzziFilterQty ?? 1}
+                  onQuantityChange={(q) => updateDraft({ jacuzziFilterQty: q })}
+                />
+                <EquipmentSelector
+                  label="Focus mini LED"
+                  placeholder="Cercar focus mini LED..."
+                  categoryFilter="Accessoris"
+                  subtipusFilter="Projectors Mini LED"
+                  value={ledArticle}
+                  onChange={(a) => {
+                    setLedArticle(a);
+                    updateDraft({ jacuzziLedArticleId: a?.id || undefined });
+                  }}
+                  noneLabel="No s'inclou"
+                  quantity={draft.jacuzziLedCount ?? 1}
+                  onQuantityChange={(q) => updateDraft({ jacuzziLedCount: q })}
+                />
+                <EquipmentSelector
+                  label="Bomba de calor"
+                  placeholder="Cercar bomba de calor..."
+                  categoryFilter="Varis"
+                  subtipusFilter="Bombes de calor"
+                  value={heatPumpArticle}
+                  onChange={(a) => {
+                    setHeatPumpArticle(a);
+                    updateDraft({ jacuzziHeatPumpArticleId: a?.id || undefined });
+                  }}
+                  noneLabel="No s'inclou"
+                  quantity={draft.jacuzziHeatPumpQty ?? 1}
+                  onQuantityChange={(q) => updateDraft({ jacuzziHeatPumpQty: q })}
+                />
+                <EquipmentSelector
+                  label="Equip d'electròlisi salina"
+                  placeholder="Cercar equip d'electròlisi salina..."
+                  categoryFilter="Dosificació"
+                  subtipusFilter="Hidròlisi / UV"
+                  value={salineElectrolysisArticle}
+                  onChange={(a) => {
+                    setSalineElectrolysisArticle(a);
+                    updateDraft({ jacuzziSalineElectrolysisArticleId: a?.id || undefined });
+                  }}
+                  noneLabel="No s'inclou"
+                  quantity={draft.jacuzziSalineElectrolysisQty ?? 1}
+                  onQuantityChange={(q) => updateDraft({ jacuzziSalineElectrolysisQty: q })}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

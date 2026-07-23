@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, X, Package, Minus, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export interface SelectedArticle {
   id: string;
@@ -45,34 +44,8 @@ export function EquipmentSelector({
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<SelectedArticle[]>([]);
   const [loading, setLoading] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
-
-  // Calculate dropdown position
-  useEffect(() => {
-    if (!open || !containerRef.current) {
-      setDropdownPos(null);
-      return;
-    }
-    const updatePos = () => {
-      const inputWrapper = containerRef.current?.querySelector('[data-input-wrapper]') as HTMLElement;
-      if (!inputWrapper) return;
-      const rect = inputWrapper.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    };
-    updatePos();
-    window.addEventListener('scroll', updatePos, true);
-    window.addEventListener('resize', updatePos);
-    return () => {
-      window.removeEventListener('scroll', updatePos, true);
-      window.removeEventListener('resize', updatePos);
-    };
-  }, [open]);
+  const anchorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -117,22 +90,6 @@ export function EquipmentSelector({
     const timer = setTimeout(fetchArticles, 200);
     return () => clearTimeout(timer);
   }, [open, search, categoryFilter, subtipusFilter, formatFilter, excludeReferencePrefix]);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (containerRef.current && !containerRef.current.contains(target)) {
-        // Also check if click is inside portal dropdown
-        const portal = document.getElementById('equipment-dropdown-portal');
-        if (portal && portal.contains(target)) return;
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
 
   const handleSelect = (article: SelectedArticle | null) => {
     onChange(article);
@@ -200,83 +157,90 @@ export function EquipmentSelector({
     );
   }
 
-  const dropdown = open && dropdownPos && createPortal(
-    <div
-      id="equipment-dropdown-portal"
-      style={{
-        position: 'fixed',
-        top: dropdownPos.top,
-        left: dropdownPos.left,
-        width: dropdownPos.width,
-        zIndex: 999,
-      }}
-      className="bg-popover border border-border rounded-lg shadow-lg max-h-[280px] overflow-y-auto"
-    >
-      {allowNone && (
-        <button
-          type="button"
-          onClick={() => handleSelect(null)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted transition-colors text-left border-b border-border"
-        >
-          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-            <X className="w-4 h-4 text-muted-foreground" />
-          </div>
-          <span className="text-sm text-muted-foreground italic">{noneLabel}</span>
-        </button>
-      )}
-      {loading && (
-        <div className="px-3 py-4 text-center text-xs text-muted-foreground">Cercant...</div>
-      )}
-      {!loading && results.length === 0 && (
-        <div className="px-3 py-4 text-center text-xs text-muted-foreground">No s'han trobat articles</div>
-      )}
-      {!loading && results.map((article) => (
-        <button
-          key={article.id}
-          type="button"
-          onClick={() => handleSelect(article)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted transition-colors text-left"
-        >
-          {article.image_url ? (
-            <img src={article.image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-          ) : (
-            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-              <Package className="w-4 h-4 text-muted-foreground" />
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="text-[13px] font-medium text-foreground truncate">{article.name}</p>
-            <p className="text-[11px] text-muted-foreground truncate">
-              {[article.supplierName, article.reference].filter(Boolean).join(' · ') || '—'}
-            </p>
-          </div>
-        </button>
-      ))}
-    </div>,
-    document.body
-  );
-
   return (
-    <div className="space-y-1.5" ref={containerRef}>
+    <div className="space-y-1.5">
       <label className="text-xs font-medium text-muted-foreground">{label}</label>
-      <div className="relative" data-input-wrapper>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder={placeholder}
-            value={search}
-            onFocus={() => setOpen(true)}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              if (!open) setOpen(true);
+      <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+        <PopoverPrimitive.Anchor asChild>
+          <div className="relative" ref={anchorRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={placeholder}
+              value={search}
+              onFocus={() => setOpen(true)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (!open) setOpen(true);
+              }}
+              className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground"
+            />
+          </div>
+        </PopoverPrimitive.Anchor>
+        <PopoverPrimitive.Portal>
+          <PopoverPrimitive.Content
+            side="bottom"
+            align="start"
+            sideOffset={4}
+            collisionPadding={8}
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onPointerDownOutside={(e) => {
+              if (anchorRef.current && e.target instanceof Node && anchorRef.current.contains(e.target)) {
+                e.preventDefault();
+              }
             }}
-            className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground"
-          />
-        </div>
-        {dropdown}
-      </div>
+            onFocusOutside={(e) => {
+              if (anchorRef.current && e.target instanceof Node && anchorRef.current.contains(e.target)) {
+                e.preventDefault();
+              }
+            }}
+            className="z-[999] bg-popover border border-border rounded-lg shadow-lg max-h-[280px] overflow-y-auto"
+            style={{ width: 'var(--radix-popper-anchor-width)' }}
+          >
+            {allowNone && (
+              <button
+                type="button"
+                onClick={() => handleSelect(null)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted transition-colors text-left border-b border-border"
+              >
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <span className="text-sm text-muted-foreground italic">{noneLabel}</span>
+              </button>
+            )}
+            {loading && (
+              <div className="px-3 py-4 text-center text-xs text-muted-foreground">Cercant...</div>
+            )}
+            {!loading && results.length === 0 && (
+              <div className="px-3 py-4 text-center text-xs text-muted-foreground">No s'han trobat articles</div>
+            )}
+            {!loading && results.map((article) => (
+              <button
+                key={article.id}
+                type="button"
+                onClick={() => handleSelect(article)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted transition-colors text-left"
+              >
+                {article.image_url ? (
+                  <img src={article.image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                    <Package className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-foreground truncate">{article.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {[article.supplierName, article.reference].filter(Boolean).join(' · ') || '—'}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Portal>
+      </PopoverPrimitive.Root>
     </div>
   );
 }

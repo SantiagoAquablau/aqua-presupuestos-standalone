@@ -120,6 +120,18 @@ export interface BudgetDraft {
   jacuzziWaterPumpArticleId?: string;
   // Instal·lació jacuzzi — polsadors piezoelèctrics.
   jacuzziPiezoButtonsCount?: number;
+  // Instal·lació jacuzzi independent — equips addicionals propis (no compartits
+  // amb la instal·lació de la piscina principal).
+  jacuzziFiltrationPumpArticleId?: string;
+  jacuzziFiltrationPumpQty?: number;
+  jacuzziFilterArticleId?: string;
+  jacuzziFilterQty?: number;
+  jacuzziLedArticleId?: string;
+  jacuzziLedCount?: number;
+  jacuzziHeatPumpArticleId?: string;
+  jacuzziHeatPumpQty?: number;
+  jacuzziSalineElectrolysisArticleId?: string;
+  jacuzziSalineElectrolysisQty?: number;
   constructionSystem?: ConstructionSystem;
   waterproofingSystem?: WaterproofingSystem;
   // Gunite-specific
