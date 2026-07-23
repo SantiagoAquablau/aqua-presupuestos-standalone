@@ -1,12 +1,57 @@
 import { useBudgetStore, type JacuzziType, type JacuzziPosition } from '@/stores/budgetStore';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ArrowRight, Layers, Waves } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { ArrowLeft, ArrowRight, Info, Layers, Minus, Plus, Waves, Wind } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { DecimalInput } from '@/components/wizard/DecimalInput';
+import { EquipmentSelector, type SelectedArticle } from '@/components/wizard/EquipmentSelector';
+
+async function loadArticle(id: string | undefined): Promise<SelectedArticle | null> {
+  if (!id) return null;
+  const { data } = await supabase
+    .from('articles')
+    .select('id, name, reference, image_url, suppliers:supplier_id(name)')
+    .eq('id', id)
+    .single();
+  if (!data) return null;
+  return {
+    id: data.id,
+    name: data.name,
+    reference: data.reference,
+    image_url: data.image_url,
+    supplierName: (data as any).suppliers?.name || null,
+  };
+}
 
 // Contrapetjada fixa dels escalons interiors del jacuzzi. No es mostra ni
 // s'edita — reservada per a càlculs interns (p.ex. revestiment interior).
 const RISER_HEIGHT = 0.20;
+
+// Stepper +/- de quantitat — mateix patró que StepAccessoris.tsx (handleRgbQtyChange).
+function QtyStepper({ value, onChange, min = 0, max = 99 }: {
+  value: number; onChange: (v: number) => void; min?: number; max?: number;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(min, Math.min(max, value - 1)))}
+        className="w-9 h-9 rounded border border-border flex items-center justify-center hover:bg-muted transition-colors flex-shrink-0"
+      >
+        <Minus className="w-3.5 h-3.5 text-muted-foreground" />
+      </button>
+      <span className="text-sm font-bold text-foreground w-6 text-center">{value}</span>
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(min, Math.min(max, value + 1)))}
+        className="w-9 h-9 rounded border border-border flex items-center justify-center hover:bg-muted transition-colors flex-shrink-0"
+      >
+        <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+      </button>
+    </div>
+  );
+}
 
 export function StepJacuzzi() {
   const { draft, updateDraft, currentStep, setStep } = useBudgetStore();
@@ -31,6 +76,43 @@ export function StepJacuzzi() {
   };
 
   const isIndependent = draft.jacuzziType === 'independent';
+
+  // Bombes de jets d'aire/aigua del jacuzzi — mateix patró de càrrega que
+  // StepInstalacions.tsx (loadArticle per id, sincronitzat amb el draft).
+  const [airPumpArticle, setAirPumpArticle] = useState<SelectedArticle | null>(null);
+  const [waterPumpArticle, setWaterPumpArticle] = useState<SelectedArticle | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [ap, wp] = await Promise.all([
+        loadArticle(draft.jacuzziAirPumpArticleId),
+        loadArticle(draft.jacuzziWaterPumpArticleId),
+      ]);
+      if (cancelled) return;
+      setAirPumpArticle(ap);
+      setWaterPumpArticle(wp);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.jacuzziAirPumpArticleId, draft.jacuzziWaterPumpArticleId]);
+
+  // Nom del model de revestiment interior triat per a la piscina principal
+  // (fase Acabats) — perquè el jacuzzi reutilitza sempre el mateix model.
+  const { data: mainRevestimentArticle } = useQuery({
+    queryKey: ['jacuzzi-main-revestiment-article', draft.revestimentModelId],
+    enabled: !!draft.revestimentModelId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('name')
+        .eq('id', draft.revestimentModelId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Superfície i volum — mateix patró que StepEstructura.tsx (piscina principal),
   // però amb una única profunditat (el jacuzzi no distingeix min/max).
@@ -61,6 +143,8 @@ export function StepJacuzzi() {
     if (draft.jacuzziBenchHeight === undefined) patch.jacuzziBenchHeight = 0.50;
     if (draft.jacuzziStairsCount === undefined) patch.jacuzziStairsCount = 2;
     if (draft.jacuzziStairsTread === undefined) patch.jacuzziStairsTread = 0.30;
+    if (draft.jacuzziAirPumpQty === undefined) patch.jacuzziAirPumpQty = 1;
+    if (draft.jacuzziWaterPumpQty === undefined) patch.jacuzziWaterPumpQty = 1;
     if (Object.keys(patch).length) updateDraft(patch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -225,9 +309,107 @@ export function StepJacuzzi() {
                 </div>
               </div>
             </div>
+
+            {/* Revestiment interior */}
+            <div className="flex items-center gap-2 text-xs text-primary bg-primary/5 p-2 rounded-lg">
+              <Info className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>
+                {mainRevestimentArticle?.name
+                  ? `El revestiment interior del jacuzzi utilitzarà el mateix model que la piscina: ${mainRevestimentArticle.name}.`
+                  : "El revestiment interior del jacuzzi utilitzarà el mateix model que s'esculli per a la piscina principal."}
+              </span>
+            </div>
           </div>
         </div>
       )}
+
+      <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><Wind className="w-4 h-4 text-primary" /></div>
+          <h3 className="font-semibold text-foreground">Instal·lació jacuzzi</h3>
+        </div>
+
+        <div className="p-4 space-y-6">
+          {/* Jets d'aire */}
+          <div>
+            <p className="text-sm font-semibold text-foreground mb-2">Jets d'aire</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <div>
+                <label className={labelClass}>Nombre de jets d'aire</label>
+                <QtyStepper
+                  value={draft.jacuzziAirJetsCount ?? 0}
+                  onChange={(v) => updateDraft({ jacuzziAirJetsCount: v })}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Preses d'aspiració de jets d'aire</label>
+                <QtyStepper
+                  value={draft.jacuzziAirJetsIntakeCount ?? 0}
+                  onChange={(v) => updateDraft({ jacuzziAirJetsIntakeCount: v })}
+                />
+              </div>
+              <EquipmentSelector
+                label="Bomba d'aire d'ús continu"
+                placeholder="Cercar bomba d'aire..."
+                categoryFilter="Bomba"
+                value={airPumpArticle}
+                onChange={(a) => {
+                  setAirPumpArticle(a);
+                  updateDraft({ jacuzziAirPumpArticleId: a?.id || undefined });
+                }}
+                noneLabel="No s'inclou"
+                quantity={draft.jacuzziAirPumpQty ?? 1}
+                onQuantityChange={(q) => updateDraft({ jacuzziAirPumpQty: q })}
+              />
+            </div>
+          </div>
+
+          {/* Jets d'aigua */}
+          <div className="pt-4 border-t border-border">
+            <p className="text-sm font-semibold text-foreground mb-2">Jets d'aigua</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <div>
+                <label className={labelClass}>Nombre de jets rotatoris 2½"</label>
+                <QtyStepper
+                  value={draft.jacuzziWaterJetsCount ?? 0}
+                  onChange={(v) => updateDraft({ jacuzziWaterJetsCount: v })}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Preses d'aspiració de jets d'aigua</label>
+                <QtyStepper
+                  value={draft.jacuzziWaterJetsIntakeCount ?? 0}
+                  onChange={(v) => updateDraft({ jacuzziWaterJetsIntakeCount: v })}
+                />
+              </div>
+              <EquipmentSelector
+                label="Bomba de jets"
+                placeholder="Cercar bomba d'aigua..."
+                categoryFilter="Bomba"
+                value={waterPumpArticle}
+                onChange={(a) => {
+                  setWaterPumpArticle(a);
+                  updateDraft({ jacuzziWaterPumpArticleId: a?.id || undefined });
+                }}
+                noneLabel="No s'inclou"
+                quantity={draft.jacuzziWaterPumpQty ?? 1}
+                onQuantityChange={(q) => updateDraft({ jacuzziWaterPumpQty: q })}
+              />
+            </div>
+          </div>
+
+          {/* Polsadors */}
+          <div className="pt-4 border-t border-border">
+            <div>
+              <label className={labelClass}>Polsadors piezoelèctrics "paro i marxa"</label>
+              <QtyStepper
+                value={draft.jacuzziPiezoButtonsCount ?? 0}
+                onChange={(v) => updateDraft({ jacuzziPiezoButtonsCount: v })}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="flex justify-between">
         <button type="button" onClick={() => setStep(currentStep - 1)} className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors min-h-[44px]">

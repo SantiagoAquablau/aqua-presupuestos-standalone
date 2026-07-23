@@ -108,6 +108,18 @@ export interface BudgetDraft {
   // Jacuzzi independent — escalons (fixos a 2: un sobre banc, un sota banc).
   jacuzziStairsCount?: number;
   jacuzziStairsTread?: number;
+  // Instal·lació jacuzzi — jets d'aire.
+  jacuzziAirJetsCount?: number;
+  jacuzziAirJetsIntakeCount?: number;
+  jacuzziAirPumpQty?: number;
+  jacuzziAirPumpArticleId?: string;
+  // Instal·lació jacuzzi — jets d'aigua.
+  jacuzziWaterJetsCount?: number;
+  jacuzziWaterJetsIntakeCount?: number;
+  jacuzziWaterPumpQty?: number;
+  jacuzziWaterPumpArticleId?: string;
+  // Instal·lació jacuzzi — polsadors piezoelèctrics.
+  jacuzziPiezoButtonsCount?: number;
   constructionSystem?: ConstructionSystem;
   waterproofingSystem?: WaterproofingSystem;
   // Gunite-specific
