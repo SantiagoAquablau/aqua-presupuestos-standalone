@@ -48,7 +48,7 @@ const serializeLocalPhases = (phases: Phase[]) => serializeBudgetPhases(
 export function StepPartides() {
   const { setStep, draft, updateDraft, getLastStep } = useBudgetStore();
   const nextStep = getLastStep();
-  const prevStep = draft.type === 'obra_nueva' ? 7 : draft.type === 'piscina_autoportant' ? 5 : 4;
+  const prevStep = draft.type === 'obra_nueva' ? (draft.hasJacuzzi ? 8 : 7) : draft.type === 'piscina_autoportant' ? 5 : 4;
   const isObraNova = draft.type === 'obra_nueva';
 
   const getDefaultPhases = (): Phase[] => {

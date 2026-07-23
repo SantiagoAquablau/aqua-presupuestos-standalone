@@ -8,6 +8,7 @@ import { StepAcabats } from '@/components/wizard/StepAcabats';
 import { StepInstalacions } from '@/components/wizard/StepInstalacions';
 import { StepAccessoris } from '@/components/wizard/StepAccessoris';
 import { StepAnnex } from '@/components/wizard/StepAnnex';
+import { StepJacuzzi } from '@/components/wizard/StepJacuzzi';
 import { StepPartides } from '@/components/wizard/StepPartides';
 import { StepRevisio } from '@/components/wizard/StepRevisio';
 import { StepEstatActual } from '@/components/wizard/StepEstatActual';
@@ -248,14 +249,16 @@ export default function NewBudget() {
     if (currentStep === 2) return <StepClient />;
 
     if (type === 'obra_nueva') {
+      const hasJacuzzi = !!draft.hasJacuzzi;
       switch (currentStep) {
         case 3: return <StepEstructura />;
         case 4: return <StepAcabats />;
         case 5: return <StepInstalacions />;
         case 6: return <StepAccessoris />;
-        case 7: return <StepAnnex />;
-        case 8: return <StepPartides />;
-        case 9: return <StepRevisio />;
+        case 7: return hasJacuzzi ? <StepJacuzzi /> : <StepAnnex />;
+        case 8: return hasJacuzzi ? <StepAnnex /> : <StepPartides />;
+        case 9: return hasJacuzzi ? <StepPartides /> : <StepRevisio />;
+        case 10: return <StepRevisio />;
       }
     } else if (type === 'rehabilitacion') {
       switch (currentStep) {

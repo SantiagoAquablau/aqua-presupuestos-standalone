@@ -1,6 +1,6 @@
 import { useBudgetStore, type InteriorStairsType, type ConstructionSystem, type WaterproofingSystem, type PoolDisposition } from '@/stores/budgetStore';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ArrowRight, ChevronDown, Info, Droplets, Layers, Shield } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, Info, Droplets, Layers, Shield, Waves } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +11,7 @@ import { DecimalInput } from '@/components/wizard/DecimalInput';
 export function StepEstructura() {
   const { draft, updateDraft, setStep } = useBudgetStore();
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    piscina: true, extStairs: false, intStairs: false, tecnica: false, impermeabilitzant: false,
+    piscina: true, extStairs: false, jacuzzi: false, intStairs: false, tecnica: false, impermeabilitzant: false,
   });
   const { validate, hasError, clearError, registerField, shakeKey } = useWizardValidation();
 
@@ -391,6 +391,25 @@ export function StepEstructura() {
                 <p className="text-xs text-muted-foreground">Superfície total (vas + escala exterior)</p>
                 <p className="text-lg font-bold text-primary">{totalSurface.toFixed(2)} m²</p>
               </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 3B-2 - Jacuzzi (fase condicional del wizard) */}
+      <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+        <SectionHeader id="jacuzzi" title="Jacuzzi" icon={Waves} />
+        {openSections.jacuzzi && (
+          <div className="p-4 pt-0 space-y-4 border-t border-border">
+            <div className="pt-4 flex items-center gap-3">
+              <label className="text-sm font-medium text-foreground">Vol jacuzzi?</label>
+              <button onClick={() => updateDraft({ hasJacuzzi: !draft.hasJacuzzi })}
+                className={cn('w-12 h-6 rounded-full transition-colors relative', draft.hasJacuzzi ? 'bg-primary' : 'bg-muted')}>
+                <div className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform', draft.hasJacuzzi ? 'translate-x-6' : 'translate-x-0.5')} />
+              </button>
+            </div>
+            {draft.hasJacuzzi && (
+              <p className="text-xs text-muted-foreground">El tipus i les mesures del jacuzzi es demanaran a la fase "Jacuzzi" del pas a pas.</p>
             )}
           </div>
         )}

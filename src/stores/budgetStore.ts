@@ -8,6 +8,8 @@ export type InteriorStairsType = 'estandard' | 'plataforma' | 'banc' | 'tot_ampl
 export type ConstructionSystem = 'gunite' | 'bloc_encofrat';
 export type WaterproofingSystem = 'impertot' | 'hidrofix' | 'lamina_proof';
 export type PoolDisposition = 'enterrada' | 'semi_enterrada' | 'elevada';
+export type JacuzziType = 'interior' | 'independent';
+export type JacuzziPosition = 'dins_estructura' | 'parcialment_fora';
 
 import type { MaintenanceVisitFreq } from '@/lib/maintenanceVisits';
 
@@ -90,6 +92,22 @@ export interface BudgetDraft {
   benchWidth?: number;
   benchLength?: number;
   benchHeight?: number;
+  // Jacuzzi opcional (Obra Nova). Fase condicional al wizard: només es mostra
+  // quan hasJacuzzi === true, entre Accessoris i Annex.
+  hasJacuzzi?: boolean;
+  jacuzziType?: JacuzziType;
+  jacuzziPosition?: JacuzziPosition;
+  jacuzziLength?: number;
+  jacuzziWidth?: number;
+  jacuzziDepth?: number;
+  // Jacuzzi independent — bancs interiors (per defecte 4, mesures suggerides
+  // a partir de les mesures del jacuzzi, però editables).
+  jacuzziBenchCount?: number;
+  jacuzziBenchDepth?: number;
+  jacuzziBenchHeight?: number;
+  // Jacuzzi independent — escalons (fixos a 2: un sobre banc, un sota banc).
+  jacuzziStairsCount?: number;
+  jacuzziStairsTread?: number;
   constructionSystem?: ConstructionSystem;
   waterproofingSystem?: WaterproofingSystem;
   // Gunite-specific
@@ -495,14 +513,22 @@ export const useBudgetStore = create<BudgetStore>((set, get) => ({
     }),
   loadDraft: (data) => set({ draft: data, currentStep: 2 }),
   getSteps: () => {
-    const type = get().draft.type;
+    const { type, hasJacuzzi } = get().draft;
     if (!type) return STEPS_BY_TYPE.obra_nueva;
-    return STEPS_BY_TYPE[type];
+    const steps = STEPS_BY_TYPE[type];
+    if (type === 'obra_nueva' && hasJacuzzi) {
+      // Inserta el pas condicional "Jacuzzi" (num 7) després d'Accessoris i
+      // renumera Annex/Partides/Revisió (8/9/10).
+      return [
+        ...steps.slice(0, 6),
+        { num: 7, label: 'Jacuzzi' },
+        ...steps.slice(6).map((s) => ({ ...s, num: s.num + 1 })),
+      ];
+    }
+    return steps;
   },
   getLastStep: () => {
-    const type = get().draft.type;
-    if (!type) return 9;
-    return STEPS_BY_TYPE[type].length;
+    return get().getSteps().length;
   },
   isLastStep: () => {
     return get().currentStep === get().getLastStep();
