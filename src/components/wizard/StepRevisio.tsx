@@ -116,6 +116,79 @@ export function StepRevisio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.poolDisposition]);
 
+  // Safety net: jacuzzi* fields only make sense when hasJacuzzi is enabled.
+  // Clears leftover data from a budget saved/loaded before this guard existed
+  // (or any path that flips hasJacuzzi off without going through
+  // StepEstructura::handleToggleJacuzzi), so stale measures/equips don't leak
+  // into calculations/PDF while the jacuzzi phase is hidden.
+  useEffect(() => {
+    if (
+      !draft.hasJacuzzi &&
+      (draft.jacuzziType !== undefined ||
+        draft.jacuzziPosition !== undefined ||
+        draft.jacuzziLength !== undefined ||
+        draft.jacuzziWidth !== undefined ||
+        draft.jacuzziDepth !== undefined ||
+        draft.jacuzziBenchCount !== undefined ||
+        draft.jacuzziBenchDepth !== undefined ||
+        draft.jacuzziBenchHeight !== undefined ||
+        draft.jacuzziStairsCount !== undefined ||
+        draft.jacuzziStairsTread !== undefined ||
+        draft.jacuzziAirJetsCount !== undefined ||
+        draft.jacuzziAirJetsIntakeCount !== undefined ||
+        draft.jacuzziAirPumpQty !== undefined ||
+        draft.jacuzziAirPumpArticleId !== undefined ||
+        draft.jacuzziWaterJetsCount !== undefined ||
+        draft.jacuzziWaterJetsIntakeCount !== undefined ||
+        draft.jacuzziWaterPumpQty !== undefined ||
+        draft.jacuzziWaterPumpArticleId !== undefined ||
+        draft.jacuzziPiezoButtonsCount !== undefined ||
+        draft.jacuzziFiltrationPumpArticleId !== undefined ||
+        draft.jacuzziFiltrationPumpQty !== undefined ||
+        draft.jacuzziFilterArticleId !== undefined ||
+        draft.jacuzziFilterQty !== undefined ||
+        draft.jacuzziLedArticleId !== undefined ||
+        draft.jacuzziLedCount !== undefined ||
+        draft.jacuzziHeatPumpArticleId !== undefined ||
+        draft.jacuzziHeatPumpQty !== undefined ||
+        draft.jacuzziSalineElectrolysisArticleId !== undefined ||
+        draft.jacuzziSalineElectrolysisQty !== undefined)
+    ) {
+      updateDraft({
+        jacuzziType: undefined,
+        jacuzziPosition: undefined,
+        jacuzziLength: undefined,
+        jacuzziWidth: undefined,
+        jacuzziDepth: undefined,
+        jacuzziBenchCount: undefined,
+        jacuzziBenchDepth: undefined,
+        jacuzziBenchHeight: undefined,
+        jacuzziStairsCount: undefined,
+        jacuzziStairsTread: undefined,
+        jacuzziAirJetsCount: undefined,
+        jacuzziAirJetsIntakeCount: undefined,
+        jacuzziAirPumpQty: undefined,
+        jacuzziAirPumpArticleId: undefined,
+        jacuzziWaterJetsCount: undefined,
+        jacuzziWaterJetsIntakeCount: undefined,
+        jacuzziWaterPumpQty: undefined,
+        jacuzziWaterPumpArticleId: undefined,
+        jacuzziPiezoButtonsCount: undefined,
+        jacuzziFiltrationPumpArticleId: undefined,
+        jacuzziFiltrationPumpQty: undefined,
+        jacuzziFilterArticleId: undefined,
+        jacuzziFilterQty: undefined,
+        jacuzziLedArticleId: undefined,
+        jacuzziLedCount: undefined,
+        jacuzziHeatPumpArticleId: undefined,
+        jacuzziHeatPumpQty: undefined,
+        jacuzziSalineElectrolysisArticleId: undefined,
+        jacuzziSalineElectrolysisQty: undefined,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.hasJacuzzi]);
+
   // Fetch articles so we can recompute fontaneria/electrica totals live,
   // mirroring exactly what StepInstalacions and Step 8 (Partides) show.
   const { data: articles = [] } = useQuery({

@@ -68,6 +68,48 @@ export function StepEstructura() {
     updateDraft(patch);
   };
 
+  // Turning the jacuzzi off must clear every jacuzzi* field — otherwise stale
+  // data (measures, jets, equips addicionals) reappears if the toggle is
+  // re-enabled later, or leaks into formula calculations/PDF while hidden.
+  const handleToggleJacuzzi = () => {
+    if (!draft.hasJacuzzi) {
+      updateDraft({ hasJacuzzi: true });
+      return;
+    }
+    updateDraft({
+      hasJacuzzi: false,
+      jacuzziType: undefined,
+      jacuzziPosition: undefined,
+      jacuzziLength: undefined,
+      jacuzziWidth: undefined,
+      jacuzziDepth: undefined,
+      jacuzziBenchCount: undefined,
+      jacuzziBenchDepth: undefined,
+      jacuzziBenchHeight: undefined,
+      jacuzziStairsCount: undefined,
+      jacuzziStairsTread: undefined,
+      jacuzziAirJetsCount: undefined,
+      jacuzziAirJetsIntakeCount: undefined,
+      jacuzziAirPumpQty: undefined,
+      jacuzziAirPumpArticleId: undefined,
+      jacuzziWaterJetsCount: undefined,
+      jacuzziWaterJetsIntakeCount: undefined,
+      jacuzziWaterPumpQty: undefined,
+      jacuzziWaterPumpArticleId: undefined,
+      jacuzziPiezoButtonsCount: undefined,
+      jacuzziFiltrationPumpArticleId: undefined,
+      jacuzziFiltrationPumpQty: undefined,
+      jacuzziFilterArticleId: undefined,
+      jacuzziFilterQty: undefined,
+      jacuzziLedArticleId: undefined,
+      jacuzziLedCount: undefined,
+      jacuzziHeatPumpArticleId: undefined,
+      jacuzziHeatPumpQty: undefined,
+      jacuzziSalineElectrolysisArticleId: undefined,
+      jacuzziSalineElectrolysisQty: undefined,
+    });
+  };
+
   const { data: stairImages = [] } = useQuery({
     queryKey: ['stair-images'],
     queryFn: async () => {
@@ -403,7 +445,7 @@ export function StepEstructura() {
           <div className="p-4 pt-0 space-y-4 border-t border-border">
             <div className="pt-4 flex items-center gap-3">
               <label className="text-sm font-medium text-foreground">Vol jacuzzi?</label>
-              <button onClick={() => updateDraft({ hasJacuzzi: !draft.hasJacuzzi })}
+              <button onClick={handleToggleJacuzzi}
                 className={cn('w-12 h-6 rounded-full transition-colors relative', draft.hasJacuzzi ? 'bg-primary' : 'bg-muted')}>
                 <div className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform', draft.hasJacuzzi ? 'translate-x-6' : 'translate-x-0.5')} />
               </button>
