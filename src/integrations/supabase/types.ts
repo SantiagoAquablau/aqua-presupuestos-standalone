@@ -23,6 +23,7 @@ export type Database = {
           category: string
           cost_price: number
           created_at: string
+          fase: string | null
           format: string | null
           id: string
           image_url: string | null
@@ -45,6 +46,7 @@ export type Database = {
           category?: string
           cost_price?: number
           created_at?: string
+          fase?: string | null
           format?: string | null
           id?: string
           image_url?: string | null
@@ -67,6 +69,7 @@ export type Database = {
           category?: string
           cost_price?: number
           created_at?: string
+          fase?: string | null
           format?: string | null
           id?: string
           image_url?: string | null

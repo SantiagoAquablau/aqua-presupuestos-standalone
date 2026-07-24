@@ -28,18 +28,19 @@ interface ArticleForm {
   beurada_color: string;
   beurada_color_normal: string;
   beurada_color_epoxi: string;
+  fase: string;
 }
 
 const subtipusOptions: Record<string, string[]> = {
   'Filtració': ['Polièster', 'Especial (diatomees/cartutx)', 'Canvi de medi filtrant', 'Components filtració'],
-  'Bomba': ['On/Off', 'Velocitat variable'],
+  'Bomba': ['On/Off', 'Velocitat variable', 'Soplants'],
   'Dosificació': ['Estàndard (pH/Cl)', 'Hidròlisi / UV', 'Mòdul connectivitat', 'Components dosificació'],
   'Elèctric': ['Quadre elèctric', 'Material elèctric', 'Altres'],
   'Accessoris': ['Impulsors', 'Skimmers', 'Embornal', 'Focus LED', 'Projectors Mini LED', 'Control RGB', 'Regulador de nivell', 'Presa netejafons', 'Escala inox', 'Dutxa exterior', 'Plat de dutxa', 'Cascada', 'Salvavides + Suport paret', 'Barana'],
   'Varis': ['Cobertors', 'Robots', 'Bombes de calor', "Projecte d'obra", 'Gespa', 'Paviment perimetral'],
 };
 
-const emptyForm: ArticleForm = { name: '', reference: '', supplier_id: '', category: 'Varis', cost_price: 0, sale_price: 0, sale_price_supply_only: 0, unit: 'ud', format: '', quality: '', acabat_type: '', image_url: '', subtipus: '', technical_specs: {}, beurada_color: '', beurada_color_normal: '', beurada_color_epoxi: '' };
+const emptyForm: ArticleForm = { name: '', reference: '', supplier_id: '', category: 'Varis', cost_price: 0, sale_price: 0, sale_price_supply_only: 0, unit: 'ud', format: '', quality: '', acabat_type: '', image_url: '', subtipus: '', technical_specs: {}, beurada_color: '', beurada_color_normal: '', beurada_color_epoxi: '', fase: '' };
 
 type TechSpecField = {
   key: string;
@@ -174,6 +175,7 @@ export default function Cataleg() {
         beurada_color: form.category === 'Coronament' ? (form.beurada_color || null) : null,
         beurada_color_normal: form.category === 'Porcelànic' ? (form.beurada_color_normal || null) : null,
         beurada_color_epoxi: form.category === 'Porcelànic' ? (form.beurada_color_epoxi || null) : null,
+        fase: form.category === 'Bomba' ? (form.fase || null) : null,
       };
       if (editId) {
         const { error } = await supabase.from('articles').update(payload as any).eq('id', editId);
@@ -227,6 +229,7 @@ export default function Cataleg() {
         beurada_color: a.beurada_color || '',
         beurada_color_normal: (a as any).beurada_color_normal || '',
         beurada_color_epoxi: (a as any).beurada_color_epoxi || '',
+        fase: (a as any).fase || '',
     });
     setEditId(a.id);
     setModalOpen(true);
@@ -453,6 +456,16 @@ export default function Cataleg() {
                 <select value={form.subtipus} onChange={(e) => setForm({ ...form, subtipus: e.target.value, technical_specs: {} })} className={inputClass}>
                   <option value="">-- Seleccionar --</option>
                   {subtipusOptions[form.category].map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
+            {form.category === 'Bomba' && (
+              <div>
+                <label className={labelClass}>Fase</label>
+                <select value={form.fase} onChange={(e) => setForm({ ...form, fase: e.target.value })} className={inputClass}>
+                  <option value="">-- Seleccionar --</option>
+                  <option value="Monofàsic">Monofàsic</option>
+                  <option value="Trifàsic">Trifàsic</option>
                 </select>
               </div>
             )}

@@ -15,9 +15,11 @@ interface EquipmentSelectorProps {
   label: string;
   placeholder?: string;
   categoryFilter: string | string[];
-  subtipusFilter?: string;
+  subtipusFilter?: string | string[];
   formatFilter?: string;
+  faseFilter?: string;
   excludeReferencePrefix?: string;
+  nameMatchPattern?: RegExp;
   value: SelectedArticle | null;
   onChange: (article: SelectedArticle | null) => void;
   allowNone?: boolean;
@@ -32,7 +34,9 @@ export function EquipmentSelector({
   categoryFilter,
   subtipusFilter,
   formatFilter,
+  faseFilter,
   excludeReferencePrefix,
+  nameMatchPattern,
   value,
   onChange,
   allowNone = true,
@@ -63,11 +67,19 @@ export function EquipmentSelector({
       }
 
       if (subtipusFilter) {
-        query = query.eq('subtipus', subtipusFilter);
+        if (Array.isArray(subtipusFilter)) {
+          query = query.in('subtipus', subtipusFilter);
+        } else {
+          query = query.eq('subtipus', subtipusFilter);
+        }
       }
 
       if (formatFilter) {
         query = query.eq('format', formatFilter);
+      }
+
+      if (faseFilter) {
+        query = query.eq('fase', faseFilter);
       }
 
       if (search.trim()) {
@@ -77,6 +89,7 @@ export function EquipmentSelector({
       const { data } = await query;
       const mapped = (data || [])
         .filter((a: any) => !excludeReferencePrefix || !(a.reference || '').startsWith(excludeReferencePrefix))
+        .filter((a: any) => !nameMatchPattern || nameMatchPattern.test(a.name || ''))
         .map((a: any) => ({
         id: a.id,
         name: a.name,
@@ -89,7 +102,7 @@ export function EquipmentSelector({
     };
     const timer = setTimeout(fetchArticles, 200);
     return () => clearTimeout(timer);
-  }, [open, search, categoryFilter, subtipusFilter, formatFilter, excludeReferencePrefix]);
+  }, [open, search, categoryFilter, subtipusFilter, formatFilter, faseFilter, excludeReferencePrefix, nameMatchPattern]);
 
   const handleSelect = (article: SelectedArticle | null) => {
     onChange(article);

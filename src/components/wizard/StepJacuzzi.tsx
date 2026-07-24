@@ -381,6 +381,7 @@ export function StepJacuzzi() {
                 label="Bomba d'aire d'ús continu"
                 placeholder="Cercar bomba d'aire..."
                 categoryFilter="Bomba"
+                subtipusFilter="Soplants"
                 value={airPumpArticle}
                 onChange={(a) => {
                   setAirPumpArticle(a);
@@ -415,6 +416,7 @@ export function StepJacuzzi() {
                 label="Bomba de jets"
                 placeholder="Cercar bomba d'aigua..."
                 categoryFilter="Bomba"
+                subtipusFilter={["On/Off", "Velocitat variable"]}
                 value={waterPumpArticle}
                 onChange={(a) => {
                   setWaterPumpArticle(a);
@@ -447,6 +449,7 @@ export function StepJacuzzi() {
                   label="Bomba de filtració"
                   placeholder="Cercar bomba de filtració..."
                   categoryFilter="Bomba"
+                  subtipusFilter={["On/Off", "Velocitat variable"]}
                   value={filtrationPumpArticle}
                   onChange={(a) => {
                     setFiltrationPumpArticle(a);
@@ -489,6 +492,7 @@ export function StepJacuzzi() {
                   placeholder="Cercar bomba de calor..."
                   categoryFilter="Varis"
                   subtipusFilter="Bombes de calor"
+                  nameMatchPattern={/(\d+[,.]?\d*)\s*KW/i}
                   value={heatPumpArticle}
                   onChange={(a) => {
                     setHeatPumpArticle(a);

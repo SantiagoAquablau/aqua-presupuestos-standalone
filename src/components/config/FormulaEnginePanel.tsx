@@ -47,9 +47,9 @@ const BUDGET_TYPES = [
 ];
 
 const SUB_PHASES: Record<string, string[]> = {
-  estructura: ['vas', 'escala', 'general'],
-  acabats: ['coronament', 'revestiment', 'general'],
-  instalacions: ['depuracio', 'bomba', 'dosificacio', 'fontaneria', 'electrica', 'caseta', 'general'],
+  estructura: ['vas', 'escala', 'jacuzzi', 'general'],
+  acabats: ['coronament', 'revestiment', 'revestiment_jacuzzi', 'general'],
+  instalacions: ['depuracio', 'bomba', 'dosificacio', 'fontaneria', 'electrica', 'caseta', 'jacuzzi', 'general'],
   accessoris: ['impulsors', 'skimmers', 'embornal', 'focus_led', 'mini_led', 'control_rgb', 'netejafons', 'escala', 'dutxa', 'cascada', 'salvavides', 'general'],
   annex: ['projecte', 'excavacio', 'paviment', 'gespa', 'caseta', 'cobertor', 'robot', 'bomba_calor', 'netejafons', 'general'],
 };
