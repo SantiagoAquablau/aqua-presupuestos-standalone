@@ -283,6 +283,34 @@ export function buildVariablesContext(budget: any, articles: any[] = []): Record
   const benchWidth = Number(budget.bench_width ?? budget.benchWidth ?? 0);
   const benchHeight = Number(budget.bench_height ?? budget.benchHeight ?? 0);
 
+  // Jacuzzi opcional (Obra Nova)
+  const hasJacuzzi = toBoolean(budget.has_jacuzzi ?? budget.hasJacuzzi ?? false);
+  const jacuzziType = budget.jacuzzi_type ?? budget.jacuzziType ?? '';
+  const jacuzziPosition = budget.jacuzzi_position ?? budget.jacuzziPosition ?? '';
+  const jacuzziLength = Number(budget.jacuzzi_length ?? budget.jacuzziLength ?? 0);
+  const jacuzziWidth = Number(budget.jacuzzi_width ?? budget.jacuzziWidth ?? 0);
+  const jacuzziDepth = Number(budget.jacuzzi_depth ?? budget.jacuzziDepth ?? 0);
+  // Superfície i volum — mateixa fórmula que StepJacuzzi.tsx (única profunditat,
+  // el jacuzzi no distingeix min/max).
+  const jacuzziSurface = (jacuzziLength && jacuzziWidth && jacuzziDepth)
+    ? (jacuzziLength * jacuzziWidth) + 2 * (jacuzziLength * jacuzziDepth) + 2 * (jacuzziWidth * jacuzziDepth)
+    : 0;
+  const jacuzziVolume = (jacuzziLength && jacuzziWidth && jacuzziDepth)
+    ? jacuzziLength * jacuzziWidth * jacuzziDepth * 1000
+    : 0;
+  const jacuzziBenchCount = Number(budget.jacuzzi_bench_count ?? budget.jacuzziBenchCount ?? 0);
+  const jacuzziBenchDepth = Number(budget.jacuzzi_bench_depth ?? budget.jacuzziBenchDepth ?? 0);
+  const jacuzziBenchHeight = Number(budget.jacuzzi_bench_height ?? budget.jacuzziBenchHeight ?? 0);
+  const jacuzziStairsCount = Number(budget.jacuzzi_stairs_count ?? budget.jacuzziStairsCount ?? 0);
+  const jacuzziStairsTread = Number(budget.jacuzzi_stairs_tread ?? budget.jacuzziStairsTread ?? 0);
+  const jacuzziAirJetsCount = Number(budget.jacuzzi_air_jets_count ?? budget.jacuzziAirJetsCount ?? 0);
+  const jacuzziAirJetsIntakeCount = Number(budget.jacuzzi_air_jets_intake_count ?? budget.jacuzziAirJetsIntakeCount ?? 0);
+  const jacuzziAirPumpQty = Number(budget.jacuzzi_air_pump_qty ?? budget.jacuzziAirPumpQty ?? 0);
+  const jacuzziWaterJetsCount = Number(budget.jacuzzi_water_jets_count ?? budget.jacuzziWaterJetsCount ?? 0);
+  const jacuzziWaterJetsIntakeCount = Number(budget.jacuzzi_water_jets_intake_count ?? budget.jacuzziWaterJetsIntakeCount ?? 0);
+  const jacuzziWaterPumpQty = Number(budget.jacuzzi_water_pump_qty ?? budget.jacuzziWaterPumpQty ?? 0);
+  const jacuzziPiezoButtonsCount = Number(budget.jacuzzi_piezo_buttons_count ?? budget.jacuzziPiezoButtonsCount ?? 0);
+
   // Coronament ML: same formula as StepAcabats
   // base = (((LARGO+W)*2)+2) + (((ANCHO+W)*2)+2)
   // W depends on coronament type (0.3, 0.4 or 0.5)
@@ -409,6 +437,27 @@ export function buildVariablesContext(budget: any, articles: any[] = []): Record
     bench_length: benchLength,
     bench_width: benchWidth,
     bench_height: benchHeight,
+    // Jacuzzi opcional (Obra Nova)
+    has_jacuzzi: hasJacuzzi,
+    jacuzzi_type: jacuzziType,
+    jacuzzi_position: jacuzziPosition,
+    jacuzzi_length: jacuzziLength,
+    jacuzzi_width: jacuzziWidth,
+    jacuzzi_depth: jacuzziDepth,
+    jacuzzi_surface: jacuzziSurface,
+    jacuzzi_volume: jacuzziVolume,
+    jacuzzi_bench_count: jacuzziBenchCount,
+    jacuzzi_bench_depth: jacuzziBenchDepth,
+    jacuzzi_bench_height: jacuzziBenchHeight,
+    jacuzzi_stairs_count: jacuzziStairsCount,
+    jacuzzi_stairs_tread: jacuzziStairsTread,
+    jacuzzi_air_jets_count: jacuzziAirJetsCount,
+    jacuzzi_air_jets_intake_count: jacuzziAirJetsIntakeCount,
+    jacuzzi_air_pump_qty: jacuzziAirPumpQty,
+    jacuzzi_water_jets_count: jacuzziWaterJetsCount,
+    jacuzzi_water_jets_intake_count: jacuzziWaterJetsIntakeCount,
+    jacuzzi_water_pump_qty: jacuzziWaterPumpQty,
+    jacuzzi_piezo_buttons_count: jacuzziPiezoButtonsCount,
     // Construction
     construction_system: constructionSystem,
     waterproofing_system: waterproofingSystem,
@@ -971,6 +1020,24 @@ export const DEFAULT_SIM_VALUES: Record<string, any> = {
   bench_length: 0,
   bench_width: 0,
   bench_height: 0,
+  has_jacuzzi: false,
+  jacuzzi_type: '',
+  jacuzzi_position: '',
+  jacuzzi_length: 0,
+  jacuzzi_width: 0,
+  jacuzzi_depth: 0,
+  jacuzzi_bench_count: 0,
+  jacuzzi_bench_depth: 0,
+  jacuzzi_bench_height: 0,
+  jacuzzi_stairs_count: 0,
+  jacuzzi_stairs_tread: 0,
+  jacuzzi_air_jets_count: 0,
+  jacuzzi_air_jets_intake_count: 0,
+  jacuzzi_air_pump_qty: 0,
+  jacuzzi_water_jets_count: 0,
+  jacuzzi_water_jets_intake_count: 0,
+  jacuzzi_water_pump_qty: 0,
+  jacuzzi_piezo_buttons_count: 0,
   construction_system: 'gunite',
   waterproofing_system: 'impertot',
   gunite_manguera_metres: 30,
