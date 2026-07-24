@@ -441,6 +441,7 @@ export type Database = {
           has_cover: boolean | null
           has_electrolisi: boolean | null
           has_exterior_stairs: boolean | null
+          has_jacuzzi: boolean | null
           has_rebaix: boolean
           has_robot: boolean | null
           id: string
@@ -516,6 +517,35 @@ export type Database = {
           instal_wifi_enabled: boolean | null
           interior_stairs_type: string | null
           internal_notes: string | null
+          jacuzzi_air_jets_count: number | null
+          jacuzzi_air_jets_intake_count: number | null
+          jacuzzi_air_pump_article_id: string | null
+          jacuzzi_air_pump_qty: number | null
+          jacuzzi_bench_count: number | null
+          jacuzzi_bench_depth: number | null
+          jacuzzi_bench_height: number | null
+          jacuzzi_depth: number | null
+          jacuzzi_filter_article_id: string | null
+          jacuzzi_filter_qty: number | null
+          jacuzzi_filtration_pump_article_id: string | null
+          jacuzzi_filtration_pump_qty: number | null
+          jacuzzi_heat_pump_article_id: string | null
+          jacuzzi_heat_pump_qty: number | null
+          jacuzzi_led_article_id: string | null
+          jacuzzi_led_count: number | null
+          jacuzzi_length: number | null
+          jacuzzi_piezo_buttons_count: number | null
+          jacuzzi_position: string | null
+          jacuzzi_saline_electrolysis_article_id: string | null
+          jacuzzi_saline_electrolysis_qty: number | null
+          jacuzzi_stairs_count: number | null
+          jacuzzi_stairs_tread: number | null
+          jacuzzi_type: string | null
+          jacuzzi_water_jets_count: number | null
+          jacuzzi_water_jets_intake_count: number | null
+          jacuzzi_water_pump_article_id: string | null
+          jacuzzi_water_pump_qty: number | null
+          jacuzzi_width: number | null
           kit_manguera_size: string | null
           kit_pertiga_size: string | null
           maintenance_periodicity: string | null
@@ -751,6 +781,7 @@ export type Database = {
           has_cover?: boolean | null
           has_electrolisi?: boolean | null
           has_exterior_stairs?: boolean | null
+          has_jacuzzi?: boolean | null
           has_rebaix?: boolean
           has_robot?: boolean | null
           id?: string
@@ -826,6 +857,35 @@ export type Database = {
           instal_wifi_enabled?: boolean | null
           interior_stairs_type?: string | null
           internal_notes?: string | null
+          jacuzzi_air_jets_count?: number | null
+          jacuzzi_air_jets_intake_count?: number | null
+          jacuzzi_air_pump_article_id?: string | null
+          jacuzzi_air_pump_qty?: number | null
+          jacuzzi_bench_count?: number | null
+          jacuzzi_bench_depth?: number | null
+          jacuzzi_bench_height?: number | null
+          jacuzzi_depth?: number | null
+          jacuzzi_filter_article_id?: string | null
+          jacuzzi_filter_qty?: number | null
+          jacuzzi_filtration_pump_article_id?: string | null
+          jacuzzi_filtration_pump_qty?: number | null
+          jacuzzi_heat_pump_article_id?: string | null
+          jacuzzi_heat_pump_qty?: number | null
+          jacuzzi_led_article_id?: string | null
+          jacuzzi_led_count?: number | null
+          jacuzzi_length?: number | null
+          jacuzzi_piezo_buttons_count?: number | null
+          jacuzzi_position?: string | null
+          jacuzzi_saline_electrolysis_article_id?: string | null
+          jacuzzi_saline_electrolysis_qty?: number | null
+          jacuzzi_stairs_count?: number | null
+          jacuzzi_stairs_tread?: number | null
+          jacuzzi_type?: string | null
+          jacuzzi_water_jets_count?: number | null
+          jacuzzi_water_jets_intake_count?: number | null
+          jacuzzi_water_pump_article_id?: string | null
+          jacuzzi_water_pump_qty?: number | null
+          jacuzzi_width?: number | null
           kit_manguera_size?: string | null
           kit_pertiga_size?: string | null
           maintenance_periodicity?: string | null
@@ -1061,6 +1121,7 @@ export type Database = {
           has_cover?: boolean | null
           has_electrolisi?: boolean | null
           has_exterior_stairs?: boolean | null
+          has_jacuzzi?: boolean | null
           has_rebaix?: boolean
           has_robot?: boolean | null
           id?: string
@@ -1136,6 +1197,35 @@ export type Database = {
           instal_wifi_enabled?: boolean | null
           interior_stairs_type?: string | null
           internal_notes?: string | null
+          jacuzzi_air_jets_count?: number | null
+          jacuzzi_air_jets_intake_count?: number | null
+          jacuzzi_air_pump_article_id?: string | null
+          jacuzzi_air_pump_qty?: number | null
+          jacuzzi_bench_count?: number | null
+          jacuzzi_bench_depth?: number | null
+          jacuzzi_bench_height?: number | null
+          jacuzzi_depth?: number | null
+          jacuzzi_filter_article_id?: string | null
+          jacuzzi_filter_qty?: number | null
+          jacuzzi_filtration_pump_article_id?: string | null
+          jacuzzi_filtration_pump_qty?: number | null
+          jacuzzi_heat_pump_article_id?: string | null
+          jacuzzi_heat_pump_qty?: number | null
+          jacuzzi_led_article_id?: string | null
+          jacuzzi_led_count?: number | null
+          jacuzzi_length?: number | null
+          jacuzzi_piezo_buttons_count?: number | null
+          jacuzzi_position?: string | null
+          jacuzzi_saline_electrolysis_article_id?: string | null
+          jacuzzi_saline_electrolysis_qty?: number | null
+          jacuzzi_stairs_count?: number | null
+          jacuzzi_stairs_tread?: number | null
+          jacuzzi_type?: string | null
+          jacuzzi_water_jets_count?: number | null
+          jacuzzi_water_jets_intake_count?: number | null
+          jacuzzi_water_pump_article_id?: string | null
+          jacuzzi_water_pump_qty?: number | null
+          jacuzzi_width?: number | null
           kit_manguera_size?: string | null
           kit_pertiga_size?: string | null
           maintenance_periodicity?: string | null
@@ -1216,6 +1306,55 @@ export type Database = {
           {
             foreignKeyName: "budgets_instal_prefiltre_article_id_fkey"
             columns: ["instal_prefiltre_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_jacuzzi_air_pump_article_id_fkey"
+            columns: ["jacuzzi_air_pump_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_jacuzzi_water_pump_article_id_fkey"
+            columns: ["jacuzzi_water_pump_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_jacuzzi_filtration_pump_article_id_fkey"
+            columns: ["jacuzzi_filtration_pump_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_jacuzzi_filter_article_id_fkey"
+            columns: ["jacuzzi_filter_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_jacuzzi_led_article_id_fkey"
+            columns: ["jacuzzi_led_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_jacuzzi_heat_pump_article_id_fkey"
+            columns: ["jacuzzi_heat_pump_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_jacuzzi_saline_electrolysis_article_id_fkey"
+            columns: ["jacuzzi_saline_electrolysis_article_id"]
             isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
