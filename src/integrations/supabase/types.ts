@@ -443,10 +443,12 @@ export type Database = {
           has_access_stair: boolean
           has_cover: boolean | null
           has_electrolisi: boolean | null
+          has_electrolisi_2: boolean | null
           has_exterior_stairs: boolean | null
           has_jacuzzi: boolean | null
           has_rebaix: boolean
           has_robot: boolean | null
+          has_second_pool: boolean | null
           id: string
           instal_afm_article_id: string | null
           instal_afm_enabled: boolean | null
@@ -572,15 +574,18 @@ export type Database = {
           platform_length: number | null
           platform_width: number | null
           pool_depth_avg: number | null
+          pool_depth_avg_2: number | null
           pool_depth_max: number | null
           pool_depth_min: number | null
           pool_disposition: string
           pool_length: number | null
+          pool_length_2: number | null
           pool_shape: string | null
           pool_surface_m2: number | null
           pool_type: string | null
           pool_volume_liters: number | null
           pool_width: number | null
+          pool_width_2: number | null
           rebaix_amount: number
           rehab_notes: Json | null
           rehab_works: Json | null
@@ -783,10 +788,12 @@ export type Database = {
           has_access_stair?: boolean
           has_cover?: boolean | null
           has_electrolisi?: boolean | null
+          has_electrolisi_2?: boolean | null
           has_exterior_stairs?: boolean | null
           has_jacuzzi?: boolean | null
           has_rebaix?: boolean
           has_robot?: boolean | null
+          has_second_pool?: boolean | null
           id?: string
           instal_afm_article_id?: string | null
           instal_afm_enabled?: boolean | null
@@ -912,15 +919,18 @@ export type Database = {
           platform_length?: number | null
           platform_width?: number | null
           pool_depth_avg?: number | null
+          pool_depth_avg_2?: number | null
           pool_depth_max?: number | null
           pool_depth_min?: number | null
           pool_disposition?: string
           pool_length?: number | null
+          pool_length_2?: number | null
           pool_shape?: string | null
           pool_surface_m2?: number | null
           pool_type?: string | null
           pool_volume_liters?: number | null
           pool_width?: number | null
+          pool_width_2?: number | null
           rebaix_amount?: number
           rehab_notes?: Json | null
           rehab_works?: Json | null
@@ -1123,10 +1133,12 @@ export type Database = {
           has_access_stair?: boolean
           has_cover?: boolean | null
           has_electrolisi?: boolean | null
+          has_electrolisi_2?: boolean | null
           has_exterior_stairs?: boolean | null
           has_jacuzzi?: boolean | null
           has_rebaix?: boolean
           has_robot?: boolean | null
+          has_second_pool?: boolean | null
           id?: string
           instal_afm_article_id?: string | null
           instal_afm_enabled?: boolean | null
@@ -1252,15 +1264,18 @@ export type Database = {
           platform_length?: number | null
           platform_width?: number | null
           pool_depth_avg?: number | null
+          pool_depth_avg_2?: number | null
           pool_depth_max?: number | null
           pool_depth_min?: number | null
           pool_disposition?: string
           pool_length?: number | null
+          pool_length_2?: number | null
           pool_shape?: string | null
           pool_surface_m2?: number | null
           pool_type?: string | null
           pool_volume_liters?: number | null
           pool_width?: number | null
+          pool_width_2?: number | null
           rebaix_amount?: number
           rehab_notes?: Json | null
           rehab_works?: Json | null

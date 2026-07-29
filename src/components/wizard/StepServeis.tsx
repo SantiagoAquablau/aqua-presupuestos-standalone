@@ -90,6 +90,20 @@ export function StepServeis() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.poolType]);
 
+  // A second pool sharing the same visit needs more time on-site. Bump the
+  // default 1h → 1.5h once, but only if the user hasn't already touched the
+  // duration by hand — same "apply once, marker-guarded" pattern as the
+  // pool-type visit defaults above.
+  useEffect(() => {
+    if (!draft.hasSecondPool || plan.secondPoolDurationApplied) return;
+    if ((plan.visitDurationHours ?? DEFAULT_PLAN.visitDurationHours) === DEFAULT_PLAN.visitDurationHours) {
+      update({ visitDurationHours: 1.5, secondPoolDurationApplied: true });
+    } else {
+      update({ secondPoolDurationApplied: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.hasSecondPool]);
+
   const setMaterialQty = (key: MaterialKey, value: number | undefined) => {
     const next = { ...(plan.materialQty || {}) };
     if (value === undefined) delete next[key];

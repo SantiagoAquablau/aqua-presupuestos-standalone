@@ -319,6 +319,12 @@ export interface PdfData {
   isMaintenance?: boolean;
   poolDepthAvg?: number;
   hasElectrolisi?: boolean;
+  /** Second pool sharing the same maintenance contract/visit. */
+  hasSecondPool?: boolean;
+  poolLength2?: number;
+  poolWidth2?: number;
+  poolDepthAvg2?: number;
+  hasElectrolisi2?: boolean;
   maintenanceVisitsPerMonth?: number[];
   /** Pre-built human-readable visit period lines (e.g. "Del 01 de maig…"). */
   maintenanceVisitText?: string[];

@@ -27,6 +27,28 @@ export function StepDadesPiscina() {
   const volume = length && width && depth ? length * width * depth : 0;
   const kit = useMaintenanceKit(draft);
 
+  const length2 = draft.poolLength2 || 0;
+  const width2 = draft.poolWidth2 || 0;
+  const depth2 = draft.poolDepthAvg2 || 0;
+  const volume2 = length2 && width2 && depth2 ? length2 * width2 * depth2 : 0;
+
+  // Desactivar la segona piscina neteja explícitament les seves 4 mides —
+  // altrament dades obsoletes reapareixerien en reactivar el toggle, o es
+  // filtrarien al càlcul de producte químic mentre el bloc està amagat.
+  const handleToggleSecondPool = () => {
+    if (!draft.hasSecondPool) {
+      updateDraft({ hasSecondPool: true });
+      return;
+    }
+    updateDraft({
+      hasSecondPool: false,
+      poolLength2: undefined,
+      poolWidth2: undefined,
+      poolDepthAvg2: undefined,
+      hasElectrolisi2: undefined,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -81,6 +103,56 @@ export function StepDadesPiscina() {
             ))}
           </div>
         </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-border">
+          <div>
+            <label className="text-sm font-medium text-foreground">Segona piscina</label>
+            <p className="text-xs text-muted-foreground mt-0.5">El mateix contracte de manteniment inclou una segona piscina (mateixa visita).</p>
+          </div>
+          <button onClick={handleToggleSecondPool}
+            className={cn('w-12 h-6 rounded-full transition-colors relative flex-shrink-0', draft.hasSecondPool ? 'bg-primary' : 'bg-muted')}>
+            <div className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform', draft.hasSecondPool ? 'translate-x-6' : 'translate-x-0.5')} />
+          </button>
+        </div>
+
+        {draft.hasSecondPool && (
+          <div className="pt-2 space-y-5">
+            <div>
+              <label className={labelClass}>Mides de la segona piscina</label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Llarg (m)</label>
+                  <input type="number" step="0.01" className={inputClass} value={draft.poolLength2 || ''} onChange={e => updateDraft({ poolLength2: (e.target.value === "" ? undefined : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : undefined)) })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Ample (m)</label>
+                  <input type="number" step="0.01" className={inputClass} value={draft.poolWidth2 || ''} onChange={e => updateDraft({ poolWidth2: (e.target.value === "" ? undefined : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : undefined)) })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Profunditat mitjana (m)</label>
+                  <input type="number" step="0.01" className={inputClass} value={draft.poolDepthAvg2 || ''} onChange={e => updateDraft({ poolDepthAvg2: (e.target.value === "" ? undefined : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : undefined)) })} />
+                </div>
+              </div>
+              {volume2 > 0 && (
+                <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-sm text-primary font-medium">
+                  Volum estimat: <strong>{Math.ceil(volume2)} m³</strong>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className={labelClass}>Té electròlisi? (segona piscina)</label>
+              <div className="flex gap-3">
+                {[true, false].map(v => (
+                  <button key={String(v)} onClick={() => updateDraft({ hasElectrolisi2: v })}
+                    className={cn('flex-1 py-2.5 rounded-lg border-2 text-sm font-medium transition-all min-h-[44px]',
+                      draft.hasElectrolisi2 === v ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'
+                    )}>{v ? 'Sí' : 'No'}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-card rounded-xl border border-border p-5 shadow-card space-y-5">

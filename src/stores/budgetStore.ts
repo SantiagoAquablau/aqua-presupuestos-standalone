@@ -40,6 +40,10 @@ export interface MaintenancePlan {
   /** Pool type for which the default visit frequency was last applied.
    *  Used to re-apply defaults when the user switches particular ↔ comunitària. */
   defaultsAppliedForPoolType?: string;
+  /** Marks that the one-off 1 → 1.5h visitDurationHours bump for a second
+   *  pool has already run, so it doesn't re-apply after the user edits the
+   *  duration by hand. */
+  secondPoolDurationApplied?: boolean;
 }
 
 export interface BudgetDraft {
@@ -202,6 +206,12 @@ export interface BudgetDraft {
   hasElectrolisi?: boolean;
   kitMangueraSize?: '8' | '10' | '12';
   kitPertigaSize?: 'petita' | 'mitjana' | 'gran';
+  // Manteniment — Segona piscina (mateix contracte, mateixa visita)
+  hasSecondPool?: boolean;
+  poolLength2?: number;
+  poolWidth2?: number;
+  poolDepthAvg2?: number;
+  hasElectrolisi2?: boolean;
   photoUrl?: string;
   // Instal·lacions
   instalFiltrePoliesId?: string;

@@ -60,13 +60,7 @@ function piecewise(m3: number, breakpoints: Array<[number, number]>, fallback: n
   return fallback;
 }
 
-function autoQtyFor(key: MaterialKey, draft: BudgetDraft): number {
-  const L = Number(draft.poolLength) || 0;
-  const W = Number(draft.poolWidth) || 0;
-  const D = Number(draft.poolDepthAvg) || 0;
-  const m3 = Math.ceil(L * W * D);
-  const electro = !!draft.hasElectrolisi;
-
+function autoQtyForPool(key: MaterialKey, m3: number, electro: boolean): number {
   switch (key) {
     case "cloro25":
       return electro ? 0 : 1;
@@ -141,14 +135,29 @@ function autoQtyFor(key: MaterialKey, draft: BudgetDraft): number {
   }
 }
 
-function autoVariosTotal(draft: BudgetDraft): number {
+/** Sums the auto quantity across the main pool and, when enabled, the
+ *  second pool sharing this same maintenance contract/visit. */
+function autoQtyFor(key: MaterialKey, draft: BudgetDraft): number {
   const L = Number(draft.poolLength) || 0;
   const W = Number(draft.poolWidth) || 0;
   const D = Number(draft.poolDepthAvg) || 0;
   const m3 = Math.ceil(L * W * D);
   const electro = !!draft.hasElectrolisi;
-  const isComunitaria = draft.poolType === "comunitaria";
+  let total = autoQtyForPool(key, m3, electro);
 
+  if (draft.hasSecondPool) {
+    const L2 = Number(draft.poolLength2) || 0;
+    const W2 = Number(draft.poolWidth2) || 0;
+    const D2 = Number(draft.poolDepthAvg2) || 0;
+    const m3b = Math.ceil(L2 * W2 * D2);
+    const electro2 = !!draft.hasElectrolisi2;
+    total += autoQtyForPool(key, m3b, electro2);
+  }
+
+  return total;
+}
+
+function autoVariosTotalForPool(m3: number, electro: boolean, isComunitaria: boolean): number {
   if (isComunitaria) {
     return electro
       ? piecewise(
@@ -200,10 +209,39 @@ function autoVariosTotal(draft: BudgetDraft): number {
       );
 }
 
+/** Sums the "varios" auto total across the main pool and, when enabled,
+ *  the second pool. Both pools share the same `poolType`. */
+function autoVariosTotal(draft: BudgetDraft): number {
+  const L = Number(draft.poolLength) || 0;
+  const W = Number(draft.poolWidth) || 0;
+  const D = Number(draft.poolDepthAvg) || 0;
+  const m3 = Math.ceil(L * W * D);
+  const electro = !!draft.hasElectrolisi;
+  const isComunitaria = draft.poolType === "comunitaria";
+  let total = autoVariosTotalForPool(m3, electro, isComunitaria);
+
+  if (draft.hasSecondPool) {
+    const L2 = Number(draft.poolLength2) || 0;
+    const W2 = Number(draft.poolWidth2) || 0;
+    const D2 = Number(draft.poolDepthAvg2) || 0;
+    const m3b = Math.ceil(L2 * W2 * D2);
+    const electro2 = !!draft.hasElectrolisi2;
+    total += autoVariosTotalForPool(m3b, electro2, isComunitaria);
+  }
+
+  return total;
+}
+
+// cloro25/sal25 are mutually exclusive on electròlisi: with two pools they
+// can disagree (e.g. main pool without electròlisi, second pool with it),
+// so both rows must stay visible whenever *either* pool needs them —
+// otherwise a quantity computed above would be silently dropped from the
+// subtotal (subtotal only sums rows with visible === true).
 function isVisible(key: MaterialKey, draft: BudgetDraft): boolean {
   const electro = !!draft.hasElectrolisi;
-  if (key === "cloro25") return !electro;
-  if (key === "sal25") return electro;
+  const electro2 = draft.hasSecondPool ? !!draft.hasElectrolisi2 : electro;
+  if (key === "cloro25") return !electro || !electro2;
+  if (key === "sal25") return electro || electro2;
   return true;
 }
 

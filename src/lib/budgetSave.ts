@@ -52,6 +52,12 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
         ? (draft.poolDepthMin + draft.poolDepthMax) / 2
         : 0,
     has_electrolisi: draft.hasElectrolisi ?? null,
+    // Manteniment — segona piscina (mateix contracte, mateixa visita)
+    has_second_pool: draft.hasSecondPool ?? false,
+    pool_length_2: draft.poolLength2 ?? null,
+    pool_width_2: draft.poolWidth2 ?? null,
+    pool_depth_avg_2: draft.poolDepthAvg2 ?? null,
+    has_electrolisi_2: draft.hasElectrolisi2 ?? null,
     kit_manguera_size: draft.kitMangueraSize || null,
     kit_pertiga_size: draft.kitPertigaSize || null,
     pool_volume_liters:
@@ -2332,6 +2338,11 @@ async function buildMaintenancePdf(draft: BudgetDraft): Promise<{ blob: Blob; fi
     poolType: draft.poolType,
     poolShape: draft.poolShape,
     hasElectrolisi: !!draft.hasElectrolisi,
+    hasSecondPool: !!draft.hasSecondPool,
+    poolLength2: draft.poolLength2,
+    poolWidth2: draft.poolWidth2,
+    poolDepthAvg2: draft.poolDepthAvg2,
+    hasElectrolisi2: !!draft.hasElectrolisi2,
     isMaintenance: true,
     maintenanceVisitsPerMonth: visits,
     maintenanceVisitText: buildVisitPeriodsText(visits, plan?.visitFrequency),

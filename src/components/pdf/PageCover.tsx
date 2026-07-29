@@ -230,6 +230,32 @@ export function PageCover({ data }: { data: PdfData }) {
               {data.poolDepthAvg.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m
             </div>
           ) : null}
+          {isM && data.hasSecondPool && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontWeight: 600 }}>Segona piscina:</div>
+              {typeof data.poolLength2 === "number" && typeof data.poolWidth2 === "number" && (
+                <div>
+                  Mides: {data.poolLength2.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m x{" "}
+                  {data.poolWidth2.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m
+                  {data.poolLength2 && data.poolWidth2 && typeof data.poolDepthAvg2 === "number" && data.poolDepthAvg2 > 0 ? (
+                    <>
+                      {" "}
+                      | {Math.ceil(data.poolLength2 * data.poolWidth2 * data.poolDepthAvg2).toLocaleString("ca-ES")}m
+                      <sup style={{ fontSize: "0.65em" }}>3</sup>
+                    </>
+                  ) : (
+                    ""
+                  )}
+                </div>
+              )}
+              {typeof data.poolDepthAvg2 === "number" && data.poolDepthAvg2 > 0 ? (
+                <div>
+                  Profunditat mitjana{" "}
+                  {data.poolDepthAvg2.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m
+                </div>
+              ) : null}
+            </div>
+          )}
           {!isM && !isA && typeof data.poolDepthMin === "number" && typeof data.poolDepthMax === "number" && (
             <div>
               Profunditat total {data.poolDepthMin.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m{" - "}
