@@ -93,13 +93,19 @@ export function StepServeis() {
   // A second pool sharing the same visit needs more time on-site. Bump the
   // default 1h → 1.5h once, but only if the user hasn't already touched the
   // duration by hand — same "apply once, marker-guarded" pattern as the
-  // pool-type visit defaults above.
+  // pool-type visit defaults above. Symmetrically, turning the toggle back
+  // off reverts to 1h only if that 1.5h came from this auto-bump (marker
+  // still true); a manual edit clears the marker and is left untouched.
   useEffect(() => {
-    if (!draft.hasSecondPool || plan.secondPoolDurationApplied) return;
-    if ((plan.visitDurationHours ?? DEFAULT_PLAN.visitDurationHours) === DEFAULT_PLAN.visitDurationHours) {
-      update({ visitDurationHours: 1.5, secondPoolDurationApplied: true });
-    } else {
-      update({ secondPoolDurationApplied: true });
+    if (draft.hasSecondPool) {
+      if (plan.secondPoolDurationApplied) return;
+      if ((plan.visitDurationHours ?? DEFAULT_PLAN.visitDurationHours) === DEFAULT_PLAN.visitDurationHours) {
+        update({ visitDurationHours: 1.5, secondPoolDurationApplied: true });
+      } else {
+        update({ secondPoolDurationApplied: true });
+      }
+    } else if (plan.secondPoolDurationApplied) {
+      update({ visitDurationHours: 1, secondPoolDurationApplied: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.hasSecondPool]);
@@ -199,7 +205,7 @@ export function StepServeis() {
             <label className={labelClass}>Durada de cada visita (h)</label>
             <NumberInput
               value={plan.visitDurationHours}
-              onChange={(v) => update({ visitDurationHours: v ?? 0 })}
+              onChange={(v) => update({ visitDurationHours: v ?? 0, secondPoolDurationApplied: false })}
             />
           </div>
           <div>
