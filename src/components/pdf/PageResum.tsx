@@ -111,35 +111,52 @@ export function PageResum({ data }: { data: PdfData }) {
         {/* Top row: phase totals + TOTAL PISCINA badge */}
         <div style={{ display: "flex", alignItems: "center", marginBottom: "6mm" }}>
           <div style={{ flex: "0 0 95mm" }}>
+            {/* The dotted divider lives on this outer wrapper (plain block box,
+                sized by its single child) instead of on the flex row itself —
+                html2canvas' text painting for this webfont doesn't line up
+                perfectly with an explicit line-height on a baseline-aligned
+                flex row, which pushed the divider through the glyphs when it
+                was attached directly to that row. Keeping the border on a
+                separate box means its position only depends on the row's
+                rendered height, with clear breathing room (padding-bottom)
+                before it, regardless of how the text itself is painted. */}
             {rows.map((r, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  padding: "4px 4px",
-                  borderBottom: `1px dotted rgba(47,68,148,0.35)`,
-                  fontFamily: '"Tenor Sans", serif',
-                  fontSize: "10pt",
-                  color: NAVY,
-                  letterSpacing: 0.5,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span style={{ flex: 1, paddingRight: 8, overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {r.label}
-                </span>
-                <span
+              <div key={i} style={{ borderBottom: `1px dotted rgba(47,68,148,0.35)` }}>
+                <div
                   style={{
-                    flexShrink: 0,
-                    textAlign: "right",
+                    display: "flex",
+                    alignItems: "baseline",
+                    padding: "5px 4px 4px",
                     fontFamily: '"Tenor Sans", serif',
-                    fontWeight: 700,
-                    color: "#1F3D6B",
+                    fontSize: "10pt",
+                    color: NAVY,
+                    letterSpacing: 0.5,
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  {formatEuro(r.value)}
-                </span>
+                  <span
+                    style={{
+                      flex: 1,
+                      paddingRight: 8,
+                      overflowX: "hidden",
+                      overflowY: "visible",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {r.label}
+                  </span>
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      textAlign: "right",
+                      fontFamily: '"Tenor Sans", serif',
+                      fontWeight: 700,
+                      color: "#1F3D6B",
+                    }}
+                  >
+                    {formatEuro(r.value)}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
