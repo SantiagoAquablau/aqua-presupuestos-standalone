@@ -116,18 +116,28 @@ export function PageResum({ data }: { data: PdfData }) {
                 key={i}
                 style={{
                   display: "flex",
-                  justifyContent: "space-between",
                   alignItems: "baseline",
-                  padding: "6px 4px",
+                  padding: "4px 4px",
                   borderBottom: `1px dotted rgba(47,68,148,0.35)`,
                   fontFamily: '"Tenor Sans", serif',
-                  fontSize: "12pt",
+                  fontSize: "10pt",
                   color: NAVY,
-                  letterSpacing: 1,
+                  letterSpacing: 0.5,
+                  whiteSpace: "nowrap",
                 }}
               >
-                <span>{r.label}</span>
-                <span style={{ fontFamily: '"Tenor Sans", serif', fontWeight: 700, color: "#1F3D6B" }}>
+                <span style={{ flex: 1, paddingRight: 8, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {r.label}
+                </span>
+                <span
+                  style={{
+                    flexShrink: 0,
+                    textAlign: "right",
+                    fontFamily: '"Tenor Sans", serif',
+                    fontWeight: 700,
+                    color: "#1F3D6B",
+                  }}
+                >
                   {formatEuro(r.value)}
                 </span>
               </div>
@@ -305,34 +315,45 @@ export function PageResum({ data }: { data: PdfData }) {
                 </ul>
               </div>
 
+              {/* Papers icon, with a beige accent shape tucked behind it.
+                  The wrapper is position:relative so the accent's offsets are
+                  always relative to the icon itself (not the page), staying
+                  correctly aligned no matter what shifts above it. */}
               <div
                 style={{
-                  position: "absolute",
-                  top: 428,
-                  left: 550,
-                  //left: "-248px",
-                  width: 50,
-                  height: 50,
-                  background: "#f6c5af",
-                  borderRadius: 12,
-                  zIndex: -1,
-                }}
-              />
-
-              {/* Papers icon */}
-              <img
-                src="/pdf/simbolo-papeles.webp"
-                crossOrigin="anonymous"
-                alt=""
-                style={{
+                  position: "relative",
                   width: 70,
-                  height: "auto",
+                  height: 99,
                   flex: "0 0 auto",
                   marginTop: -4,
                   marginLeft: -120,
-                  zIndex: 1,
                 }}
-              />
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 13,
+                    left: 9,
+                    width: 52,
+                    height: 73,
+                    background: "#f6c5af",
+                    borderRadius: 12,
+                    zIndex: 0,
+                  }}
+                />
+                <img
+                  src="/pdf/simbolo-papeles.webp"
+                  crossOrigin="anonymous"
+                  alt=""
+                  style={{
+                    position: "relative",
+                    width: 70,
+                    height: 99,
+                    objectFit: "contain",
+                    zIndex: 1,
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>
