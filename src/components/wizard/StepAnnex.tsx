@@ -12,6 +12,7 @@ import {
   Bot,
   Thermometer,
   Droplets,
+  Package,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -1534,6 +1535,54 @@ export function StepAnnex() {
                 />
               </div>
             )}
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* SECTION 9 — Entrada de material a mà */}
+        <AccordionItem
+          value="material-manual"
+          className="bg-card rounded-xl border border-border shadow-card overflow-hidden"
+        >
+          <AccordionTrigger className="px-5 py-4 hover:no-underline">
+            <div className="flex items-center gap-2 flex-1">
+              <Package className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <span className="font-medium text-foreground">Entrada de material a mà</span>
+              {draft.hasManualMaterialEntry && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold">
+                  INCLÒS
+                </span>
+              )}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            <ToggleField
+              label="Entrada de material a mà"
+              enabled={draft.hasManualMaterialEntry || false}
+              onToggle={(v) => {
+                if (v) {
+                  updateDraft({ hasManualMaterialEntry: true });
+                } else {
+                  updateDraft({
+                    hasManualMaterialEntry: false,
+                    manualMaterialEntryCost: undefined,
+                    manualMaterialEntrySale: undefined,
+                  });
+                }
+              }}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <NumberInput
+                  label="Import de cost (€)"
+                  value={draft.manualMaterialEntryCost}
+                  onChange={(v) => updateDraft({ manualMaterialEntryCost: v })}
+                />
+                <NumberInput
+                  label="Import de venda (€)"
+                  value={draft.manualMaterialEntrySale}
+                  onChange={(v) => updateDraft({ manualMaterialEntrySale: v })}
+                />
+              </div>
+            </ToggleField>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

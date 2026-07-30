@@ -363,6 +363,9 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     annex_gespa_model: draft.annexGespaModel || null,
     annex_gespa_m2: draft.annexGespaM2 ?? null,
     annex_gespa_article_id: draft.annexGespaArticleId || null,
+    has_manual_material_entry: draft.hasManualMaterialEntry ?? false,
+    manual_material_entry_cost: draft.manualMaterialEntryCost ?? null,
+    manual_material_entry_sale: draft.manualMaterialEntrySale ?? null,
     annex_cobertor_estat: draft.annexCobertorEstat || "no",
     annex_cobertor_tipus: draft.annexCobertorTipus || null,
     annex_cobertor_model_id: draft.annexCobertorModelId || null,
@@ -2045,6 +2048,11 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
         annexPavimentNouTotal: nouTotal,
       };
     })(),
+    // Annex — Entrada de material a mà (manual line, split out of the ANNEX pill in Resum)
+    hasManualMaterialEntry: !!draft.hasManualMaterialEntry,
+    manualMaterialEntrySale: draft.hasManualMaterialEntry
+      ? Math.ceil(Number(draft.manualMaterialEntrySale || 0))
+      : undefined,
     phases: pdfPhases as any,
     totalSale,
     paymentConditions: draft.paymentConditions,
@@ -2172,6 +2180,10 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
 
       d.phaseAnnexTotal = sumPhaseItems(/annex/i);
       d.instalacionsTotal = sumPhaseItems(/instal/i);
+
+      if (d.hasManualMaterialEntry) {
+        d.manualMaterialEntrySale = sumPhaseItems(/annex/i, wizardKeyIs("annex_manual_material_entry"));
+      }
 
       const wifiIncludedTotal = sumPhaseItems(/instal/i, wizardKeyIs("instal_wifi"));
       if (d.wifiEnabled && wifiIncludedTotal > 0 && typeof d.hidrolisiTotal === "number") {

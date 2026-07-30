@@ -23,14 +23,21 @@ export function PageResum({ data }: { data: PdfData }) {
   const isM = !!data.isMaintenance;
   if (isM) return <MaintenanceResum data={data} />;
   const isA = !!data.isAutoportant;
+  const hasManualMaterialEntry = !!data.hasManualMaterialEntry;
+  const manualMaterialEntrySale = hasManualMaterialEntry ? data.manualMaterialEntrySale || 0 : 0;
   const annexTotal = data.phaseAnnexTotal || 0;
+  // The ANNEX pill excludes the manual material entry — it gets its own line below.
+  const annexDisplayTotal = Math.max(0, annexTotal - manualMaterialEntrySale);
   const rawRows: Array<{ label: string; value: number }> = isA
     ? [{ label: "PISCINA AUTOPORTANT", value: data.totalSale || 0 }]
     : [
         { label: "ESTRUCTURA", value: data.phaseStructuralTotal || 0 },
         { label: "ACABATS", value: data.phaseAcabatsTotal || 0 },
         { label: "INSTAL·LACIONS", value: (data.instalacionsTotal ?? data.phaseElectricitatTotal) || 0 },
-        ...(annexTotal > 0 ? [{ label: "ANNEX", value: annexTotal }] : []),
+        ...(annexDisplayTotal > 0 ? [{ label: "ANNEX", value: annexDisplayTotal }] : []),
+        ...(hasManualMaterialEntry && manualMaterialEntrySale > 0
+          ? [{ label: "ENTRADA DE MATERIAL A MÀ", value: manualMaterialEntrySale }]
+          : []),
       ];
   const rows = rawRows.filter((r) => r.value > 0);
   const total = data.totalSale || rows.reduce((s, r) => s + r.value, 0);

@@ -346,6 +346,24 @@ export function buildAnnexLines(
     }
   }
 
+  // Entrada de material a mà (sub-phase "Equips annex") — manual cost/sale, no article.
+  if (draft.hasManualMaterialEntry) {
+    const sale = Number(draft.manualMaterialEntrySale ?? 0);
+    if (sale > 0) {
+      items.push({
+        id: 'wizard-annex_manual_material_entry',
+        description: 'Entrada de material a mà',
+        unit: 'pa',
+        quantity: 1,
+        unitCost: round2(Number(draft.manualMaterialEntryCost ?? 0)),
+        unitSale: round2(sale),
+        source: 'wizard',
+        wizardKey: 'annex_manual_material_entry',
+        subPhase: 'Equips annex',
+      });
+    }
+  }
+
   return items;
 }
 

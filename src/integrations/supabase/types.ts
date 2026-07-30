@@ -446,6 +446,7 @@ export type Database = {
           has_electrolisi_2: boolean | null
           has_exterior_stairs: boolean | null
           has_jacuzzi: boolean | null
+          has_manual_material_entry: boolean | null
           has_rebaix: boolean
           has_robot: boolean | null
           has_second_pool: boolean | null
@@ -557,6 +558,8 @@ export type Database = {
           maintenance_plan: Json | null
           maintenance_price: number | null
           maintenance_services: Json | null
+          manual_material_entry_cost: number | null
+          manual_material_entry_sale: number | null
           margin_pct: number | null
           margin_pct_adjustment: number
           new_coating: string | null
@@ -791,6 +794,7 @@ export type Database = {
           has_electrolisi_2?: boolean | null
           has_exterior_stairs?: boolean | null
           has_jacuzzi?: boolean | null
+          has_manual_material_entry?: boolean | null
           has_rebaix?: boolean
           has_robot?: boolean | null
           has_second_pool?: boolean | null
@@ -902,6 +906,8 @@ export type Database = {
           maintenance_plan?: Json | null
           maintenance_price?: number | null
           maintenance_services?: Json | null
+          manual_material_entry_cost?: number | null
+          manual_material_entry_sale?: number | null
           margin_pct?: number | null
           margin_pct_adjustment?: number
           new_coating?: string | null
@@ -1136,6 +1142,7 @@ export type Database = {
           has_electrolisi_2?: boolean | null
           has_exterior_stairs?: boolean | null
           has_jacuzzi?: boolean | null
+          has_manual_material_entry?: boolean | null
           has_rebaix?: boolean
           has_robot?: boolean | null
           has_second_pool?: boolean | null
@@ -1247,6 +1254,8 @@ export type Database = {
           maintenance_plan?: Json | null
           maintenance_price?: number | null
           maintenance_services?: Json | null
+          manual_material_entry_cost?: number | null
+          manual_material_entry_sale?: number | null
           margin_pct?: number | null
           margin_pct_adjustment?: number
           new_coating?: string | null

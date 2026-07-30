@@ -189,6 +189,9 @@ export interface PdfData {
   phaseElectricitatTotal: number;
   /** Sum of every annex line included in the budget ("inclos" estat). */
   phaseAnnexTotal?: number;
+  // Annex — Entrada de material a mà (manual line, split out of the ANNEX pill in Resum only)
+  hasManualMaterialEntry?: boolean;
+  manualMaterialEntrySale?: number;
   // Annex — Projecte Tècnic d'Obra
   annexProjecteEstat?: 'no' | 'inclos' | 'opcional' | string;
   annexProjecteName?: string;

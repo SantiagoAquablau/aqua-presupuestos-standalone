@@ -381,6 +381,10 @@ export interface BudgetDraft {
   annexGespaModel?: string;
   annexGespaM2?: number;
   annexGespaArticleId?: string;
+  // Annex — Entrada de material a mà (manual, no article reference)
+  hasManualMaterialEntry?: boolean;
+  manualMaterialEntryCost?: number;
+  manualMaterialEntrySale?: number;
   // Annex — Cobertor
   annexCobertorEstat?: string;
   annexCobertorTipus?: 'fora_aigua' | 'submergit';
