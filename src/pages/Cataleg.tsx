@@ -95,10 +95,12 @@ function getTechSpecConfig(category: string, subtipus: string): TechSpecConfig |
       title: "Característiques (targeta de recomanació al PDF)",
       columns: 1,
       fields: [
+        // Nota: la connexió WI-FI NO es demana com a característica manual —
+        // es gestiona a part (toggle del wizard + wifi_incorporat més avall),
+        // per evitar duplicar/contradir el bullet automàtic al PDF.
         { key: 'feature1', label: 'Característica 1', step: '', type: 'text', placeholder: 'Pantalla tàctil extraïble.' },
-        { key: 'feature2', label: 'Característica 2', step: '', type: 'text', placeholder: 'Connexió WI-FI opcional.' },
-        { key: 'feature3', label: 'Característica 3', step: '', type: 'text', placeholder: "Control de salinitat de l'aigua." },
-        { key: 'feature4', label: 'Característica 4', step: '', type: 'text', placeholder: 'Control de producció i bomba de filtració.' },
+        { key: 'feature2', label: 'Característica 2', step: '', type: 'text', placeholder: "Control de salinitat de l'aigua." },
+        { key: 'feature3', label: 'Característica 3', step: '', type: 'text', placeholder: 'Control de producció i bomba de filtració.' },
         { key: 'garantia_cellula_hores', label: 'Garantia cèl·lula (hores)', step: '1', integer: true, placeholder: '8000' },
         { key: 'wifi_incorporat', label: 'Wi-Fi incorporat (l\'equip ja el porta de sèrie, no cal mòdul a part)', step: '', type: 'boolean' },
       ],

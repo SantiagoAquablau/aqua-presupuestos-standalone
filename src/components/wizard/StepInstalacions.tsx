@@ -318,13 +318,24 @@ export function StepInstalacions() {
     };
   }, [draft.instalDosificacioStdId]);
 
-  // If the equip already has WiFi incorporated, force off any leftover
-  // separate WiFi module selection from a previously chosen article.
+  // Keep instalWifiArticleId synced to the auto-found module article so its
+  // price is always available in the PDF as the informational "No inclou"
+  // alternative — EXCEPT when the chosen equip already has WiFi incorporated
+  // (wifi_incorporat === true), in which case the separate module doesn't
+  // apply at all and any leftover selection/toggle must be forced off.
+  // Without this "else" branch restoring the id, a leftover clear from a
+  // previously wifi_incorporat=true article (or the toggle's own onChange)
+  // could leave the id undefined and the PDF price blank even for equips
+  // that don't have WiFi incorporated.
   useEffect(() => {
-    if (dosifWifiIncorporat && (draft.instalWifiEnabled || draft.instalWifiArticleId)) {
-      updateDraft({ instalWifiEnabled: false, instalWifiArticleId: undefined });
+    if (dosifWifiIncorporat) {
+      if (draft.instalWifiEnabled || draft.instalWifiArticleId) {
+        updateDraft({ instalWifiEnabled: false, instalWifiArticleId: undefined });
+      }
+    } else if (wifiAutoArticle && draft.instalWifiArticleId !== wifiAutoArticle.id) {
+      updateDraft({ instalWifiArticleId: wifiAutoArticle.id });
     }
-  }, [dosifWifiIncorporat, draft.instalWifiEnabled, draft.instalWifiArticleId]);
+  }, [dosifWifiIncorporat, wifiAutoArticle, draft.instalWifiEnabled, draft.instalWifiArticleId]);
 
   // Auto-find AFM article
   useEffect(() => {
@@ -581,6 +592,16 @@ export function StepInstalacions() {
       updateDraft({ instalElectricaBaseArticleId: electricaArticle.id });
     }
   }, [electricaArticle]);
+  // Keep instalElectricaTotal/instalElectricaExtraCost synced reactively —
+  // previously they were only persisted inside syncDraft() on Next/Enrere,
+  // so the PDF's "Presa de terra" line could show 0,00€ (stale/never-set
+  // cached total) even though Partides always recomputed the right amount
+  // live from the article + extra cost.
+  useEffect(() => {
+    if (draft.instalElectricaTotal !== electricaTotal || draft.instalElectricaExtraCost !== electricaExtraCost) {
+      updateDraft({ instalElectricaTotal: electricaTotal, instalElectricaExtraCost: electricaExtraCost });
+    }
+  }, [electricaTotal, electricaExtraCost]);
 
   const afmQty = useMemo(() => {
     if (!filtrePolies) return 0;
@@ -620,6 +641,19 @@ export function StepInstalacions() {
     const afmUnit = afmAutoArticle.sale_price / 100;
     return (afmUnit - arenaSilicePrice) * afmQty;
   }, [afmAutoArticle, arenaSilicePrice, afmQty]);
+
+  // Keep instalAfmQty/instalAfmIncrement synced reactively — previously they
+  // were only set when the user touched the AFM toggle (or via syncDraft on
+  // Next/Enrere), so switching the underlying filtre (which changes afmQty)
+  // without re-touching the toggle could leave a stale informational AFM
+  // increment price in the PDF.
+  useEffect(() => {
+    const qty = filtrePolies ? afmQty : undefined;
+    const increment = afmIncrement ?? undefined;
+    if (draft.instalAfmQty !== qty || draft.instalAfmIncrement !== increment) {
+      updateDraft({ instalAfmQty: qty, instalAfmIncrement: increment });
+    }
+  }, [filtrePolies, afmQty, afmIncrement]);
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -1127,7 +1161,10 @@ export function StepInstalacions() {
                   onCheckedChange={(checked) => {
                     updateDraft({
                       instalWifiEnabled: checked,
-                      instalWifiArticleId: checked && wifiAutoArticle ? wifiAutoArticle.id : undefined,
+                      // Keep the article id set regardless of checked: the PDF
+                      // needs it even when off, to show its price as the
+                      // informational "No inclou" alternative.
+                      instalWifiArticleId: wifiAutoArticle ? wifiAutoArticle.id : undefined,
                     });
                   }}
                 />

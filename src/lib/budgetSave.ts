@@ -796,7 +796,10 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   const hidrolisiFeatures = (() => {
     const specs = dosificacio?.technical_specs;
     if (!specs) return undefined;
-    const feats = ["feature1", "feature2", "feature3", "feature4"]
+    // Only feature1-3 are offered in the catalog UI now (WiFi is handled
+    // separately). A lingering feature4 on an older article is simply
+    // ignored here — no need to migrate/clean old data.
+    const feats = ["feature1", "feature2", "feature3"]
       .map((k) => (typeof specs[k] === "string" ? (specs[k] as string).trim() : ""))
       .filter(Boolean);
     return feats.length ? feats : undefined;
@@ -908,12 +911,22 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   })();
   const bombaSectionAmount = Math.ceil(bombaSaleVal) + Math.ceil(8 * preuMo);
 
-  // Electrolisi salina — equip + subfase dosificacio + 12h MO
+  // Electrolisi salina — equip + subfase dosificacio + 12h MO + WiFi add-on
+  // (only when enabled AND not already bundled into the equip itself via
+  // wifi_incorporat — in that case there's no separate module partida and
+  // its price is already part of dosificacioEquipSale).
   const dosificacioEquipSale = editedEquipSale(
     "instal_dosificacio_std",
     dosificacio ? Number(dosificacio.sale || 0) * Number(draft.instalDosificacioStdQty ?? 1) : 0,
   );
-  const electrolisiSectionAmount = Math.ceil(dosificacioEquipSale) + dosificacioSubTotal + Math.ceil(18 * preuMo);
+  const wifiArt = a(draft.instalWifiArticleId);
+  const wifiSaleAmount = wifiArt ? Number(wifiArt.sale || 0) : undefined;
+  const wifiOn = !!draft.instalWifiEnabled && !hidrolisiWifiIncorporat;
+  const electrolisiSectionAmount =
+    Math.ceil(dosificacioEquipSale) +
+    dosificacioSubTotal +
+    Math.ceil(18 * preuMo) +
+    (wifiOn && typeof wifiSaleAmount === "number" ? Math.ceil(wifiSaleAmount) : 0);
 
   // Quadre elèctric — equip sale + 4h MO
   const quadreEquipSale = editedEquipSale(
@@ -1515,13 +1528,9 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     hidrolisiWifiIncorporat,
     // Mòdul Ethernet / WIFI add-on
     wifiEnabled: !!draft.instalWifiEnabled,
-    wifiName: a(draft.instalWifiArticleId)?.name,
-    wifiImageUrl: a(draft.instalWifiArticleId)?.image_url || undefined,
-    wifiSale: (() => {
-      const art = a(draft.instalWifiArticleId);
-      if (!art) return undefined;
-      return Number(art.sale || 0);
-    })(),
+    wifiName: wifiArt?.name,
+    wifiImageUrl: wifiArt?.image_url || undefined,
+    wifiSale: wifiSaleAmount,
     quadreText: quadre?.name,
     quadreTotal: undefined,
     // Row amount (Quadre elèctric) = equip sale + 4h MO.
