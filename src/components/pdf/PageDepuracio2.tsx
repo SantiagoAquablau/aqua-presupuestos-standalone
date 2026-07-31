@@ -29,6 +29,12 @@ const FALLBACK_FEATURES = [
 
 export function PageDepuracio2({ data }: { data: PdfData }) {
   const wifiOn = !!data.wifiEnabled;
+  // Equip-level flag (technical_specs.wifi_incorporat): the clorador already
+  // has WiFi built in, so the separate module block/bullet below is handled
+  // entirely apart from `hidrolisiFeatures` (the 4 manual characteristics) —
+  // if an admin also mentions WiFi manually in feature1-4, that's on them to
+  // avoid duplicating; this component does no de-dup between the two.
+  const wifiIncorporat = !!data.hidrolisiWifiIncorporat;
   const equipName = data.hidrolisiName || "AQUARITE NEO";
   const equipImg = data.hidrolisiImageUrl || "/pdf/electrolisis-ltneo.webp";
   const wifiName = data.wifiName || "Mòdul Ethernet Hayward Aquarite";
@@ -36,6 +42,11 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
   const featureBullets =
     data.hidrolisiFeatures && data.hidrolisiFeatures.length > 0 ? data.hidrolisiFeatures : FALLBACK_FEATURES;
   const cellHours = data.hidrolisiCellHours || 8000;
+  const wifiBullet = wifiIncorporat
+    ? "Connexió WI-FI inclosa."
+    : wifiOn
+      ? "Connexió WI-FI."
+      : "Connexió WI-FI {{ORANGE:opcional*}}.";
 
   return (
     <section style={pageStyle}>
@@ -160,10 +171,7 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
           <div style={{ flex: 0.95, position: "relative", paddingTop: 4 }}>
             <RecommendCardOrange
               title={equipName}
-              bullets={[
-                ...featureBullets,
-                wifiOn ? "Connexió WI-FI." : "Connexió WI-FI {{ORANGE:opcional*}}.",
-              ]}
+              bullets={[...featureBullets, wifiBullet]}
               accentColor="#1f497d"
               iconSrc="/pdf/icono-bomba-variable.webp"
             />
@@ -182,52 +190,59 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
               </div>
             </InclouLine>
 
-            <div style={{ marginTop: "3mm" }}>
-              <InclouLine icon={wifiOn ? "check" : "x"}>
-                <div>
-                  <strong>{wifiOn ? "Inclou:" : "No inclou:"}</strong> Mòdul Ethernet / WIFI
-                  {!wifiOn && (
-                    <div style={{ color: "#ff751f", fontWeight: 700, marginTop: 2 }}>
-                      Preu {wifiName}:{" "}
-                      {typeof data.wifiSale === "number" ? `+${formatEuroNoCurrency(data.wifiSale)} €` : ""}
-                    </div>
-                  )}
-                </div>
-              </InclouLine>
-            </div>
+            {/* Separate WiFi module Inclou/No inclou line — doesn't apply at
+                all when the equip already has WiFi built in (wifiIncorporat). */}
+            {!wifiIncorporat && (
+              <div style={{ marginTop: "3mm" }}>
+                <InclouLine icon={wifiOn ? "check" : "x"}>
+                  <div>
+                    <strong>{wifiOn ? "Inclou:" : "No inclou:"}</strong> Mòdul Ethernet / WIFI
+                    {!wifiOn && (
+                      <div style={{ color: "#ff751f", fontWeight: 700, marginTop: 2 }}>
+                        Preu {wifiName}:{" "}
+                        {typeof data.wifiSale === "number" ? `+${formatEuroNoCurrency(data.wifiSale)} €` : ""}
+                      </div>
+                    )}
+                  </div>
+                </InclouLine>
+              </div>
+            )}
           </div>
 
-          {/* Right column: WiFi image aligned under equipment image */}
-          <div style={{ flex: 0.55, textAlign: "center" }}>
-            <div style={{ position: "relative", display: "inline-block" }}>
-              <div
-                style={{
-                  position: "absolute",
-                  top: 88,
-                  left: "-248px",
-                  width: 44,
-                  height: 46,
-                  background: "#f6c5af",
-                  borderRadius: 12,
-                  zIndex: 0,
-                }}
-              />
-              <img
-                src={wifiImg}
-                alt=""
-                crossOrigin="anonymous"
-                style={{
-                  position: "relative",
-                  width: "14mm",
-                  height: "18mm",
-                  objectFit: "contain",
-                  zIndex: 1,
-                  left: "-240px",
-                  top: 74,
-                }}
-              />
+          {/* Right column: WiFi image aligned under equipment image — hidden
+              when wifiIncorporat, same as the Inclou/No inclou line above. */}
+          {!wifiIncorporat && (
+            <div style={{ flex: 0.55, textAlign: "center" }}>
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 88,
+                    left: "-248px",
+                    width: 44,
+                    height: 46,
+                    background: "#f6c5af",
+                    borderRadius: 12,
+                    zIndex: 0,
+                  }}
+                />
+                <img
+                  src={wifiImg}
+                  alt=""
+                  crossOrigin="anonymous"
+                  style={{
+                    position: "relative",
+                    width: "14mm",
+                    height: "18mm",
+                    objectFit: "contain",
+                    zIndex: 1,
+                    left: "-240px",
+                    top: 74,
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

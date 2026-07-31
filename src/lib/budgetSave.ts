@@ -805,6 +805,11 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     const n = Number(dosificacio?.technical_specs?.garantia_cellula_hores);
     return Number.isFinite(n) && n > 0 ? n : 8000;
   })();
+  // When the chosen clorador already has WiFi built in, the separate WiFi
+  // module add-on doesn't apply — the wizard also forces instalWifiEnabled
+  // off in this case (see StepInstalacions.tsx), so this is mostly a
+  // belt-and-braces read of the same catalog flag for the PDF.
+  const hidrolisiWifiIncorporat = dosificacio?.technical_specs?.wifi_incorporat === true;
   const quadre = a(draft.instalQuadreId);
   const revestimentArt = a(draft.revestimentModelId);
 
@@ -1507,6 +1512,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     hidrolisiTotal: dosificacio ? electrolisiSectionAmount : undefined,
     hidrolisiFeatures,
     hidrolisiCellHours,
+    hidrolisiWifiIncorporat,
     // Mòdul Ethernet / WIFI add-on
     wifiEnabled: !!draft.instalWifiEnabled,
     wifiName: a(draft.instalWifiArticleId)?.name,

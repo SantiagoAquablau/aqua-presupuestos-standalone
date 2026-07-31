@@ -24,7 +24,7 @@ interface ArticleForm {
   acabat_type: string;
   image_url: string;
   subtipus: string;
-  technical_specs: Record<string, number | string | null>;
+  technical_specs: Record<string, number | string | boolean | null>;
   beurada_color: string;
   beurada_color_normal: string;
   beurada_color_epoxi: string;
@@ -48,7 +48,7 @@ type TechSpecField = {
   label: string;
   step: string;
   integer?: boolean;
-  type?: 'number' | 'text';
+  type?: 'number' | 'text' | 'boolean';
   placeholder?: string;
 };
 
@@ -100,6 +100,7 @@ function getTechSpecConfig(category: string, subtipus: string): TechSpecConfig |
         { key: 'feature3', label: 'Característica 3', step: '', type: 'text', placeholder: "Control de salinitat de l'aigua." },
         { key: 'feature4', label: 'Característica 4', step: '', type: 'text', placeholder: 'Control de producció i bomba de filtració.' },
         { key: 'garantia_cellula_hores', label: 'Garantia cèl·lula (hores)', step: '1', integer: true, placeholder: '8000' },
+        { key: 'wifi_incorporat', label: 'Wi-Fi incorporat (l\'equip ja el porta de sèrie, no cal mòdul a part)', step: '', type: 'boolean' },
       ],
     };
   }
@@ -182,10 +183,11 @@ export default function Cataleg() {
         technical_specs: (() => {
           const cfg = getTechSpecConfig(form.category, form.subtipus);
           if (!cfg) return null;
-          const cleaned: Record<string, number | string> = {};
+          const cleaned: Record<string, number | string | boolean> = {};
           for (const [k, v] of Object.entries(form.technical_specs || {})) {
             if (typeof v === 'number' && !Number.isNaN(v)) cleaned[k] = v;
             else if (typeof v === 'string' && v.trim() !== '') cleaned[k] = v.trim();
+            else if (typeof v === 'boolean') cleaned[k] = v;
           }
           return Object.keys(cleaned).length ? cleaned : null;
         })(),
@@ -509,6 +511,23 @@ export default function Cataleg() {
                   <div className={cfg.columns === 1 ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-3'}>
                     {cfg.fields.map((f) => {
                       const raw = form.technical_specs?.[f.key];
+                      if (f.type === 'boolean') {
+                        return (
+                          <label key={f.key} className="flex items-center gap-2 text-sm text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={raw === true}
+                              onChange={(e) => {
+                                const next = { ...(form.technical_specs || {}) };
+                                next[f.key] = e.target.checked;
+                                setForm({ ...form, technical_specs: next });
+                              }}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                            {f.label}
+                          </label>
+                        );
+                      }
                       const value = raw === undefined || raw === null ? '' : String(raw);
                       const isText = f.type === 'text';
                       return (

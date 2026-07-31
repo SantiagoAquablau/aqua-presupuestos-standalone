@@ -214,6 +214,10 @@ export function StepInstalacions() {
 
   const [wifiAutoArticle, setWifiAutoArticle] = useState<{ id: string; name: string } | null>(null);
   const [wifiNotFound, setWifiNotFound] = useState(false);
+  // True when the chosen dosificació estàndard (clorador salí) already has
+  // WiFi/Ethernet built in (technical_specs.wifi_incorporat) — in that case
+  // the separate WiFi module add-on doesn't apply at all.
+  const [dosifWifiIncorporat, setDosifWifiIncorporat] = useState(false);
   const [afmAutoArticle, setAfmAutoArticle] = useState<{ id: string; name: string; sale_price: number } | null>(null);
   const [afmNotFound, setAfmNotFound] = useState(false);
 
@@ -294,6 +298,33 @@ export function StepInstalacions() {
     };
     find();
   }, []);
+
+  // Check whether the chosen dosificació estàndard already has WiFi built in.
+  useEffect(() => {
+    let cancelled = false;
+    const id = draft.instalDosificacioStdId;
+    if (!id) {
+      setDosifWifiIncorporat(false);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase.from("articles").select("technical_specs").eq("id", id).single();
+      if (cancelled) return;
+      const specs = (data?.technical_specs as any) || {};
+      setDosifWifiIncorporat(specs?.wifi_incorporat === true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.instalDosificacioStdId]);
+
+  // If the equip already has WiFi incorporated, force off any leftover
+  // separate WiFi module selection from a previously chosen article.
+  useEffect(() => {
+    if (dosifWifiIncorporat && (draft.instalWifiEnabled || draft.instalWifiArticleId)) {
+      updateDraft({ instalWifiEnabled: false, instalWifiArticleId: undefined });
+    }
+  }, [dosifWifiIncorporat, draft.instalWifiEnabled, draft.instalWifiArticleId]);
 
   // Auto-find AFM article
   useEffect(() => {
@@ -1085,30 +1116,33 @@ export function StepInstalacions() {
             </EquipColumn>
           </div>
 
-          {/* Wi-Fi module - moved here from Bomba */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Afegir mòdul ethernet / Wi-Fi</label>
-              <Switch
-                checked={draft.instalWifiEnabled || false}
-                onCheckedChange={(checked) => {
-                  updateDraft({
-                    instalWifiEnabled: checked,
-                    instalWifiArticleId: checked && wifiAutoArticle ? wifiAutoArticle.id : undefined,
-                  });
-                }}
-              />
+          {/* Wi-Fi module - moved here from Bomba. Hidden entirely when the
+              chosen dosificació estàndard already has WiFi incorporated. */}
+          {!dosifWifiIncorporat && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-foreground">Afegir mòdul ethernet / Wi-Fi</label>
+                <Switch
+                  checked={draft.instalWifiEnabled || false}
+                  onCheckedChange={(checked) => {
+                    updateDraft({
+                      instalWifiEnabled: checked,
+                      instalWifiArticleId: checked && wifiAutoArticle ? wifiAutoArticle.id : undefined,
+                    });
+                  }}
+                />
+              </div>
+              {draft.instalWifiEnabled &&
+                (wifiAutoArticle ? (
+                  <p className="text-xs text-muted-foreground pl-1">Article: {wifiAutoArticle.name}</p>
+                ) : wifiNotFound ? (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    No s'ha trobat l'article de mòdul Wi-Fi al catàleg. Afegeix-lo per incloure'l.
+                  </p>
+                ) : null)}
             </div>
-            {draft.instalWifiEnabled &&
-              (wifiAutoArticle ? (
-                <p className="text-xs text-muted-foreground pl-1">Article: {wifiAutoArticle.name}</p>
-              ) : wifiNotFound ? (
-                <p className="text-xs text-amber-600 flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  No s'ha trobat l'article de mòdul Wi-Fi al catàleg. Afegeix-lo per incloure'l.
-                </p>
-              ) : null)}
-          </div>
+          )}
         </div>
       ),
     },

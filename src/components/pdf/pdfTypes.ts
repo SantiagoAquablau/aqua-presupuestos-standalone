@@ -164,6 +164,7 @@ export interface PdfData {
   hidrolisiTotal?: number;
   hidrolisiFeatures?: string[]; // catalog-defined characteristics (technical_specs.feature1..4)
   hidrolisiCellHours?: number; // cell electrode warranty hours (technical_specs.garantia_cellula_hores), fallback 8000
+  hidrolisiWifiIncorporat?: boolean; // technical_specs.wifi_incorporat — equip already has WiFi built in, no separate module add-on applies
   // Mòdul Ethernet / WIFI (optional add-on)
   wifiEnabled?: boolean;
   wifiName?: string;
