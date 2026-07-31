@@ -683,14 +683,19 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     draft.accBaranaModelId,
   ].filter(Boolean) as string[];
 
-  const articlesMap: Record<string, { name: string; image_url?: string; sale?: number }> = {};
+  const articlesMap: Record<string, { name: string; image_url?: string; sale?: number; technical_specs?: Record<string, unknown> }> = {};
   if (articleIds.length > 0) {
     const { data: arts } = await supabase
       .from("articles")
-      .select("id, name, image_url, sale_price")
+      .select("id, name, image_url, sale_price, technical_specs")
       .in("id", articleIds);
     (arts || []).forEach((a: any) => {
-      articlesMap[a.id] = { name: a.name, image_url: a.image_url, sale: Number(a.sale_price || 0) / 100 };
+      articlesMap[a.id] = {
+        name: a.name,
+        image_url: a.image_url,
+        sale: Number(a.sale_price || 0) / 100,
+        technical_specs: (a.technical_specs && typeof a.technical_specs === "object") ? a.technical_specs : undefined,
+      };
     });
   }
   const a = (id?: string) => (id ? articlesMap[id] : undefined);
@@ -788,6 +793,14 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   const bomba = a(draft.instalBombaVariableId) || a(draft.instalBombaOnoffId);
   const hidrolisi = a(draft.instalHidrolisiId);
   const dosificacio = a(draft.instalDosificacioStdId);
+  const hidrolisiFeatures = (() => {
+    const specs = dosificacio?.technical_specs;
+    if (!specs) return undefined;
+    const feats = ["feature1", "feature2", "feature3", "feature4"]
+      .map((k) => (typeof specs[k] === "string" ? (specs[k] as string).trim() : ""))
+      .filter(Boolean);
+    return feats.length ? feats : undefined;
+  })();
   const quadre = a(draft.instalQuadreId);
   const revestimentArt = a(draft.revestimentModelId);
 
@@ -1488,6 +1501,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     hidrolisiImageUrl: dosificacio?.image_url || undefined,
     // Section pill amount = equip + subfase "dosificacio" + 12h MO.
     hidrolisiTotal: dosificacio ? electrolisiSectionAmount : undefined,
+    hidrolisiFeatures,
     // Mòdul Ethernet / WIFI add-on
     wifiEnabled: !!draft.instalWifiEnabled,
     wifiName: a(draft.instalWifiArticleId)?.name,

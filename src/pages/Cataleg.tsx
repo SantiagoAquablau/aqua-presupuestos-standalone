@@ -24,7 +24,7 @@ interface ArticleForm {
   acabat_type: string;
   image_url: string;
   subtipus: string;
-  technical_specs: Record<string, number | null>;
+  technical_specs: Record<string, number | string | null>;
   beurada_color: string;
   beurada_color_normal: string;
   beurada_color_epoxi: string;
@@ -47,9 +47,11 @@ type TechSpecField = {
   label: string;
   step: string;
   integer?: boolean;
+  type?: 'number' | 'text';
+  placeholder?: string;
 };
 
-type TechSpecConfig = { title: string; fields: TechSpecField[] };
+type TechSpecConfig = { title: string; fields: TechSpecField[]; columns?: 1 | 2 };
 
 function getTechSpecConfig(category: string, subtipus: string): TechSpecConfig | null {
   if (category === 'Filtració' && subtipus === 'Polièster') {
@@ -84,6 +86,18 @@ function getTechSpecConfig(category: string, subtipus: string): TechSpecConfig |
         { key: 'hmax_m', label: 'Alçada màxima / Hmax (m)', step: '0.1' },
         { key: 'p1_kw', label: 'Potència P1 (kW)', step: '0.01' },
         { key: 'cv_equivalent', label: 'Potència equivalent (CV)', step: '0.01' },
+      ],
+    };
+  }
+  if (category === 'Dosificació' && subtipus === 'Estàndard (pH/Cl)') {
+    return {
+      title: "Característiques (targeta de recomanació al PDF)",
+      columns: 1,
+      fields: [
+        { key: 'feature1', label: 'Característica 1', step: '', type: 'text', placeholder: 'Pantalla tàctil extraïble.' },
+        { key: 'feature2', label: 'Característica 2', step: '', type: 'text', placeholder: 'Connexió WI-FI opcional.' },
+        { key: 'feature3', label: 'Característica 3', step: '', type: 'text', placeholder: "Control de salinitat de l'aigua." },
+        { key: 'feature4', label: 'Característica 4', step: '', type: 'text', placeholder: 'Control de producció i bomba de filtració.' },
       ],
     };
   }
@@ -166,9 +180,10 @@ export default function Cataleg() {
         technical_specs: (() => {
           const cfg = getTechSpecConfig(form.category, form.subtipus);
           if (!cfg) return null;
-          const cleaned: Record<string, number> = {};
+          const cleaned: Record<string, number | string> = {};
           for (const [k, v] of Object.entries(form.technical_specs || {})) {
             if (typeof v === 'number' && !Number.isNaN(v)) cleaned[k] = v;
+            else if (typeof v === 'string' && v.trim() !== '') cleaned[k] = v.trim();
           }
           return Object.keys(cleaned).length ? cleaned : null;
         })(),
@@ -476,22 +491,26 @@ export default function Cataleg() {
               return (
                 <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
                   <h4 className="text-sm font-semibold text-foreground">{cfg.title}</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={cfg.columns === 1 ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-3'}>
                     {cfg.fields.map((f) => {
                       const raw = form.technical_specs?.[f.key];
                       const value = raw === undefined || raw === null ? '' : String(raw);
+                      const isText = f.type === 'text';
                       return (
                         <div key={f.key}>
                           <label className="block text-xs font-medium text-muted-foreground mb-1">{f.label}</label>
                           <input
-                            type="number"
-                            step={f.step}
+                            type={isText ? 'text' : 'number'}
+                            step={isText ? undefined : f.step}
+                            placeholder={f.placeholder}
                             value={value}
                             onChange={(e) => {
                               const v = e.target.value;
                               const next = { ...(form.technical_specs || {}) };
                               if (v === '') {
                                 delete next[f.key];
+                              } else if (isText) {
+                                next[f.key] = v;
                               } else {
                                 const n = f.integer ? parseInt(v, 10) : parseFloat(v);
                                 next[f.key] = Number.isNaN(n) ? null : n;

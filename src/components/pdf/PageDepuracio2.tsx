@@ -19,13 +19,22 @@ const pageStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+// Generic fallback shown only when the selected article has no catalog
+// characteristics defined (older budgets, or articles not yet filled in).
+const FALLBACK_FEATURES = [
+  "Pantalla tàctil extraïble.",
+  "Control de salinitat de l'aigua.",
+  "Control de producció i bomba de filtració.",
+];
+
 export function PageDepuracio2({ data }: { data: PdfData }) {
   const wifiOn = !!data.wifiEnabled;
   const equipName = data.hidrolisiName || "AQUARITE NEO";
-  // All standard dosification equipment in this category share the same product image.
-  const equipImg = "/pdf/electrolisis-ltneo.webp";
+  const equipImg = data.hidrolisiImageUrl || "/pdf/electrolisis-ltneo.webp";
   const wifiName = data.wifiName || "Mòdul Ethernet Hayward Aquarite";
   const wifiImg = data.wifiImageUrl || "/pdf/modulo-wifi-ethernet.webp";
+  const featureBullets =
+    data.hidrolisiFeatures && data.hidrolisiFeatures.length > 0 ? data.hidrolisiFeatures : FALLBACK_FEATURES;
 
   return (
     <section style={pageStyle}>
@@ -149,12 +158,10 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
           {/* Right recommend card */}
           <div style={{ flex: 0.95, position: "relative", paddingTop: 4 }}>
             <RecommendCardOrange
-              title={"AQUARITE NEO"}
+              title={equipName}
               bullets={[
-                "Pantalla tàctil extraible.",
+                ...featureBullets,
                 wifiOn ? "Connexió WI-FI." : "Connexió WI-FI {{ORANGE:opcional*}}.",
-                "Control de salinitat de l'aigua.",
-                "Control de producció i bomba de filtració.",
               ]}
               accentColor="#1f497d"
               iconSrc="/pdf/icono-bomba-variable.webp"

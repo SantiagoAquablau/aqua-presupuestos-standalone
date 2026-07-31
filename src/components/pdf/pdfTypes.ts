@@ -162,6 +162,7 @@ export interface PdfData {
   hidrolisiAltName?: string; // the non-recommended alternative
   hidrolisiAltImageUrl?: string;
   hidrolisiTotal?: number;
+  hidrolisiFeatures?: string[]; // catalog-defined characteristics (technical_specs.feature1..4)
   // Mòdul Ethernet / WIFI (optional add-on)
   wifiEnabled?: boolean;
   wifiName?: string;
