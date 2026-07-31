@@ -126,11 +126,11 @@ export function PageResum({ data }: { data: PdfData }) {
                   style={{
                     display: "flex",
                     alignItems: "baseline",
-                    padding: "5px 4px 4px",
+                    padding: "8px 4px 6px",
                     fontFamily: '"Tenor Sans", serif',
-                    fontSize: "10pt",
+                    fontSize: "10.5pt",
                     color: NAVY,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.3,
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -138,9 +138,7 @@ export function PageResum({ data }: { data: PdfData }) {
                     style={{
                       flex: 1,
                       paddingRight: 8,
-                      overflowX: "hidden",
-                      overflowY: "visible",
-                      textOverflow: "ellipsis",
+                      fontWeight: 600,
                     }}
                   >
                     {r.label}
