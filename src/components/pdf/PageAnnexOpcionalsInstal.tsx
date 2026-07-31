@@ -179,7 +179,7 @@ function SorraOpcionalBlock({ data }: { data: PdfData }) {
                   <div style={{ color: ORANGE, fontWeight: 700, marginTop: 2 }}>
                     {typeof data.afmQty === "number" && data.afmQty > 0 ? `${data.afmQty} sacs de 25 kg` : ""}
                     {typeof data.afmExtraSale === "number" && data.afmExtraSale > 0
-                      ? ` +${formatEuroNoCurrency(data.afmExtraSale)} €`
+                      ? ` +${formatEuroInt(data.afmExtraSale)} €`
                       : ""}
                   </div>
                 )}
@@ -555,6 +555,12 @@ function formatEuroNoCurrency(n: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n);
+}
+
+// AFM increment is a rounded whole-euro figure (see budgetSave.ts afmExtraSale) —
+// no decimals here so it agrees with what's added to the DEPURACIÓ pill.
+function formatEuroInt(n: number): string {
+  return new Intl.NumberFormat("ca-ES", { maximumFractionDigits: 0 }).format(Math.round(n));
 }
 
 function RecommendCardOrange({ title, bullets, iconSrc }: { title: string; bullets: string[]; iconSrc?: string }) {

@@ -393,6 +393,21 @@ export function StepInstalacions() {
     find();
   }, []);
 
+  // Keep instalPrefiltreArticleId synced reactively, regardless of the toggle
+  // state — the PDF shows the Hydrospin price as a reference ("cuánto costaría
+  // añadirlo") even when NOT included, exactly like wifiArt is always resolved
+  // for wifiSale independently of instalWifiEnabled (see wifiAutoArticle sync
+  // above). Previously this was only set inside the toggle's onCheckedChange
+  // (or via syncDraft on Next/Enrere), so instalPrefiltreArticleId stayed
+  // stale/undefined until the user touched it, and the PDF's "No inclou"
+  // reference price came out blank.
+  useEffect(() => {
+    const id = prefiltreArticle ? prefiltreArticle.id : undefined;
+    if (draft.instalPrefiltreArticleId !== id) {
+      updateDraft({ instalPrefiltreArticleId: id });
+    }
+  }, [prefiltreArticle]);
+
   // Auto-default "Filtre especial" to HAYWARD SWIMCLEAR C200SE (opcional, qty=1)
   // unless the user has already chosen another article.
   useEffect(() => {
@@ -856,7 +871,7 @@ export function StepInstalacions() {
                         <p className="text-muted-foreground">
                           + Amb vidre AFM ecofiltrant ({afmQty} sacs de 25 kg):{" "}
                           <span className="text-primary font-medium">
-                            {afmIncrement !== null ? `+${afmIncrement.toFixed(2)} €` : "increment a determinar"}
+                            {afmIncrement !== null ? `+${Math.round(afmIncrement)} €` : "increment a determinar"}
                           </span>{" "}
                           <button
                             type="button"
@@ -899,7 +914,7 @@ export function StepInstalacions() {
                         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
                           <p>
                             Inclou: vidre AFM ecofiltrant · {afmQty} sacs de 25 kg · Increment per al client:{" "}
-                            <strong>{afmIncrement !== null ? `+${afmIncrement.toFixed(2)} €` : "a determinar"}</strong>
+                            <strong>{afmIncrement !== null ? `+${Math.round(afmIncrement)} €` : "a determinar"}</strong>
                           </p>
                           <p className="text-xs text-emerald-700/80 mt-1">
                             Diferència respecte a la sorra silícia estàndard del mateix filtre.

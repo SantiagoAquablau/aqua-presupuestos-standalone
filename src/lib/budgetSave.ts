@@ -893,6 +893,11 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   })());
 
   // ---- Section totals (override the pill amounts shown in PDF pages 5/6/7) ----
+  // Note: AFM ("VIDRE AFM") is NOT added here as a separate term — it's a
+  // DB-configured formula-engine rule (condition_field: instal_afm_enabled)
+  // that already generates its own full-price line tagged sub_phase
+  // "depuracio", which depuracioSubTotal below picks up automatically. Adding
+  // it again here would double-count it.
   const depuracioSectionAmount =
     Math.ceil(filtreInclosSale) +
     (filtreInclosArt.tipus === "sorra" ? depuracioSubTotal : 0) +
@@ -1380,14 +1385,16 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     afmQty: draft.instalAfmQty,
     // Differential €: always available so PDF can display the alternative
     // "+xxx €" price even when AFM is NOT included in the budget.
+    // Rounded to whole euros so the PDF bullet ("+165 €") agrees with
+    // afmDiffAmount above (no lingering decimals like "+164,70 €").
     afmExtraSale:
       typeof draft.instalAfmIncrement === "number"
-        ? draft.instalAfmIncrement
+        ? Math.round(draft.instalAfmIncrement)
         : (() => {
             const art = a(draft.instalAfmArticleId);
             const qty = Number(draft.instalAfmQty ?? 0);
             if (!art || !qty) return undefined;
-            return Number(art.sale || 0) * qty;
+            return Math.round(Number(art.sale || 0) * qty);
           })(),
     // Prefiltre HYDROSPIN COMPACT
     prefiltreEnabled: !!draft.instalPrefiltreEnabled,
