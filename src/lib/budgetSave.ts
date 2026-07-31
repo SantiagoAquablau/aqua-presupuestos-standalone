@@ -801,6 +801,10 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
       .filter(Boolean);
     return feats.length ? feats : undefined;
   })();
+  const hidrolisiCellHours = (() => {
+    const n = Number(dosificacio?.technical_specs?.garantia_cellula_hores);
+    return Number.isFinite(n) && n > 0 ? n : 8000;
+  })();
   const quadre = a(draft.instalQuadreId);
   const revestimentArt = a(draft.revestimentModelId);
 
@@ -1502,6 +1506,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     // Section pill amount = equip + subfase "dosificacio" + 12h MO.
     hidrolisiTotal: dosificacio ? electrolisiSectionAmount : undefined,
     hidrolisiFeatures,
+    hidrolisiCellHours,
     // Mòdul Ethernet / WIFI add-on
     wifiEnabled: !!draft.instalWifiEnabled,
     wifiName: a(draft.instalWifiArticleId)?.name,

@@ -163,6 +163,7 @@ export interface PdfData {
   hidrolisiAltImageUrl?: string;
   hidrolisiTotal?: number;
   hidrolisiFeatures?: string[]; // catalog-defined characteristics (technical_specs.feature1..4)
+  hidrolisiCellHours?: number; // cell electrode warranty hours (technical_specs.garantia_cellula_hores), fallback 8000
   // Mòdul Ethernet / WIFI (optional add-on)
   wifiEnabled?: boolean;
   wifiName?: string;

@@ -9,6 +9,8 @@ interface ArticleWithSpecs {
   id: string;
   name: string;
   technical_specs: Record<string, any> | null;
+  linia_preferent?: boolean;
+  fase?: string | null;
 }
 
 export interface AppliedRecommendations {
@@ -27,6 +29,9 @@ interface Props {
   useAfm?: boolean;
   /** Nombre de banyistes estimat (per defecte 5). */
   bathers?: number;
+  /** Línia elèctrica del Quadre elèctric (draft.instalQuadreLinia). Filtra les
+   *  bombes On/Off recomanades perquè coincideixin amb la fase seleccionada. */
+  quadreLinia?: "monofasica" | "trifasica";
 }
 
 const num = (v: any): number => {
@@ -63,6 +68,7 @@ export function EquipmentRecommendations({
   onApply,
   useAfm = false,
   bathers = 5,
+  quadreLinia = "monofasica",
 }: Props) {
   const { isAdmin } = useAuth();
   const [expanded, setExpanded] = useState(true);
@@ -85,7 +91,7 @@ export function EquipmentRecommendations({
           .not("technical_specs", "is", null),
         supabase
           .from("articles")
-          .select("id, name, technical_specs")
+          .select("id, name, technical_specs, linia_preferent, fase")
           .eq("category", "Bomba")
           .eq("subtipus", "On/Off")
           .not("technical_specs", "is", null),
@@ -145,7 +151,11 @@ export function EquipmentRecommendations({
     // estigui per sobre del caudal necessari, i que combinada amb el filtre recomanat
     // doni una velocitat de filtració (VF = caudal_bomba / àrea_filtre) entre 34 i 40.
     // El rentat es mostra com a informació però no és condició eliminatòria.
-    const onoffSorted = [...onoffPumps].sort(
+    // Només es consideren bombes marcades com "línia preferent" al catàleg
+    // (ex. DOLFI) i que coincideixin amb la fase elèctrica del Quadre elèctric.
+    const expectedFase = quadreLinia === "trifasica" ? "Trifàsic" : "Monofàsic";
+    const onoffCandidates = onoffPumps.filter((p) => p.linia_preferent === true && p.fase === expectedFase);
+    const onoffSorted = [...onoffCandidates].sort(
       (a, b) => num(a.technical_specs?.caudal_m3h) - num(b.technical_specs?.caudal_m3h),
     );
     const filterArea = recommendedFilter?.area_m2 || 0;
@@ -205,7 +215,7 @@ export function EquipmentRecommendations({
       recommendedChlorinator,
       noFilterCovers: validFilters.length === 0 && filterEvals.length > 0,
     };
-  }, [filters, onoffPumps, variablePumps, chlorinators, poolVolumeLiters, useAfm, bathers]);
+  }, [filters, onoffPumps, variablePumps, chlorinators, poolVolumeLiters, useAfm, bathers, quadreLinia]);
 
   if (!poolDimensionsReady) {
     return (

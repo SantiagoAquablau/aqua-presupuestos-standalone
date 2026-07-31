@@ -402,7 +402,15 @@ function BombaVariableOpcionalBlock({ data }: { data: PdfData }) {
                 src={img}
                 alt=""
                 crossOrigin="anonymous"
-                style={{ width: "34mm", height: "26mm", objectFit: "contain", display: "block" }}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "26mm",
+                  width: "auto",
+                  height: "auto",
+                  objectFit: "contain",
+                  display: "block",
+                  margin: "0 auto",
+                }}
               />
             ) : (
               <div style={{ width: "34mm", height: "26mm" }} />
@@ -489,7 +497,15 @@ function BombaStandardOpcionalBlock({ data }: { data: PdfData }) {
             src={img}
             alt=""
             crossOrigin="anonymous"
-            style={{ width: "45mm", height: "28mm", objectFit: "contain", display: "block" }}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "28mm",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              display: "block",
+              margin: "0 auto",
+            }}
           />
         ) : (
           <div style={{ width: "45mm", height: "28mm" }} />

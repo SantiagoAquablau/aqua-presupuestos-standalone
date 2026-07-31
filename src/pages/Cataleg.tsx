@@ -29,6 +29,7 @@ interface ArticleForm {
   beurada_color_normal: string;
   beurada_color_epoxi: string;
   fase: string;
+  linia_preferent: boolean;
 }
 
 const subtipusOptions: Record<string, string[]> = {
@@ -40,7 +41,7 @@ const subtipusOptions: Record<string, string[]> = {
   'Varis': ['Cobertors', 'Robots', 'Bombes de calor', "Projecte d'obra", 'Gespa', 'Paviment perimetral'],
 };
 
-const emptyForm: ArticleForm = { name: '', reference: '', supplier_id: '', category: 'Varis', cost_price: 0, sale_price: 0, sale_price_supply_only: 0, unit: 'ud', format: '', quality: '', acabat_type: '', image_url: '', subtipus: '', technical_specs: {}, beurada_color: '', beurada_color_normal: '', beurada_color_epoxi: '', fase: '' };
+const emptyForm: ArticleForm = { name: '', reference: '', supplier_id: '', category: 'Varis', cost_price: 0, sale_price: 0, sale_price_supply_only: 0, unit: 'ud', format: '', quality: '', acabat_type: '', image_url: '', subtipus: '', technical_specs: {}, beurada_color: '', beurada_color_normal: '', beurada_color_epoxi: '', fase: '', linia_preferent: false };
 
 type TechSpecField = {
   key: string;
@@ -98,6 +99,7 @@ function getTechSpecConfig(category: string, subtipus: string): TechSpecConfig |
         { key: 'feature2', label: 'Característica 2', step: '', type: 'text', placeholder: 'Connexió WI-FI opcional.' },
         { key: 'feature3', label: 'Característica 3', step: '', type: 'text', placeholder: "Control de salinitat de l'aigua." },
         { key: 'feature4', label: 'Característica 4', step: '', type: 'text', placeholder: 'Control de producció i bomba de filtració.' },
+        { key: 'garantia_cellula_hores', label: 'Garantia cèl·lula (hores)', step: '1', integer: true, placeholder: '8000' },
       ],
     };
   }
@@ -191,6 +193,7 @@ export default function Cataleg() {
         beurada_color_normal: form.category === 'Porcelànic' ? (form.beurada_color_normal || null) : null,
         beurada_color_epoxi: form.category === 'Porcelànic' ? (form.beurada_color_epoxi || null) : null,
         fase: form.category === 'Bomba' ? (form.fase || null) : null,
+        linia_preferent: form.category === 'Bomba' ? form.linia_preferent : false,
       };
       if (editId) {
         const { error } = await supabase.from('articles').update(payload as any).eq('id', editId);
@@ -245,6 +248,7 @@ export default function Cataleg() {
         beurada_color_normal: (a as any).beurada_color_normal || '',
         beurada_color_epoxi: (a as any).beurada_color_epoxi || '',
         fase: (a as any).fase || '',
+        linia_preferent: !!(a as any).linia_preferent,
     });
     setEditId(a.id);
     setModalOpen(true);
@@ -483,6 +487,17 @@ export default function Cataleg() {
                   <option value="Trifàsic">Trifàsic</option>
                 </select>
               </div>
+            )}
+            {form.category === 'Bomba' && (
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.linia_preferent}
+                  onChange={(e) => setForm({ ...form, linia_preferent: e.target.checked })}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Línia preferent (apareix a les recomanacions automàtiques d'equipament)
+              </label>
             )}
             {/* Technical specs (conditional) */}
             {(() => {

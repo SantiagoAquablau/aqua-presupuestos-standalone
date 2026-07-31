@@ -1653,6 +1653,7 @@ export function StepInstalacions() {
 
       <EquipmentRecommendations
         useAfm={Boolean(draft.instalAfmEnabled)}
+        quadreLinia={draft.instalQuadreLinia ?? "monofasica"}
         poolVolumeLiters={(() => {
           const l = Number(draft.poolLength) || 0;
           const w = Number(draft.poolWidth) || 0;

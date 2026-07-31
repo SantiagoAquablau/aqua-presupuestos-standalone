@@ -35,6 +35,7 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
   const wifiImg = data.wifiImageUrl || "/pdf/modulo-wifi-ethernet.webp";
   const featureBullets =
     data.hidrolisiFeatures && data.hidrolisiFeatures.length > 0 ? data.hidrolisiFeatures : FALLBACK_FEATURES;
+  const cellHours = data.hidrolisiCellHours || 8000;
 
   return (
     <section style={pageStyle}>
@@ -110,7 +111,7 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
           <div style={{ flex: 0.85 }}>
             <div style={{ fontWeight: 700, color: "#2f4494", fontSize: "12pt", marginBottom: 4 }}>Equipament</div>
             <div style={{ margin: "0 0 4mm 0", fontSize: "10pt", lineHeight: 1.55, color: PDF_COLORS.textBody }}>
-              <div>· Cèl·lula elèctrode (garantia 8000 hores)</div>
+              <div>· Cèl·lula elèctrode (garantia {cellHours} hores)</div>
               <div>· Quadre de control</div>
               <div>· Sondas REDOX (ORP) i pH.</div>
               <div>· Injector de reductor de pH + bomba peristàltica.</div>

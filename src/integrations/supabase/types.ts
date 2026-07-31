@@ -27,6 +27,7 @@ export type Database = {
           format: string | null
           id: string
           image_url: string | null
+          linia_preferent: boolean
           name: string
           quality: string | null
           reference: string | null
@@ -50,6 +51,7 @@ export type Database = {
           format?: string | null
           id?: string
           image_url?: string | null
+          linia_preferent?: boolean
           name: string
           quality?: string | null
           reference?: string | null
@@ -73,6 +75,7 @@ export type Database = {
           format?: string | null
           id?: string
           image_url?: string | null
+          linia_preferent?: boolean
           name?: string
           quality?: string | null
           reference?: string | null
