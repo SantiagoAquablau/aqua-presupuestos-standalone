@@ -103,6 +103,11 @@ function getTechSpecConfig(category: string, subtipus: string): TechSpecConfig |
         { key: 'feature3', label: 'Característica 3', step: '', type: 'text', placeholder: 'Control de producció i bomba de filtració.' },
         { key: 'garantia_cellula_hores', label: 'Garantia cèl·lula (hores)', step: '1', integer: true, placeholder: '8000' },
         { key: 'wifi_incorporat', label: 'Wi-Fi incorporat (l\'equip ja el porta de sèrie, no cal mòdul a part)', step: '', type: 'boolean' },
+        // Independent de wifi_incorporat: marca els equips (p.ex. Plus NG) on,
+        // tot i mostrar-se al client com a Wi-Fi incorporat, internament cal
+        // comprar/instal·lar igualment el mòdul físic — genera una partida
+        // normal (sumada al total) sense toggle ni text visible al PDF.
+        { key: 'wifi_modul_compra_interna', label: 'Cal comprar mòdul Wi-Fi internament (encara que sigui "incorporat" de cara al client)', step: '', type: 'boolean' },
       ],
     };
   }

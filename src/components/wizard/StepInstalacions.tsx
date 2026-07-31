@@ -218,6 +218,11 @@ export function StepInstalacions() {
   // WiFi/Ethernet built in (technical_specs.wifi_incorporat) — in that case
   // the separate WiFi module add-on doesn't apply at all.
   const [dosifWifiIncorporat, setDosifWifiIncorporat] = useState(false);
+  // Independent flag (technical_specs.wifi_modul_compra_interna): even when
+  // wifi_incorporat is true, some equips (Plus NG) still require physically
+  // buying/installing the module internally — no toggle, no PDF text, but a
+  // real cost that must still be summed into the total.
+  const [dosifWifiModulCompraInterna, setDosifWifiModulCompraInterna] = useState(false);
   const [afmAutoArticle, setAfmAutoArticle] = useState<{ id: string; name: string; sale_price: number } | null>(null);
   const [afmNotFound, setAfmNotFound] = useState(false);
 
@@ -305,6 +310,7 @@ export function StepInstalacions() {
     const id = draft.instalDosificacioStdId;
     if (!id) {
       setDosifWifiIncorporat(false);
+      setDosifWifiModulCompraInterna(false);
       return;
     }
     (async () => {
@@ -312,6 +318,7 @@ export function StepInstalacions() {
       if (cancelled) return;
       const specs = (data?.technical_specs as any) || {};
       setDosifWifiIncorporat(specs?.wifi_incorporat === true);
+      setDosifWifiModulCompraInterna(specs?.wifi_modul_compra_interna === true);
     })();
     return () => {
       cancelled = true;
@@ -329,13 +336,27 @@ export function StepInstalacions() {
   // that don't have WiFi incorporated.
   useEffect(() => {
     if (dosifWifiIncorporat) {
-      if (draft.instalWifiEnabled || draft.instalWifiArticleId) {
+      if (dosifWifiModulCompraInterna) {
+        // Client sees WiFi as built-in (no toggle, no PDF text — governed by
+        // wifi_incorporat elsewhere), but the module still needs to be bought
+        // internally: auto-enable it as a normal priced Partida line, exactly
+        // like the user toggle would for a non-incorporat equip.
+        if (wifiAutoArticle && (!draft.instalWifiEnabled || draft.instalWifiArticleId !== wifiAutoArticle.id)) {
+          updateDraft({ instalWifiEnabled: true, instalWifiArticleId: wifiAutoArticle.id });
+        }
+      } else if (draft.instalWifiEnabled || draft.instalWifiArticleId) {
         updateDraft({ instalWifiEnabled: false, instalWifiArticleId: undefined });
       }
     } else if (wifiAutoArticle && draft.instalWifiArticleId !== wifiAutoArticle.id) {
       updateDraft({ instalWifiArticleId: wifiAutoArticle.id });
     }
-  }, [dosifWifiIncorporat, wifiAutoArticle, draft.instalWifiEnabled, draft.instalWifiArticleId]);
+  }, [
+    dosifWifiIncorporat,
+    dosifWifiModulCompraInterna,
+    wifiAutoArticle,
+    draft.instalWifiEnabled,
+    draft.instalWifiArticleId,
+  ]);
 
   // Auto-find AFM article
   useEffect(() => {

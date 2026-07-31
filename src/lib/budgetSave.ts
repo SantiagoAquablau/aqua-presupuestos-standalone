@@ -813,6 +813,14 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   // off in this case (see StepInstalacions.tsx), so this is mostly a
   // belt-and-braces read of the same catalog flag for the PDF.
   const hidrolisiWifiIncorporat = dosificacio?.technical_specs?.wifi_incorporat === true;
+  // Independent from wifi_incorporat: some "incorporat" equips (e.g. Plus NG)
+  // still require physically buying/installing the WiFi module internally,
+  // even though nothing about it is shown to the client. When true, the
+  // wizard auto-enables the module (no toggle) and its cost must still be
+  // summed into the client-facing total below — unlike the plain
+  // wifi_incorporat case, where the cost is already bundled into the equip's
+  // own price and must NOT be added again.
+  const hidrolisiWifiModulCompraInterna = dosificacio?.technical_specs?.wifi_modul_compra_interna === true;
   const quadre = a(draft.instalQuadreId);
   const revestimentArt = a(draft.revestimentModelId);
 
@@ -926,7 +934,12 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   );
   const wifiArt = a(draft.instalWifiArticleId);
   const wifiSaleAmount = wifiArt ? Number(wifiArt.sale || 0) : undefined;
-  const wifiOn = !!draft.instalWifiEnabled && !hidrolisiWifiIncorporat;
+  // Sum the module cost unless it's genuinely bundled at no extra cost
+  // (wifi_incorporat with no internal purchase needed). When the equip is
+  // "incorporat" but still requires buying the module internally
+  // (wifi_modul_compra_interna), the cost is real and must still count.
+  const wifiOn =
+    !!draft.instalWifiEnabled && (!hidrolisiWifiIncorporat || hidrolisiWifiModulCompraInterna);
   const electrolisiSectionAmount =
     Math.ceil(dosificacioEquipSale) +
     dosificacioSubTotal +
