@@ -17,6 +17,7 @@ import {
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { computeManoObraExcavacio } from "@/lib/excavacioCalc";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Slider } from "@/components/ui/slider";
 import { EquipmentSelector, SelectedArticle } from "@/components/wizard/EquipmentSelector";
@@ -106,6 +107,15 @@ function NumberInput({
   placeholder?: string;
   note?: string;
 }) {
+  // Local text buffer so the field can be freely cleared/retyped without the
+  // controlled value snapping back to the calculated default mid-keystroke.
+  // Empty text is only interpreted as "no override" on blur, not on change.
+  const [text, setText] = useState(value != null ? String(value) : "");
+
+  useEffect(() => {
+    setText(value != null ? String(value) : "");
+  }, [value]);
+
   return (
     <div>
       <label className="block text-sm font-medium text-foreground mb-1.5">{label}</label>
@@ -115,8 +125,18 @@ function NumberInput({
         min="0"
         className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 min-h-[44px]"
         placeholder={placeholder}
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+        value={text}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setText(raw);
+          if (raw !== "") {
+            const parsed = parseFloat(raw);
+            if (!Number.isNaN(parsed)) onChange(parsed);
+          }
+        }}
+        onBlur={() => {
+          if (text === "") onChange(undefined);
+        }}
       />
       {note && <p className="text-xs text-muted-foreground mt-1">{note}</p>}
     </div>
@@ -224,15 +244,10 @@ export function StepAnnex() {
     }
   }, [reomplimentCalc?.reompliment, draft.annexExcavacioEstat]);
 
-  // Mano de obra excavació (mirrors the formula engine rule "MANO DE OBRA EXCAVACION":
-  // qty = roundUp(((L+1)*(W+1)*(depth_avg+0.3))/8.5), unit price 455€)
-  const manoObraExcavacio = useMemo(() => {
-    if (!poolLength || !poolWidth || !poolDepthAvg) return null;
-    const qty = Math.ceil(((poolLength + 1) * (poolWidth + 1) * (poolDepthAvg + 0.3)) / 8.5);
-    // Mínim de venda 3.300 € (igual que el mínim de 930 € del re-ompliment).
-    const total = Math.max(3300, qty * 455);
-    return { qty, total: Math.round(total * 100) / 100 };
-  }, [poolLength, poolWidth, poolDepthAvg]);
+  const manoObraExcavacio = useMemo(
+    () => computeManoObraExcavacio(poolLength, poolWidth, poolDepthAvg),
+    [poolLength, poolWidth, poolDepthAvg],
+  );
 
   // === Sistema netejafons calculations ===
   const netejafonsCalc = useMemo(() => {

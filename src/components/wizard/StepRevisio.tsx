@@ -16,6 +16,7 @@ import { buildBudgetPdf } from "@/lib/budgetSave";
 import { buildWizardLinesByPhase } from "@/lib/wizardLines";
 import { evaluateFormulaRules, type FormulaRule } from "@/lib/formulaEngine";
 import { mergeFormulaResultsIntoPhases, serializeBudgetPhases, filterAcabatsInclusion } from "@/lib/formulaPhases";
+import { computeManoObraExcavacio } from "@/lib/excavacioCalc";
 import { PaymentConditionsEditor } from "@/components/wizard/PaymentConditionsEditor";
 import { useShowMargins } from "@/hooks/useShowMargins";
 import { useMaintenanceKit } from "@/lib/maintenanceKit";
@@ -521,6 +522,8 @@ export function StepRevisio() {
     draft.poolLength && draft.poolWidth && depthAvg
       ? draft.poolLength * draft.poolWidth + 2 * (draft.poolLength * depthAvg) + 2 * (draft.poolWidth * depthAvg)
       : 0;
+  const manoObraExcavacio = computeManoObraExcavacio(draft.poolLength || 0, draft.poolWidth || 0, depthAvg);
+  const excavacioImport = draft.annexExcavacioManoObraOverride ?? manoObraExcavacio?.total;
   const finishLabel = (key?: string) => {
     if (!key) return "-";
     const raw = key.split("_").slice(2).join("_") || key;
@@ -1301,8 +1304,8 @@ export function StepRevisio() {
               label: "Excavació",
               estat: draft.annexExcavacioEstat,
               content:
-                draft.annexExcavacioImport || draft.annexExcavacioReompliment
-                  ? `Excavació: ${(draft.annexExcavacioImport || 0).toFixed(2)}€ · Reompliment: ${(draft.annexExcavacioReompliment || 0).toFixed(2)}€`
+                excavacioImport || draft.annexExcavacioReompliment
+                  ? `Excavació: ${(excavacioImport || 0).toFixed(2)}€ · Reompliment: ${(draft.annexExcavacioReompliment || 0).toFixed(2)}€`
                   : null,
             },
             {

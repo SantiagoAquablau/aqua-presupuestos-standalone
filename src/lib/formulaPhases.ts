@@ -49,25 +49,48 @@ function isManoObraExcavacioItem(description: string): boolean {
 const MANO_OBRA_EXCAVACIO_MIN_SALE = 3300;
 
 /**
- * Enforce a minimum total sale price of 3.300 € for the "MANO DE OBRA EXCAVACION"
- * partide (mirrors the 930 € minimum applied to "Re-ompliment de terres" in
- * wizardLines.ts). Only applies when the Annex Excavació section is active.
- * The unit price is raised to (3300 / quantity) and unitCost recomputed as
- * unitSale / 1.3 to keep the standard 30% margin used by the formula engine.
+ * Resolve the sale total for the "MANO DE OBRA EXCAVACION" partide. Only
+ * applies when the Annex Excavació section is active.
+ *
+ * Source of truth, in priority order:
+ * 1. A manual edit made directly on the Partides line (`item.userEdited`).
+ * 2. The Annex step's "Import mà d'obra" override
+ *    (`draft.annexExcavacioManoObraOverride`) — read directly here rather
+ *    than via a flag, so it stays authoritative across recalculations
+ *    without needing to be mirrored into `item.userEdited`.
+ * 3. The automatic 455 €/ud calculation, floored at a 3.300 € minimum sale
+ *    (mirrors the 930 € minimum applied to "Re-ompliment de terres" in
+ *    wizardLines.ts).
+ *
+ * The unit price is derived from the resolved total (total / quantity) and
+ * unitCost recomputed as unitSale / 1.3 to keep the standard 30% margin used
+ * by the formula engine.
  */
 function applyExcavacioMinimums(phases: BudgetPhase[], draft: Partial<BudgetDraft>): BudgetPhase[] {
   const estat = (draft as any).annexExcavacioEstat;
   if (estat !== 'inclos' && estat !== 'opcional') return phases;
 
+  const overrideRaw = (draft as any).annexExcavacioManoObraOverride;
+  const hasOverride = overrideRaw != null && Number.isFinite(Number(overrideRaw));
+  const overrideTotal = Number(overrideRaw);
+
   return phases.map((phase) => ({
     ...phase,
     items: (phase.items || []).map((item) => {
       if (!isManoObraExcavacioItem(item.description)) return item;
-      // Respect manual user edits on this line.
+      // Respect manual edits made directly on the Partides line.
       if (item.userEdited) return item;
       const qty = Number(item.quantity || 0);
+      if (qty <= 0) return item;
+
+      if (hasOverride) {
+        const newUnitSale = Math.round((overrideTotal / qty) * 100) / 100;
+        const newUnitCost = Math.round((newUnitSale / 1.3) * 100) / 100;
+        return { ...item, unitSale: newUnitSale, unitCost: newUnitCost };
+      }
+
       const currentTotal = qty * Number(item.unitSale || 0);
-      if (qty <= 0 || currentTotal >= MANO_OBRA_EXCAVACIO_MIN_SALE) return item;
+      if (currentTotal >= MANO_OBRA_EXCAVACIO_MIN_SALE) return item;
       const newUnitSale = Math.round((MANO_OBRA_EXCAVACIO_MIN_SALE / qty) * 100) / 100;
       const newUnitCost = Math.round((newUnitSale / 1.3) * 100) / 100;
       return {
