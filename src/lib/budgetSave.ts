@@ -772,12 +772,15 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
 
   // Pool stats
   const depthAvg = draft.poolDepthMin && draft.poolDepthMax ? (draft.poolDepthMin + draft.poolDepthMax) / 2 : 0;
-  const volume =
-    draft.poolLength && draft.poolWidth && depthAvg
+  const isIrregularShapeForPdf = draft.poolShape === "irregular";
+  const volume = isIrregularShapeForPdf
+    ? Math.round((draft.poolSurfaceIrregular || 0) * depthAvg * 1000)
+    : draft.poolLength && draft.poolWidth && depthAvg
       ? Math.round(draft.poolLength * draft.poolWidth * depthAvg * 1000)
       : 0;
-  const surface =
-    draft.poolLength && draft.poolWidth && depthAvg
+  const surface = isIrregularShapeForPdf
+    ? draft.poolSurfaceIrregular || 0
+    : draft.poolLength && draft.poolWidth && depthAvg
       ? draft.poolLength * draft.poolWidth + 2 * (draft.poolLength * depthAvg) + 2 * (draft.poolWidth * depthAvg)
       : 0;
 

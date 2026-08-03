@@ -114,7 +114,7 @@ export async function buildAnnexPdfData(annexId: string): Promise<AnnexPdfDocume
   const { data: budget, error: budgetErr } = await supabase
     .from("budgets")
     .select(
-      "id, number, type, client_name, client_nif, client_address, client_town, client_phone, client_email, pool_length, pool_width, pool_depth_min, pool_depth_max, pool_volume_liters, pool_type, pool_shape, interior_stairs_type, has_exterior_stairs, ext_stairs_length, ext_stairs_width, comercial_id",
+      "id, number, type, client_name, client_nif, client_address, client_town, client_phone, client_email, pool_length, pool_width, pool_depth_min, pool_depth_max, pool_volume_liters, pool_surface_irregular, pool_type, pool_shape, interior_stairs_type, has_exterior_stairs, ext_stairs_length, ext_stairs_width, comercial_id",
     )
     .eq("id", annexAny.budget_id)
     .single();
@@ -259,9 +259,13 @@ export async function buildAnnexPdfData(annexId: string): Promise<AnnexPdfDocume
   const depthAvg =
     b.pool_depth_min && b.pool_depth_max ? (b.pool_depth_min + b.pool_depth_max) / 2 : 0;
   const volumeM3 =
-    b.pool_length && b.pool_width && depthAvg
-      ? Math.round(b.pool_length * b.pool_width * depthAvg)
-      : undefined;
+    b.pool_shape === "irregular"
+      ? b.pool_surface_irregular && depthAvg
+        ? Math.round(b.pool_surface_irregular * depthAvg)
+        : undefined
+      : b.pool_length && b.pool_width && depthAvg
+        ? Math.round(b.pool_length * b.pool_width * depthAvg)
+        : undefined;
 
   const cover: PdfData = {
     budgetNumber: annexAny.number,
@@ -280,6 +284,7 @@ export async function buildAnnexPdfData(annexId: string): Promise<AnnexPdfDocume
     poolDepthMin: b.pool_depth_min,
     poolDepthMax: b.pool_depth_max,
     poolVolumeM3: volumeM3,
+    poolSurfaceM2: b.pool_shape === "irregular" ? b.pool_surface_irregular ?? undefined : undefined,
     poolType: b.pool_type,
     poolShape: b.pool_shape,
     interiorStairsType: b.interior_stairs_type,

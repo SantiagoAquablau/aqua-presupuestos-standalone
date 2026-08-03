@@ -514,12 +514,15 @@ export function StepRevisio() {
   // Margen sobre coste — coherente con StepPartides y BudgetList
   const margin = totalSale > 0 ? ((totalSale - totalCost) / totalSale) * 100 : 0;
   const depthAvg = draft.poolDepthMin && draft.poolDepthMax ? (draft.poolDepthMin + draft.poolDepthMax) / 2 : 0;
-  const volume =
-    draft.poolLength && draft.poolWidth && depthAvg
+  const isIrregularShape = draft.poolShape === "irregular";
+  const volume = isIrregularShape
+    ? Math.round((draft.poolSurfaceIrregular || 0) * depthAvg * 1000)
+    : draft.poolLength && draft.poolWidth && depthAvg
       ? Math.round(draft.poolLength * draft.poolWidth * depthAvg * 1000)
       : 0;
-  const surface =
-    draft.poolLength && draft.poolWidth && depthAvg
+  const surface = isIrregularShape
+    ? draft.poolSurfaceIrregular || 0
+    : draft.poolLength && draft.poolWidth && depthAvg
       ? draft.poolLength * draft.poolWidth + 2 * (draft.poolLength * depthAvg) + 2 * (draft.poolWidth * depthAvg)
       : 0;
   const manoObraExcavacio = computeManoObraExcavacio(draft.poolLength || 0, draft.poolWidth || 0, depthAvg);

@@ -1762,17 +1762,20 @@ export function StepInstalacions() {
         useAfm={Boolean(draft.instalAfmEnabled)}
         quadreLinia={draft.instalQuadreLinia ?? "monofasica"}
         poolVolumeLiters={(() => {
+          const isIrregular = draft.poolShape === "irregular";
           const l = Number(draft.poolLength) || 0;
           const w = Number(draft.poolWidth) || 0;
+          const surfaceIrregular = Number(draft.poolSurfaceIrregular) || 0;
           const dMin = Number(draft.poolDepthMin) || 0;
           const dMax = Number(draft.poolDepthMax) || 0;
           const depthAvg = dMin && dMax ? (dMin + dMax) / 2 : dMax || dMin;
-          return l && w && depthAvg ? l * w * depthAvg * 1000 : 0;
+          if (!depthAvg) return 0;
+          return isIrregular ? surfaceIrregular * depthAvg * 1000 : l && w ? l * w * depthAvg * 1000 : 0;
         })()}
         poolDimensionsReady={
-          Boolean(draft.poolLength) &&
-          Boolean(draft.poolWidth) &&
-          Boolean(draft.poolDepthMin || draft.poolDepthMax)
+          draft.poolShape === "irregular"
+            ? Boolean(draft.poolSurfaceIrregular) && Boolean(draft.poolDepthMin || draft.poolDepthMax)
+            : Boolean(draft.poolLength) && Boolean(draft.poolWidth) && Boolean(draft.poolDepthMin || draft.poolDepthMax)
         }
         onApply={async (rec: AppliedRecommendations) => {
           const updates: Record<string, any> = {};

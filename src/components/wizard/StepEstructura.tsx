@@ -363,7 +363,16 @@ export function StepEstructura() {
               <label className={labelClass}>Forma de la piscina</label>
               <div className="flex gap-3">
                 {(['regular', 'irregular'] as const).map((v) => (
-                  <button key={v} onClick={() => { updateDraft({ poolShape: v }); clearError('poolShape'); }}
+                  <button key={v} onClick={() => {
+                    // Clear the fields specific to the shape being left, so no
+                    // "ghost" value from a previous shape silently leaks into
+                    // any calculation that reads poolLength/poolWidth or
+                    // poolSurfaceIrregular without branching by poolShape.
+                    updateDraft(v === 'irregular'
+                      ? { poolShape: v, poolLength: undefined, poolWidth: undefined }
+                      : { poolShape: v, poolSurfaceIrregular: undefined });
+                    clearError('poolShape');
+                  }}
                     className={cn('flex-1 py-2.5 rounded-lg border-2 text-sm font-medium transition-all min-h-[44px]',
                       draft.poolShape === v ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/40',
                       hasError('poolShape') && draft.poolShape !== v && fieldErrorClass

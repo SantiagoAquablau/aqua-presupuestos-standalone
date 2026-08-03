@@ -44,7 +44,7 @@ function useBudgetCtx(budgetId: string) {
       const { data, error } = await supabase
         .from('budgets')
         .select(
-          'id, pool_length, pool_width, pool_depth_min, pool_depth_max',
+          'id, pool_length, pool_width, pool_depth_min, pool_depth_max, pool_shape, pool_surface_irregular',
         )
         .eq('id', budgetId)
         .single();
@@ -148,7 +148,9 @@ function BombaCalorConfig({ annexId, budgetId, onDone, onCancel }: Omit<Props, '
     const dMin = Number(budget?.pool_depth_min || 0);
     const dMax = Number(budget?.pool_depth_max || 0);
     const dAvg = dMin && dMax ? (dMin + dMax) / 2 : dMin || dMax;
-    const volumeM3 = L && W && dAvg ? L * W * dAvg : 0;
+    const isIrregular = budget?.pool_shape === 'irregular';
+    const surfaceIrregular = Number(budget?.pool_surface_irregular || 0);
+    const volumeM3 = isIrregular ? surfaceIrregular * dAvg : L && W && dAvg ? L * W * dAvg : 0;
     if (!volumeM3) return null;
     const deltaT = temperatura - 15;
     const coverFactor = coberta ? 1.0 : 0.8;
@@ -431,7 +433,10 @@ function CobertorConfig({ annexId, budgetId, onDone, onCancel }: Omit<Props, 'se
     return <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>;
   }
 
-  const hasDims = !!(budget?.pool_length && budget?.pool_width);
+  const hasDims =
+    budget?.pool_shape === 'irregular'
+      ? !!(budget?.pool_surface_irregular && (budget?.pool_depth_min || budget?.pool_depth_max))
+      : !!(budget?.pool_length && budget?.pool_width);
   const totalSale = result?.ok ? Number(result.breakdown.totalSale || 0) : 0;
 
   return (

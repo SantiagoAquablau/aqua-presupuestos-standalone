@@ -464,8 +464,10 @@ export function StepAnnex() {
   }, []);
 
   const bombaCalorCalc = useMemo(() => {
-    const volumeLiters =
-      poolLength && poolWidth && poolDepthAvg ? poolLength * poolWidth * poolDepthAvg * 1000 : 0;
+    const isIrregular = draft.poolShape === "irregular";
+    const volumeLiters = isIrregular
+      ? (draft.poolSurfaceIrregular || 0) * poolDepthAvg * 1000
+      : poolLength && poolWidth && poolDepthAvg ? poolLength * poolWidth * poolDepthAvg * 1000 : 0;
     if (!volumeLiters) return null;
     const volumeM3 = volumeLiters / 1000;
     const targetTemp = draft.annexBombaCalorTemperatura ?? 27;
@@ -497,6 +499,8 @@ export function StepAnnex() {
     poolLength,
     poolWidth,
     poolDepthAvg,
+    draft.poolShape,
+    draft.poolSurfaceIrregular,
     draft.annexBombaCalorTemperatura,
     draft.annexBombaCalorCoberta,
     draft.annexBombaCalorDesde,

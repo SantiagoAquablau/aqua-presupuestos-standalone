@@ -208,6 +208,21 @@ export function PageCover({ data }: { data: PdfData }) {
                 <div>Altura d'aigua: {data.autoportantAlturaAigua}</div>
               )}
             </>
+          ) : data.poolShape === "irregular" ? (
+            typeof data.poolSurfaceM2 === "number" && (
+              <div>
+                Superfície: {data.poolSurfaceM2.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m²
+                {typeof data.poolVolumeM3 === "number" ? (
+                  <>
+                    {" "}
+                    · {data.poolVolumeM3.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m
+                    <sup style={{ fontSize: "0.65em" }}>3</sup>
+                  </>
+                ) : (
+                  ""
+                )}
+              </div>
+            )
           ) : typeof data.poolLength === "number" && typeof data.poolWidth === "number" && (
             <div>
               Mides: {data.poolLength.toLocaleString("ca-ES", { minimumFractionDigits: 2 })}m x{" "}
