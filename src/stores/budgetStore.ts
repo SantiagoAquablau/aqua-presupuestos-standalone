@@ -71,6 +71,9 @@ export interface BudgetDraft {
   poolWidth?: number;
   poolDepthMin?: number;
   poolDepthMax?: number;
+  /** Manual total vessel surface (floor + walls combined) for poolShape === 'irregular',
+   *  where poolLength/poolWidth aren't collected and can't be used to derive surface. */
+  poolSurfaceIrregular?: number;
   hasExteriorStairs?: boolean;
   extStairsLength?: number;
   extStairsWidth?: number;

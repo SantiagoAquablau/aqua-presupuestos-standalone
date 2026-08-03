@@ -27,6 +27,9 @@ function computeHasAccessStair(draft: BudgetDraft): boolean {
 }
 
 export function draftToRow(draft: BudgetDraft, userId: string) {
+  const depthAvgForSurface =
+    draft.poolDepthMin && draft.poolDepthMax ? (draft.poolDepthMin + draft.poolDepthMax) / 2 : 0;
+  const isIrregularShape = draft.poolShape === "irregular";
   return {
     type: draft.type || "obra_nueva",
     client_name: draft.clientName || "",
@@ -45,6 +48,7 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     pool_width: draft.poolWidth || 0,
     pool_depth_min: draft.poolDepthMin || 0,
     pool_depth_max: draft.poolDepthMax || 0,
+    pool_surface_irregular: draft.poolSurfaceIrregular ?? null,
     pool_depth_avg:
       draft.poolDepthAvg && draft.poolDepthAvg > 0
         ? draft.poolDepthAvg
@@ -60,12 +64,17 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     has_electrolisi_2: draft.hasElectrolisi2 ?? null,
     kit_manguera_size: draft.kitMangueraSize || null,
     kit_pertiga_size: draft.kitPertigaSize || null,
-    pool_volume_liters:
-      draft.poolLength && draft.poolWidth && draft.poolDepthMin && draft.poolDepthMax
+    // Irregular: no floor-only dimension is collected, so volume is
+    // approximated as total vessel surface × avg depth (mirrors
+    // StepEstructura.tsx's preview and formulaEngine.ts's poolVolume).
+    pool_volume_liters: isIrregularShape
+      ? (draft.poolSurfaceIrregular || 0) * depthAvgForSurface * 1000
+      : draft.poolLength && draft.poolWidth && draft.poolDepthMin && draft.poolDepthMax
         ? draft.poolLength * draft.poolWidth * ((draft.poolDepthMin + draft.poolDepthMax) / 2) * 1000
         : 0,
-    pool_surface_m2:
-      draft.poolLength && draft.poolWidth && draft.poolDepthMin && draft.poolDepthMax
+    pool_surface_m2: isIrregularShape
+      ? draft.poolSurfaceIrregular || 0
+      : draft.poolLength && draft.poolWidth && draft.poolDepthMin && draft.poolDepthMax
         ? draft.poolLength * draft.poolWidth +
           2 * (draft.poolLength * ((draft.poolDepthMin + draft.poolDepthMax) / 2)) +
           2 * (draft.poolWidth * ((draft.poolDepthMin + draft.poolDepthMax) / 2))

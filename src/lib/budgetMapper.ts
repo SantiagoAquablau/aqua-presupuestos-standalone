@@ -65,6 +65,8 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
     poolLength: Number(data.pool_length), poolWidth: Number(data.pool_width),
     poolDepthMin: Number(data.pool_depth_min), poolDepthMax: Number(data.pool_depth_max),
     poolDepthAvg: (data as any).pool_depth_avg ? Number((data as any).pool_depth_avg) : undefined,
+    poolSurfaceIrregular:
+      (data as any).pool_surface_irregular != null ? Number((data as any).pool_surface_irregular) : undefined,
     hasElectrolisi: (data as any).has_electrolisi ?? undefined,
     hasSecondPool: (data as any).has_second_pool ?? undefined,
     poolLength2: (data as any).pool_length_2 != null ? Number((data as any).pool_length_2) : undefined,

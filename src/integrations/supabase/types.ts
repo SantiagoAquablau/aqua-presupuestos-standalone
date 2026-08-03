@@ -587,6 +587,7 @@ export type Database = {
           pool_length: number | null
           pool_length_2: number | null
           pool_shape: string | null
+          pool_surface_irregular: number | null
           pool_surface_m2: number | null
           pool_type: string | null
           pool_volume_liters: number | null
@@ -935,6 +936,7 @@ export type Database = {
           pool_length?: number | null
           pool_length_2?: number | null
           pool_shape?: string | null
+          pool_surface_irregular?: number | null
           pool_surface_m2?: number | null
           pool_type?: string | null
           pool_volume_liters?: number | null
@@ -1283,6 +1285,7 @@ export type Database = {
           pool_length?: number | null
           pool_length_2?: number | null
           pool_shape?: string | null
+          pool_surface_irregular?: number | null
           pool_surface_m2?: number | null
           pool_type?: string | null
           pool_volume_liters?: number | null

@@ -169,7 +169,14 @@ export default function BudgetList() {
 
       const from = pageParam * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to);
+      // Order by budget_date (the real-world date the number is derived from,
+      // e.g. AD200726 → 20/07/2026) rather than created_at, so migrated old
+      // budgets sort by their actual date instead of their import timestamp.
+      // number is a secondary tiebreaker for same-day entries.
+      const { data, error, count } = await query
+        .order('budget_date', { ascending: false })
+        .order('number', { ascending: false })
+        .range(from, to);
       if (error) {
         console.error('[BudgetList] Query error:', error);
         throw error;

@@ -111,14 +111,17 @@ export function EquipmentRecommendations({
       const filteredVar = ((p2.data || []) as ArticleWithSpecs[]).filter((a) => !/IP\s*20/i.test(a.name));
       setVariablePumps(filteredVar);
 
-      // Cloradors salins estàndard: categoria Dosificació, subtipus "Estàndard (pH/Cl)"
+      // Cloradors salins estàndard: categoria Dosificació, subtipus "Estàndard (pH/Cl)".
+      // Només es consideren els marcats com "línia preferent" al catàleg (ex. LT NEO) —
+      // mateix patró que les bombes On/Off — per excloure la línia Plus NG.
       const chl = await supabase
         .from("articles")
-        .select("id, name, technical_specs")
+        .select("id, name, technical_specs, linia_preferent")
         .eq("category", "Dosificació")
         .eq("subtipus", "Estàndard (pH/Cl)");
       if (cancelled) return;
-      setChlorinators((chl.data || []) as ArticleWithSpecs[]);
+      const chlCandidates = ((chl.data || []) as ArticleWithSpecs[]).filter((a) => a.linia_preferent === true);
+      setChlorinators(chlCandidates);
     })();
     return () => {
       cancelled = true;

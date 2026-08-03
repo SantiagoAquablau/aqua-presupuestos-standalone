@@ -253,10 +253,17 @@ export function buildVariablesContext(budget: any, articles: any[] = []): Record
   const poolDepthMin = Number(budget.pool_depth_min ?? budget.poolDepthMin ?? 0);
   const poolDepthMax = Number(budget.pool_depth_max ?? budget.poolDepthMax ?? 0);
   const poolDepthAvg = Number(budget.pool_depth_avg ?? budget.poolDepthAvg ?? ((poolDepthMin + poolDepthMax) / 2));
-  const poolFloorSurface = poolLength * poolWidth;
-  const poolPerimeter = 2 * (poolLength + poolWidth);
-  const poolWallSurface = poolPerimeter * poolDepthAvg;
-  const poolSurfaceReal = poolFloorSurface + poolWallSurface;
+  const poolShape = budget.pool_shape ?? budget.poolShape ?? 'regular';
+  const isIrregularShape = poolShape === 'irregular';
+  const poolSurfaceIrregular = Number(budget.pool_surface_irregular ?? budget.poolSurfaceIrregular ?? 0);
+  // Irregular: poolLength/poolWidth aren't collected (no rectangular dimensions
+  // to derive floor/perimeter from), so the user-entered total vessel surface
+  // (floor + walls combined) is used directly instead of the floor+perimeter
+  // decomposition below, which only makes sense for a rectangular shape.
+  const poolFloorSurface = isIrregularShape ? 0 : poolLength * poolWidth;
+  const poolPerimeter = isIrregularShape ? 0 : 2 * (poolLength + poolWidth);
+  const poolWallSurface = isIrregularShape ? 0 : poolPerimeter * poolDepthAvg;
+  const poolSurfaceReal = isIrregularShape ? poolSurfaceIrregular : poolFloorSurface + poolWallSurface;
   // Business rule: minimum surface for SALE pricing is 50 m² (small pools still bill a baseline).
   // Cost calculations always use the REAL surface so margin reflects reality.
   // For SALE mode we substitute pool_surface/total_surface with max(real, 50) so any formula
@@ -264,7 +271,16 @@ export function buildVariablesContext(budget: any, articles: any[] = []): Record
   // surface naturally — no post-clamp needed.
   const useBilledSurface = (budget as any).__pricingMode === 'sale';
   const poolSurface = useBilledSurface ? Math.max(poolSurfaceReal, POOL_SURFACE_MIN_M2) : poolSurfaceReal;
-  const poolVolume = Number(budget.pool_volume_liters ?? budget.poolVolumeLiters ?? (poolLength * poolWidth * poolDepthAvg * 1000));
+  // Irregular: no floor-only dimension is collected, so volume is approximated
+  // as total vessel surface × avg depth (mirrors StepEstructura.tsx's own
+  // preview estimate) — overestimates somewhat since the surface includes
+  // wall area, not just floor, but is the best available without a dedicated
+  // floor-area input.
+  const poolVolume = Number(
+    budget.pool_volume_liters ??
+      budget.poolVolumeLiters ??
+      (isIrregularShape ? poolSurfaceIrregular * poolDepthAvg * 1000 : poolLength * poolWidth * poolDepthAvg * 1000),
+  );
 
   const extStairLength = Number(budget.ext_stairs_length ?? budget.ext_stair_length ?? budget.extStairsLength ?? 0);
   const extStairWidth = Number(budget.ext_stairs_width ?? budget.ext_stair_width ?? budget.extStairsWidth ?? 0);

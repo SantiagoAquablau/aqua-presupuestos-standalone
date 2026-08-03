@@ -202,7 +202,10 @@ export default function Cataleg() {
         beurada_color_normal: form.category === 'Porcelànic' ? (form.beurada_color_normal || null) : null,
         beurada_color_epoxi: form.category === 'Porcelànic' ? (form.beurada_color_epoxi || null) : null,
         fase: form.category === 'Bomba' ? (form.fase || null) : null,
-        linia_preferent: form.category === 'Bomba' ? form.linia_preferent : false,
+        linia_preferent:
+          form.category === 'Bomba' || (form.category === 'Dosificació' && form.subtipus === 'Estàndard (pH/Cl)')
+            ? form.linia_preferent
+            : false,
       };
       if (editId) {
         const { error } = await supabase.from('articles').update(payload as any).eq('id', editId);
@@ -497,7 +500,7 @@ export default function Cataleg() {
                 </select>
               </div>
             )}
-            {form.category === 'Bomba' && (
+            {(form.category === 'Bomba' || (form.category === 'Dosificació' && form.subtipus === 'Estàndard (pH/Cl)')) && (
               <label className="flex items-center gap-2 text-sm text-foreground">
                 <input
                   type="checkbox"

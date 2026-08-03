@@ -125,18 +125,24 @@ export function StepEstructura() {
   }, [draft.poolDepthMin, draft.poolDepthMax]);
 
   const poolSurface = useMemo(() => {
+    if (draft.poolShape === 'irregular') return draft.poolSurfaceIrregular || 0;
     if (draft.poolShape === 'regular' && draft.poolLength && draft.poolWidth && depthAvg) {
       return (draft.poolLength * draft.poolWidth) + 2 * (draft.poolLength * depthAvg) + 2 * (draft.poolWidth * depthAvg);
     }
     return 0;
-  }, [draft.poolShape, draft.poolLength, draft.poolWidth, depthAvg]);
+  }, [draft.poolShape, draft.poolLength, draft.poolWidth, draft.poolSurfaceIrregular, depthAvg]);
 
   const volume = useMemo(() => {
+    // Irregular: no floor-only dimension is collected, so we approximate volume
+    // as total vessel surface × avg depth (overestimates somewhat, since the
+    // surface includes wall area, not just floor — best available without a
+    // dedicated floor-area input).
+    if (draft.poolShape === 'irregular') return (draft.poolSurfaceIrregular || 0) * depthAvg * 1000;
     if (draft.poolShape === 'regular' && draft.poolLength && draft.poolWidth && depthAvg) {
       return draft.poolLength * draft.poolWidth * depthAvg * 1000;
     }
     return 0;
-  }, [draft.poolShape, draft.poolLength, draft.poolWidth, depthAvg]);
+  }, [draft.poolShape, draft.poolLength, draft.poolWidth, draft.poolSurfaceIrregular, depthAvg]);
 
   const extSurface = (draft.hasExteriorStairs && draft.extStairsLength && draft.extStairsWidth)
     ? draft.extStairsLength * draft.extStairsWidth : 0;
@@ -376,7 +382,7 @@ export function StepEstructura() {
             )}
             {draft.poolShape === 'irregular' && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div><label className={labelClass}>Superfície del vas (m²)</label><input type="number" step="0.01" className={inputClass} /></div>
+                <div><label className={labelClass}>Superfície del vas (m²)</label><input type="number" step="0.01" className={inputClass} value={draft.poolSurfaceIrregular || ''} onChange={(e) => updateDraft({ poolSurfaceIrregular: (e.target.value === "" ? undefined : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : undefined)) })} /></div>
                 <div><label className={labelClass}>Prof. mínima (m)</label><input type="number" step="0.01" className={inputClass} value={draft.poolDepthMin || ''} onChange={(e) => updateDraft({ poolDepthMin: (e.target.value === "" ? undefined : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : undefined)) })} /></div>
                 <div><label className={labelClass}>Prof. màxima (m)</label><input type="number" step="0.01" className={inputClass} value={draft.poolDepthMax || ''} onChange={(e) => updateDraft({ poolDepthMax: (e.target.value === "" ? undefined : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : undefined)) })} /></div>
               </div>

@@ -157,12 +157,20 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
   // 5. Pool stats
   const depthAvg = b.pool_depth_min && b.pool_depth_max
     ? ((Number(b.pool_depth_min) + Number(b.pool_depth_max)) / 2) : 0;
-  const volumeM3 = b.pool_length && b.pool_width && depthAvg
-    ? Math.round(Number(b.pool_length) * Number(b.pool_width) * depthAvg * 100) / 100 : 0;
-  const surface = b.pool_length && b.pool_width && depthAvg
-    ? Math.round((Number(b.pool_length) * Number(b.pool_width)
-        + 2 * Number(b.pool_length) * depthAvg
-        + 2 * Number(b.pool_width) * depthAvg) * 100) / 100 : 0;
+  const isIrregularShape = b.pool_shape === 'irregular';
+  // Irregular: no floor-only dimension is collected, so volume is
+  // approximated as total vessel surface × avg depth, mirroring
+  // StepEstructura.tsx / formulaEngine.ts / budgetSave.ts.
+  const volumeM3 = isIrregularShape
+    ? Math.round(Number(b.pool_surface_irregular || 0) * depthAvg * 100) / 100
+    : b.pool_length && b.pool_width && depthAvg
+      ? Math.round(Number(b.pool_length) * Number(b.pool_width) * depthAvg * 100) / 100 : 0;
+  const surface = isIrregularShape
+    ? Math.round(Number(b.pool_surface_irregular || 0) * 100) / 100
+    : b.pool_length && b.pool_width && depthAvg
+      ? Math.round((Number(b.pool_length) * Number(b.pool_width)
+          + 2 * Number(b.pool_length) * depthAvg
+          + 2 * Number(b.pool_width) * depthAvg) * 100) / 100 : 0;
 
   const typeLabels: Record<string, string> = {
     obra_nueva: 'Obra Nova', rehabilitacion: 'Rehabilitació', mantenimiento: 'Manteniment',
