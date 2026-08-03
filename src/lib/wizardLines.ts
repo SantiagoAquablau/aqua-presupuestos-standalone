@@ -290,7 +290,12 @@ export function buildAnnexLines(
       const viatges = Math.ceil(sacos / 8);
       const costTransport = viatges * 175;
       const rawCost = (costMaterial + costTransport) * 1.55;
-      const reompliment = Math.round(Math.max(930, rawCost) * 100) / 100;
+      const autoReompliment = Math.round(Math.max(930, rawCost) * 100) / 100;
+      // Respect the wizard's manual override when present, same "override ??
+      // auto calc" pattern used for mà d'obra d'excavació.
+      const overrideRaw = draft.annexExcavacioReomplimentOverride;
+      const reompliment =
+        overrideRaw != null && Number.isFinite(Number(overrideRaw)) ? Number(overrideRaw) : autoReompliment;
       if (reompliment > 0) {
         items.push({
           id: 'wizard-annex_excavacio_reompliment',

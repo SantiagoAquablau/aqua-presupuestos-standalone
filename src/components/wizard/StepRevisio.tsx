@@ -1305,7 +1305,7 @@ export function StepRevisio() {
               estat: draft.annexExcavacioEstat,
               content:
                 excavacioImport || draft.annexExcavacioReompliment
-                  ? `Excavació: ${(excavacioImport || 0).toFixed(2)}€ · Reompliment: ${(draft.annexExcavacioReompliment || 0).toFixed(2)}€`
+                  ? `Excavació: ${(excavacioImport || 0).toFixed(2)}€ · Reompliment: ${Math.ceil(draft.annexExcavacioReompliment || 0).toFixed(2)}€`
                   : null,
             },
             {

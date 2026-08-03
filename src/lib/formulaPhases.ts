@@ -83,16 +83,20 @@ function applyExcavacioMinimums(phases: BudgetPhase[], draft: Partial<BudgetDraf
       const qty = Number(item.quantity || 0);
       if (qty <= 0) return item;
 
+      // Floor (not round) so qty × unitSale never exceeds the target total —
+      // the universal Math.ceil(quantity * unitSale) display/save formula
+      // (StepPartides, StepRevisio, budgetSave) then reproduces that total
+      // exactly instead of overshooting by a cent-rounding artifact.
       if (hasOverride) {
-        const newUnitSale = Math.round((overrideTotal / qty) * 100) / 100;
-        const newUnitCost = Math.round((newUnitSale / 1.3) * 100) / 100;
+        const newUnitSale = Math.floor((overrideTotal / qty) * 100) / 100;
+        const newUnitCost = Math.floor((newUnitSale / 1.3) * 100) / 100;
         return { ...item, unitSale: newUnitSale, unitCost: newUnitCost };
       }
 
       const currentTotal = qty * Number(item.unitSale || 0);
       if (currentTotal >= MANO_OBRA_EXCAVACIO_MIN_SALE) return item;
-      const newUnitSale = Math.round((MANO_OBRA_EXCAVACIO_MIN_SALE / qty) * 100) / 100;
-      const newUnitCost = Math.round((newUnitSale / 1.3) * 100) / 100;
+      const newUnitSale = Math.floor((MANO_OBRA_EXCAVACIO_MIN_SALE / qty) * 100) / 100;
+      const newUnitCost = Math.floor((newUnitSale / 1.3) * 100) / 100;
       return {
         ...item,
         unitSale: newUnitSale,
