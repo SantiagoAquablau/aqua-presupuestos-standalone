@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Plus, Pencil, Copy, Trash2, Download, FileText, Loader2, AlertCircle, RefreshCw, ClipboardList, Files, User as UserIcon, FileSignature } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { BudgetStatus } from '@/stores/budgetStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { buildBudgetPdf } from '@/lib/budgetSave';
@@ -50,6 +50,15 @@ const statusClasses: Record<BudgetStatus, string> = {
 
 const isMaintenanceBudget = (type?: string | null) => type === 'mantenimiento' || type === 'manteniment';
 
+const PAGE_SIZE = 25;
+
+// Escape characters that are structurally significant in a PostgREST `.or()`
+// filter string (condition separator / grouping) so a client name or number
+// containing a comma or parenthesis doesn't break the query.
+function escapeOrTerm(value: string): string {
+  return value.replace(/[,()]/g, '\\$&');
+}
+
 function StatusSelect({
   status,
   onChange,
@@ -92,8 +101,16 @@ export default function BudgetList() {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<BudgetStatus | 'tots'>('tots');
   const [comercialFilter, setComercialFilter] = useState<string>('me');
+
+  // Debounce the free-text search before it hits the SQL query, so we don't
+  // fire a request on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [comandaBudget, setComandaBudget] = useState<any | null>(null);
   const [comandaForm, setComandaForm] = useState({
@@ -117,23 +134,60 @@ export default function BudgetList() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: budgets = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['budgets'],
-    queryFn: async () => {
-      const { data, error } = await supabase
+  const {
+    data: budgetPages,
+    isLoading,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['budgets', comercialFilter, statusFilter, debouncedSearch, user?.id],
+    queryFn: async ({ pageParam }) => {
+      let query = supabase
         .from('budgets')
-        .select('id, number, client_name, client_town, type, status, total_sale, total_cost, margin_pct, budget_date, created_at, comercial_id')
-        .eq('deleted', false)
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .select(
+          'id, number, client_name, client_town, type, status, total_sale, total_cost, margin_pct, budget_date, created_at, comercial_id',
+          { count: 'exact' },
+        )
+        .eq('deleted', false);
+
+      if (comercialFilter === 'me') {
+        query = query.eq('comercial_id', user!.id);
+      } else if (comercialFilter !== 'tots') {
+        query = query.eq('comercial_id', comercialFilter);
+      }
+      if (statusFilter !== 'tots') {
+        query = query.eq('status', statusFilter);
+      }
+      const term = debouncedSearch.trim();
+      if (term) {
+        const escaped = escapeOrTerm(term);
+        query = query.or(`client_name.ilike.%${escaped}%,number.ilike.%${escaped}%,client_town.ilike.%${escaped}%`);
+      }
+
+      const from = pageParam * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to);
       if (error) {
         console.error('[BudgetList] Query error:', error);
         throw error;
       }
-      return data || [];
+      return {
+        rows: data || [],
+        totalCount: count ?? 0,
+        nextPage: (data?.length || 0) === PAGE_SIZE ? pageParam + 1 : undefined,
+      };
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
     staleTime: 30000,
+    enabled: !!user?.id,
   });
+
+  const budgets = budgetPages?.pages.flatMap((p) => p.rows) ?? [];
+  const totalCount = budgetPages?.pages[0]?.totalCount ?? 0;
 
   const { data: annexCounts = {} } = useQuery({
     queryKey: ['annex-counts'],
@@ -429,15 +483,6 @@ export default function BudgetList() {
     }
   };
 
-  const filtered = budgets.filter((b: any) => {
-    const matchSearch = !search || b.client_name?.toLowerCase().includes(search.toLowerCase()) || b.number?.toLowerCase().includes(search.toLowerCase()) || b.client_town?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'tots' || b.status === statusFilter;
-    const matchComercial =
-      comercialFilter === 'tots' ||
-      (comercialFilter === 'me' ? b.comercial_id === user?.id : b.comercial_id === comercialFilter);
-    return matchSearch && matchStatus && matchComercial;
-  });
-
   const SkeletonRows = () => (
     <>
       {[...Array(5)].map((_, i) => (
@@ -461,7 +506,9 @@ export default function BudgetList() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Pressupostos</h1>
-          <p className="text-muted-foreground mt-1">{filtered.length} pressupostos</p>
+          <p className="text-muted-foreground mt-1">
+            {budgets.length < totalCount ? `${budgets.length} de ${totalCount} pressupostos` : `${totalCount} pressupostos`}
+          </p>
         </div>
         <button onClick={() => { resetDraft(); navigate('/nou-pressupost'); }}
           className="gradient-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:opacity-90 transition-opacity shadow-md">
@@ -532,7 +579,7 @@ export default function BudgetList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {isLoading ? <SkeletonRows /> : filtered.map((b: any) => (
+              {isLoading ? <SkeletonRows /> : budgets.map((b: any) => (
                 <tr key={b.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 text-sm font-mono font-medium text-primary">{b.number || '-'}</td>
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{b.client_name}</td>
@@ -611,12 +658,24 @@ export default function BudgetList() {
               ))}
             </tbody>
           </table>
-          {!isLoading && filtered.length === 0 && (
+          {!isLoading && budgets.length === 0 && (
             <div className="py-12 text-center">
               <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-muted-foreground">Encara no hi ha pressupostos</p>
               <button onClick={() => { resetDraft(); navigate('/nou-pressupost'); }} className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90">
                 <Plus className="w-4 h-4" /> Crear el primer pressupost
+              </button>
+            </div>
+          )}
+          {!isLoading && hasNextPage && (
+            <div className="py-4 flex justify-center border-t border-border">
+              <button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
+              >
+                {isFetchingNextPage ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Carregar més
               </button>
             </div>
           )}
@@ -632,7 +691,7 @@ export default function BudgetList() {
               <Skeleton className="h-5 w-40" />
               <Skeleton className="h-4 w-28" />
             </div>
-          )) : filtered.length === 0 ? (
+          )) : budgets.length === 0 ? (
             <div className="py-12 text-center">
               <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-muted-foreground">Encara no hi ha pressupostos</p>
@@ -640,7 +699,7 @@ export default function BudgetList() {
                 <Plus className="w-4 h-4" /> Crear el primer pressupost
               </button>
             </div>
-          ) : filtered.map((b: any) => (
+          ) : budgets.map((b: any) => (
             <div key={b.id} className="bg-card rounded-xl border border-border p-4 shadow-card">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-mono font-medium text-primary">{b.number || '-'}</span>
@@ -677,6 +736,18 @@ export default function BudgetList() {
               </div>
             </div>
           ))}
+          {!isLoading && hasNextPage && (
+            <div className="pt-1 flex justify-center">
+              <button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
+              >
+                {isFetchingNextPage ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Carregar més
+              </button>
+            </div>
+          )}
         </div>
       )}
 
