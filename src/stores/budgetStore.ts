@@ -336,6 +336,9 @@ export interface BudgetDraft {
   accCascadaEnabled?: boolean;
   accCascadaQty?: number;
   accCascadaModelId?: string;
+  accCascadaBombaArticleId?: string;
+  accCascadaPulsadorArticleId?: string;
+  accCascadaPulsadorQty?: number;
   accSalvavidesEnabled?: boolean;
   accSalvavidesQty?: number;
   accSalvavidesModelId?: string;

@@ -37,7 +37,7 @@ const subtipusOptions: Record<string, string[]> = {
   'Bomba': ['On/Off', 'Velocitat variable', 'Soplants'],
   'Dosificació': ['Estàndard (pH/Cl)', 'Hidròlisi / UV', 'Mòdul connectivitat', 'Components dosificació'],
   'Elèctric': ['Quadre elèctric', 'Material elèctric', 'Altres'],
-  'Accessoris': ['Impulsors', 'Skimmers', 'Embornal', 'Focus LED', 'Projectors Mini LED', 'Control RGB', 'Regulador de nivell', 'Presa netejafons', 'Escala inox', 'Dutxa exterior', 'Plat de dutxa', 'Cascada', 'Salvavides + Suport paret', 'Barana'],
+  'Accessoris': ['Impulsors', 'Skimmers', 'Embornal', 'Focus LED', 'Projectors Mini LED', 'Control RGB', 'Regulador de nivell', 'Presa netejafons', 'Escala inox', 'Dutxa exterior', 'Plat de dutxa', 'Cascada', 'Pulsador piezoelèctric', 'Salvavides + Suport paret', 'Barana'],
   'Varis': ['Cobertors', 'Robots', 'Bombes de calor', "Projecte d'obra", 'Gespa', 'Paviment perimetral'],
 };
 

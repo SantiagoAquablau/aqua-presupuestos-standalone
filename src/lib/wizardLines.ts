@@ -174,6 +174,45 @@ export function buildAccessoryLines(
     });
   }
 
+  // Cascada extras — bomba Dolfi + pulsador(s) piezoelèctric. Custom-built
+  // (not through the generic mk() helper above) because a single toggle
+  // must produce several distinctly-labelled lines, mirroring the "Gespa"
+  // pattern in buildAnnexLines() (1 toggle → N lines).
+  // Mà d'obra d'instal·lació NO es genera aquí: la crea una regla
+  // condicional del Motor de Càlcul (Configuració → Motor de Càlcul) quan
+  // acc_cascada_enabled és true, igual que "VARILLAS DE REA 10MM"/"VIDRE AFM".
+  const cascadaQty = Number(draft.accCascadaQty ?? 1);
+  if (draft.accCascadaEnabled && cascadaQty > 0) {
+    const bomba = resolveArticle(index, draft.accCascadaBombaArticleId);
+    items.push({
+      id: 'wizard-acc_cascada_bomba',
+      description: bomba.id ? `Bomba ${bomba.name} per a cascada` : 'Bomba per a cascada · A determinar',
+      unit: bomba.unit || 'ud',
+      quantity: 1,
+      unitCost: round2(bomba.cost),
+      unitSale: round2(bomba.sale),
+      source: 'wizard',
+      wizardKey: 'acc_cascada_bomba',
+      subPhase: 'Accessoris opcionals',
+    });
+
+    const pulsador = resolveArticle(index, draft.accCascadaPulsadorArticleId);
+    const pulsadorQty = Math.max(1, Number(draft.accCascadaPulsadorQty ?? 1));
+    items.push({
+      id: 'wizard-acc_cascada_pulsador',
+      description: pulsador.id
+        ? 'Pulsador piezoelèctric per a cascada'
+        : 'Pulsador piezoelèctric per a cascada · A determinar',
+      unit: pulsador.unit || 'ud',
+      quantity: pulsadorQty,
+      unitCost: round2(pulsador.cost),
+      unitSale: round2(pulsador.sale),
+      source: 'wizard',
+      wizardKey: 'acc_cascada_pulsador',
+      subPhase: 'Accessoris opcionals',
+    });
+  }
+
   return items;
 }
 

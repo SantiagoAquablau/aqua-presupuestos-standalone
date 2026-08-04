@@ -258,6 +258,8 @@ export function StepAccessoris() {
       ...BASIC_ACCESSORIES.map((a) => (draft as any)[basicModelKey(a.key)]),
       ...OPTIONAL_ACCESSORIES.filter((a) => a.hasModel).map((a) => (draft as any)[optModelKey(a.key)]),
       draft.accControlRgbModelId,
+      draft.accCascadaBombaArticleId,
+      draft.accCascadaPulsadorArticleId,
     ].filter(Boolean) as string[];
     if (allIds.length === 0) return;
     supabase
@@ -532,6 +534,35 @@ export function StepAccessoris() {
     } else {
       updateDraft({ [mk]: undefined });
     }
+  };
+
+  // --- Cascada extras: bomba + pulsador piezoelèctric + mà d'obra ---
+  const cascadaBombaModel: SelectedArticle | null = draft.accCascadaBombaArticleId
+    ? articleCache[draft.accCascadaBombaArticleId] || null
+    : null;
+  const handleCascadaBombaChange = (article: SelectedArticle | null) => {
+    if (article) {
+      setArticleCache((prev) => ({ ...prev, [article.id]: article }));
+      updateDraft({ accCascadaBombaArticleId: article.id });
+    } else {
+      updateDraft({ accCascadaBombaArticleId: undefined });
+    }
+  };
+
+  const cascadaPulsadorModel: SelectedArticle | null = draft.accCascadaPulsadorArticleId
+    ? articleCache[draft.accCascadaPulsadorArticleId] || null
+    : null;
+  const cascadaPulsadorQty = draft.accCascadaPulsadorQty ?? 1;
+  const handleCascadaPulsadorChange = (article: SelectedArticle | null) => {
+    if (article) {
+      setArticleCache((prev) => ({ ...prev, [article.id]: article }));
+      updateDraft({ accCascadaPulsadorArticleId: article.id });
+    } else {
+      updateDraft({ accCascadaPulsadorArticleId: undefined });
+    }
+  };
+  const handleCascadaPulsadorQtyChange = (qty: number) => {
+    updateDraft({ accCascadaPulsadorQty: Math.max(1, Math.min(10, qty)) });
   };
 
   const hasDimensions = poolLength > 0 && poolWidth > 0;
@@ -1035,6 +1066,45 @@ export function StepAccessoris() {
                           </p>
                         </div>
                       ) : null}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cascada extras: bomba + pulsador piezoelèctric.
+                    Mà d'obra d'instal·lació NO es configura aquí — es genera
+                    automàticament via una regla condicional del Motor de
+                    Càlcul (Configuració → Motor de Càlcul) quan
+                    acc_cascada_enabled és true. */}
+                {acc.key === "cascada" && enabled && (
+                  <div
+                    className={cn(
+                      "space-y-4 pt-3 mt-3 border-t border-dashed border-border",
+                      !isCompact && "ml-[25%]",
+                    )}
+                  >
+                    <div className={cn(isCompact ? "w-full" : "max-w-md")}>
+                      <EquipmentSelector
+                        label="Bomba per a cascada"
+                        placeholder="Cercar bomba..."
+                        categoryFilter="Bomba"
+                        subtipusFilter="On/Off"
+                        value={cascadaBombaModel}
+                        onChange={handleCascadaBombaChange}
+                        noneLabel="A determinar"
+                      />
+                    </div>
+                    <div className={cn(isCompact ? "w-full" : "max-w-md")}>
+                      <EquipmentSelector
+                        label="Pulsador piezoelèctric"
+                        placeholder="Cercar pulsador..."
+                        categoryFilter="Accessoris"
+                        subtipusFilter="Pulsador piezoelèctric"
+                        value={cascadaPulsadorModel}
+                        onChange={handleCascadaPulsadorChange}
+                        noneLabel="A determinar"
+                        quantity={cascadaPulsadorQty}
+                        onQuantityChange={handleCascadaPulsadorQtyChange}
+                      />
                     </div>
                   </div>
                 )}

@@ -279,8 +279,11 @@ export type Database = {
           acc_barana_model_id: string | null
           acc_barana_qty: number | null
           acc_basics_color: string | null
+          acc_cascada_bomba_article_id: string | null
           acc_cascada_enabled: boolean | null
           acc_cascada_model_id: string | null
+          acc_cascada_pulsador_article_id: string | null
+          acc_cascada_pulsador_qty: number | null
           acc_cascada_qty: number | null
           acc_control_rgb_model_id: string | null
           acc_control_rgb_qty: number | null
@@ -628,8 +631,11 @@ export type Database = {
           acc_barana_model_id?: string | null
           acc_barana_qty?: number | null
           acc_basics_color?: string | null
+          acc_cascada_bomba_article_id?: string | null
           acc_cascada_enabled?: boolean | null
           acc_cascada_model_id?: string | null
+          acc_cascada_pulsador_article_id?: string | null
+          acc_cascada_pulsador_qty?: number | null
           acc_cascada_qty?: number | null
           acc_control_rgb_model_id?: string | null
           acc_control_rgb_qty?: number | null
@@ -977,8 +983,11 @@ export type Database = {
           acc_barana_model_id?: string | null
           acc_barana_qty?: number | null
           acc_basics_color?: string | null
+          acc_cascada_bomba_article_id?: string | null
           acc_cascada_enabled?: boolean | null
           acc_cascada_model_id?: string | null
+          acc_cascada_pulsador_article_id?: string | null
+          acc_cascada_pulsador_qty?: number | null
           acc_cascada_qty?: number | null
           acc_control_rgb_model_id?: string | null
           acc_control_rgb_qty?: number | null

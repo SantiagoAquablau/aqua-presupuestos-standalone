@@ -131,6 +131,7 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
     b.acc_impulsors_model_id, b.acc_skimmers_model_id, b.acc_embornal_model_id, b.acc_focus_led_model_id,
     b.acc_regulador_model_id, b.acc_netejafons_model_id, b.acc_projector_mini_led_model_id,
     b.acc_control_rgb_model_id, b.acc_escala_model_id, b.acc_dutxa_model_id, b.acc_cascada_model_id,
+    b.acc_cascada_bomba_article_id, b.acc_cascada_pulsador_article_id,
     b.acc_salvavides_model_id, b.acc_barana_model_id, b.annex_projecte_article_id, b.annex_paviment_model_id,
     b.annex_gespa_article_id, b.annex_robot_article_id, b.annex_bomba_calor_article_id,
     b.annex_netejafons_article_id, b.revestiment_exterior_model_id,
@@ -426,6 +427,11 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
     b.acc_dutxa_enabled ? row('Dutxa exterior', `${num(b.acc_dutxa_qty, ' u') || '1 u'}${an(b.acc_dutxa_model_id) ? ` — ${escapeHtml(an(b.acc_dutxa_model_id))}` : ''}`) : null,
     b.acc_plat_dutxa_enabled ? row('Plat de dutxa', num(b.acc_plat_dutxa_qty, ' u') || '1 u') : null,
     b.acc_cascada_enabled ? row('Cascada', `${num(b.acc_cascada_qty, ' u') || '1 u'}${an(b.acc_cascada_model_id) ? ` — ${escapeHtml(an(b.acc_cascada_model_id))}` : ''}`) : null,
+    b.acc_cascada_enabled && b.acc_cascada_bomba_article_id ? row('Bomba per a cascada', escapeHtml(an(b.acc_cascada_bomba_article_id) || '')) : null,
+    b.acc_cascada_enabled && b.acc_cascada_pulsador_article_id ? row('Pulsador piezoelèctric', `${num(b.acc_cascada_pulsador_qty, ' u') || '1 u'} — ${escapeHtml(an(b.acc_cascada_pulsador_article_id) || '')}`) : null,
+    // Mà d'obra d'instal·lació de cascada NO es tracka com a camp propi —
+    // la genera una regla condicional del Motor de Càlcul i apareix a les
+    // taules de sub-fase generades per buildWizardLinesByPhase() més avall.
     b.acc_salvavides_enabled ? row('Salvavides + suport', `${num(b.acc_salvavides_qty, ' u') || '1 u'}${an(b.acc_salvavides_model_id) ? ` — ${escapeHtml(an(b.acc_salvavides_model_id))}` : ''}`) : null,
     b.acc_barana_enabled ? row('Barana ancorada exterior', `${num(b.acc_barana_qty, ' u') || '1 u'}${an(b.acc_barana_model_id) ? ` — ${escapeHtml(an(b.acc_barana_model_id))}` : ''}`) : null,
   ];

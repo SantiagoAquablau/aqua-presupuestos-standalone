@@ -329,6 +329,9 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     acc_cascada_enabled: draft.accCascadaEnabled ?? false,
     acc_cascada_qty: draft.accCascadaQty ?? 1,
     acc_cascada_model_id: draft.accCascadaModelId || null,
+    acc_cascada_bomba_article_id: draft.accCascadaBombaArticleId || null,
+    acc_cascada_pulsador_article_id: draft.accCascadaPulsadorArticleId || null,
+    acc_cascada_pulsador_qty: draft.accCascadaPulsadorQty ?? 1,
     acc_salvavides_enabled: draft.accSalvavidesEnabled ?? false,
     acc_salvavides_qty: draft.accSalvavidesQty ?? 1,
     acc_salvavides_model_id: draft.accSalvavidesModelId || null,
@@ -688,6 +691,8 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     draft.accEscalaModelId,
     draft.accDutxaModelId,
     draft.accCascadaModelId,
+    draft.accCascadaBombaArticleId,
+    draft.accCascadaPulsadorArticleId,
     draft.accSalvavidesModelId,
     draft.accBaranaModelId,
   ].filter(Boolean) as string[];
@@ -1105,11 +1110,40 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     return { label: art?.name || fallbackLabel, qty: q, total: Math.ceil(q * (art?.sale ?? 0)) };
   };
 
+  // Cascada extras — bomba Dolfi + pulsador(s) piezoelèctric. Custom-built
+  // (not buildOptLine) so each sub-item gets its own descriptive label; same
+  // breakdown as buildAccessoryLines() in wizardLines.ts (Partides), kept in
+  // sync manually since this PDF data pipeline (budgetSave.ts) recomputes
+  // independently from the raw draft.
+  // Mà d'obra d'instal·lació NO es genera aquí: la crea una regla
+  // condicional del Motor de Càlcul quan acc_cascada_enabled és true —
+  // arribarà com qualsevol altra línia de fórmula, igual que "VIDRE AFM".
+  const cascadaBombaArt = a(draft.accCascadaBombaArticleId || undefined);
+  const cascadaBombaLine = draft.accCascadaEnabled
+    ? {
+        label: cascadaBombaArt ? `Bomba ${cascadaBombaArt.name} per a cascada` : "Bomba per a cascada · A determinar",
+        qty: 1,
+        total: Math.ceil(cascadaBombaArt?.sale ?? 0),
+      }
+    : null;
+  const cascadaPulsadorArt = a(draft.accCascadaPulsadorArticleId || undefined);
+  const cascadaPulsadorQty = Math.max(1, Number(draft.accCascadaPulsadorQty ?? 1));
+  const cascadaPulsadorLine = draft.accCascadaEnabled
+    ? {
+        label: cascadaPulsadorArt
+          ? "Pulsador piezoelèctric per a cascada"
+          : "Pulsador piezoelèctric per a cascada · A determinar",
+        qty: cascadaPulsadorQty,
+        total: Math.ceil(cascadaPulsadorQty * (cascadaPulsadorArt?.sale ?? 0)),
+      }
+    : null;
   const accOptionalLines = [
     buildOptLine(draft.accEscalaEnabled, "Escala inox", draft.accEscalaQty, draft.accEscalaModelId),
     buildOptLine(draft.accDutxaEnabled, "Dutxa exterior", draft.accDutxaQty, draft.accDutxaModelId),
     buildOptLine(draft.accPlatDutxaEnabled, "Plat de dutxa", draft.accPlatDutxaQty, undefined, 550),
     buildOptLine(draft.accCascadaEnabled, "Cascada", draft.accCascadaQty, draft.accCascadaModelId),
+    cascadaBombaLine,
+    cascadaPulsadorLine,
     buildOptLine(
       draft.accSalvavidesEnabled,
       "Salvavides + suport paret",
