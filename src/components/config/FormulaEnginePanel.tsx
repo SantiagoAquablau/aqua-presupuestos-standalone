@@ -105,6 +105,7 @@ const CONDITION_FIELDS: { value: string; label: string; options: string[] }[] = 
   { value: 'acc_dutxa_enabled', label: 'Dutxa inclosa', options: ['true', 'false'] },
   { value: 'acc_plat_dutxa_enabled', label: 'Plat dutxa inclòs', options: ['true', 'false'] },
   { value: 'acc_cascada_enabled', label: 'Cascada inclosa', options: ['true', 'false'] },
+  { value: 'acc_cascada_encastada', label: 'Cascada encastada', options: ['true', 'false'] },
   { value: 'acc_salvavides_enabled', label: 'Salvavides inclòs', options: ['true', 'false'] },
   { value: 'acc_focus_led_variant', label: 'Variant focus LED', options: ['blanc', 'rgb'] },
   // ── Annex: estados (3-state) ──

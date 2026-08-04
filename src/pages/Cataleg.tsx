@@ -111,6 +111,16 @@ function getTechSpecConfig(category: string, subtipus: string): TechSpecConfig |
       ],
     };
   }
+  if (category === 'Accessoris' && subtipus === 'Cascada') {
+    return {
+      title: 'Especificacions tècniques de la cascada',
+      fields: [
+        // Exposat al Motor de Càlcul com a condició acc_cascada_encastada,
+        // per poder condicionar-hi partides (p.ex. "MANO DE OBRA PALETERIA").
+        { key: 'encastada', label: 'Cascada encastada', step: '', type: 'boolean' },
+      ],
+    };
+  }
   return null;
 }
 

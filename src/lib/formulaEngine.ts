@@ -182,6 +182,17 @@ const TBD_REFERENCE_BY_MODEL: Record<string, (ctx: Record<string, any>) => strin
   },
 };
 
+// Generic "the model chosen for X has boolean characteristic Y" resolver —
+// used to expose derived conditions like acc_cascada_encastada in the
+// context, so new cases (e.g. a future jacuzzi model spec) only need one
+// call here + one CONDITION_FIELDS entry, no changes to ruleApplies or any
+// wizard/PDF component.
+function articleHasSpec(articles: any[], modelId: string | null | undefined, specKey: string): boolean {
+  if (!modelId) return false;
+  const article = articles.find((a: any) => String(a.id) === String(modelId));
+  return article?.technical_specs?.[specKey] === true;
+}
+
 function modelPriceFactory(articles: any[], context: Record<string, any>) {
   const byId = new Map<string, any>();
   const byRef = new Map<string, any>();
@@ -395,6 +406,11 @@ export function buildVariablesContext(budget: any, articles: any[] = []): Record
   const accNetejafonsQty = Number(budget.acc_netejafons_qty ?? budget.accNetejafonsQty ?? 0);
   const accProjectorMiniLedQty = Number(budget.acc_projector_mini_led_qty ?? budget.accProjectorMiniLedQty ?? 0);
   const accControlRgbQty = Number(budget.acc_control_rgb_qty ?? budget.accControlRgbQty ?? 0);
+  // Derived from the chosen Cascada article's catalog spec (technical_specs.encastada),
+  // not a direct draft field — lets "MANO DE OBRA PALETERIA" be conditioned
+  // on it as a normal CONDITION_FIELDS entry.
+  const accCascadaModelId = budget.acc_cascada_model_id ?? budget.accCascadaModelId ?? null;
+  const accCascadaEncastada = articleHasSpec(articles, accCascadaModelId, 'encastada');
 
   // Cobertor — mur nou (afecta superfície de revestiment interior).
   // Quan el cobertor submergit requereix muro nou, els dos costats del mur
@@ -511,6 +527,7 @@ export function buildVariablesContext(budget: any, articles: any[] = []): Record
     acc_netejafons_qty: accNetejafonsQty,
     acc_projector_mini_led_qty: accProjectorMiniLedQty,
     acc_control_rgb_qty: accControlRgbQty,
+    acc_cascada_encastada: accCascadaEncastada,
     // Helpers
     articlePrice: articlePriceFactory(articles),
     roundUp,
