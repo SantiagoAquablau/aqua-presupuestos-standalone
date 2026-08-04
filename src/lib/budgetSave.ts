@@ -690,9 +690,6 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     // Accessoris — optional (model id only when applicable)
     draft.accEscalaModelId,
     draft.accDutxaModelId,
-    draft.accCascadaModelId,
-    draft.accCascadaBombaArticleId,
-    draft.accCascadaPulsadorArticleId,
     draft.accSalvavidesModelId,
     draft.accBaranaModelId,
   ].filter(Boolean) as string[];
@@ -1110,40 +1107,23 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     return { label: art?.name || fallbackLabel, qty: q, total: Math.ceil(q * (art?.sale ?? 0)) };
   };
 
-  // Cascada extras — bomba Dolfi + pulsador(s) piezoelèctric. Custom-built
-  // (not buildOptLine) so each sub-item gets its own descriptive label; same
-  // breakdown as buildAccessoryLines() in wizardLines.ts (Partides), kept in
-  // sync manually since this PDF data pipeline (budgetSave.ts) recomputes
-  // independently from the raw draft.
-  // Mà d'obra d'instal·lació NO es genera aquí: la crea una regla
-  // condicional del Motor de Càlcul quan acc_cascada_enabled és true —
-  // arribarà com qualsevol altra línia de fórmula, igual que "VIDRE AFM".
-  const cascadaBombaArt = a(draft.accCascadaBombaArticleId || undefined);
-  const cascadaBombaLine = draft.accCascadaEnabled
-    ? {
-        label: cascadaBombaArt ? `Bomba ${cascadaBombaArt.name} per a cascada` : "Bomba per a cascada · A determinar",
-        qty: 1,
-        total: Math.ceil(cascadaBombaArt?.sale ?? 0),
-      }
-    : null;
-  const cascadaPulsadorArt = a(draft.accCascadaPulsadorArticleId || undefined);
-  const cascadaPulsadorQty = Math.max(1, Number(draft.accCascadaPulsadorQty ?? 1));
-  const cascadaPulsadorLine = draft.accCascadaEnabled
-    ? {
-        label: cascadaPulsadorArt
-          ? "Pulsador piezoelèctric per a cascada"
-          : "Pulsador piezoelèctric per a cascada · A determinar",
-        qty: cascadaPulsadorQty,
-        total: Math.ceil(cascadaPulsadorQty * (cascadaPulsadorArt?.sale ?? 0)),
-      }
-    : null;
+  // Cascada — dynamic breakdown, NOT buildOptLine. Its 4 lines (Cascada,
+  // Bomba, Pulsador, and the "Mà d'obra instal·lació cascada" formula-engine
+  // rule) all land in draft.phases under subPhase "cascada" (wizardLines.ts
+  // + the Motor de Càlcul rule use that same slug so they group together —
+  // see mergeFormulaResultsIntoPhases). Scanning pdfPhases for that subPhase,
+  // same pattern already used for bomba_calor/gespa/paviment/caseta/
+  // netejafons below, means a future rule change needs no code update here.
+  const cascadaLines = pdfPhases
+    .flatMap((ph) => ph.items || [])
+    .filter((it: any) => String(it.subPhase || "").toLowerCase() === "cascada" && Number(it.quantity || 0) > 0)
+    .map((it: any) => ({ label: String(it.description || ""), qty: Number(it.quantity) || 0, total: Number(it.total) || 0 }));
+
   const accOptionalLines = [
     buildOptLine(draft.accEscalaEnabled, "Escala inox", draft.accEscalaQty, draft.accEscalaModelId),
     buildOptLine(draft.accDutxaEnabled, "Dutxa exterior", draft.accDutxaQty, draft.accDutxaModelId),
     buildOptLine(draft.accPlatDutxaEnabled, "Plat de dutxa", draft.accPlatDutxaQty, undefined, 550),
-    buildOptLine(draft.accCascadaEnabled, "Cascada", draft.accCascadaQty, draft.accCascadaModelId),
-    cascadaBombaLine,
-    cascadaPulsadorLine,
+    ...cascadaLines,
     buildOptLine(
       draft.accSalvavidesEnabled,
       "Salvavides + suport paret",
