@@ -670,6 +670,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     draft.instalWifiArticleId,
     draft.instalFontaneriaBaseArticleId,
     draft.instalFontaneriaPerforacionsArticleId,
+    draft.instalElectricaBaseArticleId,
     draft.revestimentModelId,
     draft.coronamentModelId,
     draft.annexRobotArticleId,
@@ -1581,7 +1582,31 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     quadreTotal: undefined,
     // Row amount (Quadre elèctric) = equip sale + 4h MO.
     quadreSale: typeof draft.instalQuadreFinalSale === "number" || quadre ? quadreRowAmount : undefined,
-    electricaSale: typeof draft.instalElectricaTotal === "number" ? Number(draft.instalElectricaTotal) : undefined,
+    electricaSale: (() => {
+      // Recompute live (mirrors src/lib/wizardLines.ts + StepInstalacions.tsx)
+      // instead of trusting the cached draft.instalElectricaTotal — that field
+      // is only kept in sync while the user is on StepInstalacions, so it goes
+      // stale if pool dimensions/distance/article change afterwards and the
+      // PDF is generated without revisiting that step. Same fix already
+      // applied to fontaneriaTotal below; same root cause, sibling field.
+      const base = a(draft.instalElectricaBaseArticleId);
+      const baseSale = base?.sale ?? 0;
+      const l = Number(draft.poolLength ?? 0);
+      const w = Number(draft.poolWidth ?? 0);
+      let perimeter = 0;
+      if (l !== 0 || w !== 0) {
+        perimeter = (l + 0.3) * 2 + 2 + ((w + 0.3) * 2 + 2);
+        if (draft.hasExteriorStairs) {
+          const le = Number(draft.extStairsLength ?? 0);
+          if (le > 0) perimeter += le * 2 + 0.6 + 2;
+        }
+      }
+      const distancia = Number(draft.instalFontaneriaDistancia ?? 10);
+      const perimeterExtra = perimeter > 25 ? (perimeter - 25) * 20 : 0;
+      const distanciaExtra = distancia > 10 ? (distancia - 10) * 20 : 0;
+      const total = baseSale + perimeterExtra + distanciaExtra;
+      return total > 0 ? total : (draft.instalElectricaTotal ?? 0);
+    })(),
     presaTerraTotal: undefined,
     fontaneriaText: draft.instalFontaneriaText || undefined,
     fontaneriaTotal: (() => {
