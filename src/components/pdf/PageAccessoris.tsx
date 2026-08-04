@@ -18,7 +18,7 @@ const pageStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-export function PageAccessoris({ data }: { data: PdfData }) {
+export function PageAccessoris({ data, showTotalBadge = true }: { data: PdfData; showTotalBadge?: boolean }) {
   const basics = data.accBasicLines || [];
   const opts = data.accOptionalLines || [];
   const basicsTotal = data.accBasicTotal || 0;
@@ -106,28 +106,33 @@ export function PageAccessoris({ data }: { data: PdfData }) {
         )}
       </div>
 
-      {/* TOTAL INSTAL·LACIONS — same style as TOTAL ACABATS / TOTAL ESTRUCTURA */}
-      <div
-        style={{
-          position: "absolute",
-          top: "70%",
-          right: "14mm",
-          transform: "translateY(-50%)",
-          zIndex: 2,
-          backgroundColor: PDF_COLORS.badgePill,
-          color: "#2f4494",
-          borderRadius: 999,
-          padding: "10px 28px",
-          textAlign: "center",
-          border: "3px solid #FFFFFF",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
-          fontFamily: '"Tenor Sans", serif',
-        }}
-      >
-        <div style={{ fontSize: "20pt", letterSpacing: 3, lineHeight: 1, marginTop: "-12px" }}>TOTAL</div>
-        <div style={{ fontSize: "10pt", letterSpacing: 2, marginTop: 2, fontWeight: 600 }}>INSTAL·LACIONS</div>
-        <div style={{ fontSize: "16pt", marginTop: -4, fontWeight: 900 }}>{formatEuro(Math.round(totalInstal))}</div>
-      </div>
+      {/* TOTAL INSTAL·LACIONS — same style as TOTAL ACABATS / TOTAL ESTRUCTURA.
+          Hidden when a dedicated Cascada page follows (PdfDocument.tsx passes
+          showTotalBadge={!data.accCascadaEnabled}) — that page shows it instead,
+          since it becomes the true last page of Instal·lacions in that case. */}
+      {showTotalBadge && (
+        <div
+          style={{
+            position: "absolute",
+            top: "70%",
+            right: "14mm",
+            transform: "translateY(-50%)",
+            zIndex: 2,
+            backgroundColor: PDF_COLORS.badgePill,
+            color: "#2f4494",
+            borderRadius: 999,
+            padding: "10px 28px",
+            textAlign: "center",
+            border: "3px solid #FFFFFF",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+            fontFamily: '"Tenor Sans", serif',
+          }}
+        >
+          <div style={{ fontSize: "20pt", letterSpacing: 3, lineHeight: 1, marginTop: "-12px" }}>TOTAL</div>
+          <div style={{ fontSize: "10pt", letterSpacing: 2, marginTop: 2, fontWeight: 600 }}>INSTAL·LACIONS</div>
+          <div style={{ fontSize: "16pt", marginTop: -4, fontWeight: 900 }}>{formatEuro(Math.round(totalInstal))}</div>
+        </div>
+      )}
 
       <img
         src="/pdf/fondo_accesorios.webp"

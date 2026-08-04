@@ -691,6 +691,8 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     // Accessoris — optional (model id only when applicable)
     draft.accEscalaModelId,
     draft.accDutxaModelId,
+    draft.accCascadaModelId,
+    draft.accCascadaBombaArticleId,
     draft.accSalvavidesModelId,
     draft.accBaranaModelId,
   ].filter(Boolean) as string[];
@@ -1108,23 +1110,28 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     return { label: art?.name || fallbackLabel, qty: q, total: Math.ceil(q * (art?.sale ?? 0)) };
   };
 
-  // Cascada — dynamic breakdown, NOT buildOptLine. Its 4 lines (Cascada,
-  // Bomba, Pulsador, and the "Mà d'obra instal·lació cascada" formula-engine
-  // rule) all land in draft.phases under subPhase "cascada" (wizardLines.ts
-  // + the Motor de Càlcul rule use that same slug so they group together —
-  // see mergeFormulaResultsIntoPhases). Scanning pdfPhases for that subPhase,
-  // same pattern already used for bomba_calor/gespa/paviment/caseta/
-  // netejafons below, means a future rule change needs no code update here.
+  // Cascada — now has its OWN dedicated PDF page (PageCascada), so it's no
+  // longer part of the generic "Accessoris opcionals" page/list. Its 4 lines
+  // (Cascada, Bomba, Pulsador, and the "Mà d'obra instal·lació cascada"
+  // formula-engine rule) all land in draft.phases under subPhase "cascada"
+  // (wizardLines.ts + the Motor de Càlcul rule use that same slug so they
+  // group together — see mergeFormulaResultsIntoPhases). Scanning pdfPhases
+  // for that subPhase, same pattern already used for bomba_calor/gespa/
+  // paviment/caseta/netejafons below, means a future rule change needs no
+  // code update here or in PageCascada.
   const cascadaLines = pdfPhases
     .flatMap((ph) => ph.items || [])
     .filter((it: any) => String(it.subPhase || "").toLowerCase() === "cascada" && Number(it.quantity || 0) > 0)
     .map((it: any) => ({ label: String(it.description || ""), qty: Number(it.quantity) || 0, total: Number(it.total) || 0 }));
+  const cascadaTotal = cascadaLines.reduce((s, l) => s + l.total, 0);
+  const cascadaArt = a(draft.accCascadaModelId || undefined);
+  const cascadaBombaArt = a(draft.accCascadaBombaArticleId || undefined);
+  const cascadaEncastada = cascadaArt?.technical_specs?.encastada === true;
 
   const accOptionalLines = [
     buildOptLine(draft.accEscalaEnabled, "Escala inox", draft.accEscalaQty, draft.accEscalaModelId),
     buildOptLine(draft.accDutxaEnabled, "Dutxa exterior", draft.accDutxaQty, draft.accDutxaModelId),
     buildOptLine(draft.accPlatDutxaEnabled, "Plat de dutxa", draft.accPlatDutxaQty, undefined, 550),
-    ...cascadaLines,
     buildOptLine(
       draft.accSalvavidesEnabled,
       "Salvavides + suport paret",
@@ -1564,6 +1571,15 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     accBasicTotal,
     accOptionalLines,
     accOptionalTotal,
+    // Cascada — dedicated page (PageCascada), out of the generic Accessoris
+    // opcionals list/page.
+    accCascadaEnabled: !!draft.accCascadaEnabled,
+    cascadaLines,
+    cascadaTotal,
+    cascadaModelName: cascadaArt?.name,
+    cascadaModelImageUrl: cascadaArt?.image_url || undefined,
+    cascadaEncastada,
+    cascadaBombaName: cascadaBombaArt?.name,
     // Page 6 (Desinfecció amb electròlisi salina) is dedicated to the
     // standard dosification equipment (clorador salino), NOT the HIDROLISI/UV slot.
     hidrolisiName: dosificacio?.name,
@@ -2224,7 +2240,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
       "hidrolisiTotal", "bombaInclosTotal",
       "accSkimmersTotal", "accImpulsorsTotal", "accEmbornalTotal",
       "accNetejafonsTotal", "accReguladorTotal", "accFocusLedTotal",
-      "accBasicTotal", "accOptionalTotal",
+      "accBasicTotal", "accOptionalTotal", "cascadaTotal",
       "annexProjecteAmount", "annexExcavacioTotal", "annexExcavacioAmount",
       "annexExcavacioManoObra", "annexExcavacioReompliment",
       "annexNetejafonsAmount", "annexNetejafonsTotal", "annexNetejafonsExtraCost",
@@ -2258,6 +2274,10 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     if (Array.isArray(d.accOptionalLines)) {
       d.accOptionalLines = scaleLines(d.accOptionalLines);
       d.accOptionalTotal = d.accOptionalLines.reduce((s: number, l: any) => s + (Number(l.total) || 0), 0);
+    }
+    if (Array.isArray(d.cascadaLines)) {
+      d.cascadaLines = scaleLines(d.cascadaLines);
+      d.cascadaTotal = d.cascadaLines.reduce((s: number, l: any) => s + (Number(l.total) || 0), 0);
     }
 
     // Recompute the big badges and their visible section pills from the same
@@ -2303,7 +2323,8 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
         (Number(d.electricaSale) || 0) +
         (Number(d.fontaneriaTotal) || 0) +
         (Number(d.accBasicTotal) || 0) +
-        (Number(d.accOptionalTotal) || 0);
+        (Number(d.accOptionalTotal) || 0) +
+        (Number(d.cascadaTotal) || 0);
       const instalacionsDelta = d.instalacionsTotal - visibleInstalacionsTotal;
       if (instalacionsDelta !== 0 && typeof d.hidrolisiTotal === "number") {
         d.hidrolisiTotal += instalacionsDelta;

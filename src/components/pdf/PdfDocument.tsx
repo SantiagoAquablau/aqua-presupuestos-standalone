@@ -11,6 +11,7 @@ import { PageDepuracio1 } from './PageDepuracio1';
 import { PageDepuracio2 } from './PageDepuracio2';
 import { PageElectricitat } from './PageElectricitat';
 import { PageAccessoris } from './PageAccessoris';
+import { PageCascada } from './PageCascada';
 import { PageResum } from './PageResum';
 import { PageComanda } from './PageComanda';
 import { PageAnnexProjecte } from './PageAnnexProjecte';
@@ -138,7 +139,8 @@ export function PdfDocument({ data }: { data: PdfData }) {
     <PageDepuracio1 key="dep1" data={data} />,
     <PageDepuracio2 key="dep2" data={data} />,
     <PageElectricitat key="elec" data={data} />,
-    <PageAccessoris key="accessoris" data={data} />,
+    <PageAccessoris key="accessoris" data={data} showTotalBadge={!data.accCascadaEnabled} />,
+    ...(data.accCascadaEnabled ? [<PageCascada key="cascada" data={data} />] : []),
     ...(projecteEstat === 'inclos'
       ? [<PageAnnexProjecte key="annex-projecte-in" data={data} variant="inclos" {...annexProps('projecte')} />]
       : []),

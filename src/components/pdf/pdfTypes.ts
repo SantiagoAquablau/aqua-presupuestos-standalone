@@ -154,6 +154,15 @@ export interface PdfData {
   accBasicTotal?: number;
   accOptionalLines?: Array<{ label: string; qty: number; total: number }>;
   accOptionalTotal?: number;
+  // Cascada — dedicated page (PageCascada), out of the generic Accessoris
+  // opcionals list/page.
+  accCascadaEnabled?: boolean;
+  cascadaLines?: Array<{ label: string; qty: number; total: number }>;
+  cascadaTotal?: number;
+  cascadaModelName?: string;
+  cascadaModelImageUrl?: string;
+  cascadaEncastada?: boolean;
+  cascadaBombaName?: string;
   // Sum of every Instal·lacions section (4+5+6+7+8) — shown on Page 8 badge
   instalacionsTotal?: number;
   // Electrolisi salina
