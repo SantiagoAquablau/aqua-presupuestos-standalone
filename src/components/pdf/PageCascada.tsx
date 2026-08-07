@@ -18,7 +18,7 @@ import { PdfLogo } from "./PdfShared";
 
 const NAVY = "#2f4494";
 
-export function PageCascada({ data }: { data: PdfData }) {
+export function PageCascada({ data, pillNumber }: { data: PdfData; pillNumber: number }) {
   const encastada = !!data.cascadaEncastada;
   const modelName = data.cascadaModelName || "A determinar";
   const bombaName = data.cascadaBombaName || "A determinar";
@@ -95,7 +95,11 @@ export function PageCascada({ data }: { data: PdfData }) {
       />
 
       <div style={{ padding: "0 14mm", position: "relative", zIndex: 1 }}>
-        <SectionPillTenor title={encastada ? "Cascada encastada" : "Cascada"} amount={total} />
+        <SectionPillTenor
+          number={pillNumber}
+          title={encastada ? "CASCADA ENCASTADA" : "CASCADA"}
+          amount={total}
+        />
 
         <p
           style={{
@@ -173,7 +177,7 @@ export function PageCascada({ data }: { data: PdfData }) {
   );
 }
 
-function SectionPillTenor({ title, amount }: { title: string; amount: number }) {
+function SectionPillTenor({ number, title, amount }: { number: number; title: string; amount: number }) {
   return (
     <div
       style={{
@@ -192,7 +196,9 @@ function SectionPillTenor({ title, amount }: { title: string; amount: number }) 
         fontWeight: 400,
       }}
     >
-      <span style={{ display: "block", lineHeight: 1, marginBottom: "12px" }}>{title}</span>
+      <span style={{ display: "block", lineHeight: 1, marginBottom: "12px" }}>
+        {number}.- {title}
+      </span>
       <span style={{ display: "block", lineHeight: 1, marginBottom: "12px", fontWeight: 700 }}>
         {formatEuro(amount)}
       </span>

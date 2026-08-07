@@ -17,6 +17,7 @@ import { buildWizardLinesByPhase } from "@/lib/wizardLines";
 import { evaluateFormulaRules, type FormulaRule } from "@/lib/formulaEngine";
 import { mergeFormulaResultsIntoPhases, serializeBudgetPhases, filterAcabatsInclusion } from "@/lib/formulaPhases";
 import { computeManoObraExcavacio } from "@/lib/excavacioCalc";
+import { computePhaseTotals, computeGrandTotal } from "@/lib/budgetFinancials";
 import { PaymentConditionsEditor } from "@/components/wizard/PaymentConditionsEditor";
 import { useShowMargins } from "@/hooks/useShowMargins";
 import { useMaintenanceKit } from "@/lib/maintenanceKit";
@@ -507,12 +508,16 @@ export function StepRevisio() {
     draft.type === "piscina_autoportant"
       ? mergeAutoportantPhases(buildAutoportantPhases(draft, articles as CatalogArticle[], autoportantPrices, autoportantTransportConfig || undefined), draft.phases)
       : draft.phases;
-  const totalCost = reviewPhases?.reduce((s, ph) => s + ph.items.reduce((ss, it) => ss + it.quantity * it.unitCost, 0), 0) || 0;
-  const totalSaleBase = reviewPhases?.reduce((s, ph) => s + ph.items.reduce((ss, it) => ss + Math.ceil(it.quantity * it.unitSale), 0), 0) || 0;
   const adjustmentPct = draft.marginPctAdjustment || 0;
-  const totalSale = totalSaleBase * (1 + adjustmentPct / 100);
-  // Margen sobre coste — coherente con StepPartides y BudgetList
-  const margin = totalSale > 0 ? ((totalSale - totalCost) / totalSale) * 100 : 0;
+  // Same shared calculation as StepPartides.tsx's "Resum Financer" — single
+  // source of truth for the increment/descompte rule and the
+  // "Opcionals informatius" exclusion, so both panels always agree.
+  const revisioPhaseTotals = computePhaseTotals(reviewPhases || [], adjustmentPct);
+  const revisioGrandTotal = computeGrandTotal(reviewPhases || [], adjustmentPct);
+  const totalCost = revisioGrandTotal.cost;
+  const totalSaleBase = revisioGrandTotal.saleBase;
+  const totalSale = revisioGrandTotal.sale;
+  const margin = revisioGrandTotal.marginPct;
   const depthAvg = draft.poolDepthMin && draft.poolDepthMax ? (draft.poolDepthMin + draft.poolDepthMax) / 2 : 0;
   const isIrregularShape = draft.poolShape === "irregular";
   const volume = isIrregularShape
@@ -1397,27 +1402,22 @@ export function StepRevisio() {
       {totalSale > 0 && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-card space-y-3">
           <h3 className="font-semibold text-foreground">Resum Financer</h3>
-          {reviewPhases
-            ?.filter((p) => p.items.length > 0)
-            .map((phase) => {
-              const pSale = phase.items.reduce((s, it) => s + Math.ceil(it.quantity * it.unitSale), 0);
-              const pCost = phase.items.reduce((s, it) => s + it.quantity * it.unitCost, 0);
-              const pMargin = pSale > 0 ? ((pSale - pCost) / pSale) * 100 : 0;
-              return (
-                <div key={phase.name} className="flex justify-between items-baseline text-sm gap-3">
-                  <span className="text-muted-foreground flex-1 truncate">{phase.name}</span>
-                  {showMargins && (
-                    <>
-                      <span className="text-xs text-muted-foreground tabular-nums">cost {formatEUR(pCost)}</span>
-                      <span className="text-xs text-muted-foreground tabular-nums">marge {pMargin.toFixed(2)}%</span>
-                    </>
-                  )}
-                  <span className="font-medium text-foreground tabular-nums min-w-[110px] text-right">
-                    {formatEUR(pSale)}
-                  </span>
-                </div>
-              );
-            })}
+          {revisioPhaseTotals
+            .filter((pt) => pt.saleBase > 0 || pt.cost > 0)
+            .map((pt) => (
+              <div key={pt.name} className="flex justify-between items-baseline text-sm gap-3">
+                <span className="text-muted-foreground flex-1 truncate">{pt.name}</span>
+                {showMargins && (
+                  <>
+                    <span className="text-xs text-muted-foreground tabular-nums">cost {formatEUR(pt.cost)}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">marge {pt.marginPct.toFixed(2)}%</span>
+                  </>
+                )}
+                <span className="font-medium text-foreground tabular-nums min-w-[110px] text-right">
+                  {formatEUR(pt.sale)}
+                </span>
+              </div>
+            ))}
           <div className="border-t border-border pt-3 space-y-2">
             {showMargins && (
               <div className="flex justify-between text-sm">

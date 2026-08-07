@@ -4,6 +4,15 @@ import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { createDefaultObraNovaPhases, serializeBudgetPhases } from '@/lib/formulaPhases';
 import { formatEUR } from '@/lib/formatters';
+import {
+  isOptionalSubPhase,
+  countableItems,
+  lineSaleBase,
+  lineSaleDisplay as sharedLineSaleDisplay,
+  itemsSaleDisplay as sharedItemsSaleDisplay,
+  computePhaseTotals,
+  computeGrandTotal,
+} from '@/lib/budgetFinancials';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useShowMargins } from '@/hooks/useShowMargins';
 interface LineItem {
@@ -144,28 +153,19 @@ export function StepPartides() {
     } : phase));
   };
 
-  const isOptionalSubPhase = (sub?: string | null) => (sub || '').toLowerCase().includes('opcionals informatius');
-  const countableItems = (items: LineItem[]) => items.filter((it) => !isOptionalSubPhase(it.subPhase));
-  const displayFactor = adjustmentPct > 0 ? 1 + adjustmentPct / 100 : 1;
   const showIncrement = adjustmentPct > 0;
-  const lineSaleBase = (item: LineItem) => Math.ceil(item.quantity * item.unitSale);
-  const lineSaleDisplay = (item: LineItem, optional = false) =>
-    showIncrement && !optional ? Math.ceil(item.quantity * item.unitSale * displayFactor) : lineSaleBase(item);
-  const itemsSaleDisplay = (items: LineItem[], optional = false) => items.reduce((sum, item) => sum + lineSaleDisplay(item, optional), 0);
-  const totalCost = phases.reduce((sum, phase) => sum + countableItems(phase.items).reduce((phaseSum, item) => phaseSum + item.quantity * item.unitCost, 0), 0);
-  const totalSaleBase = phases.reduce((sum, phase) => sum + countableItems(phase.items).reduce((phaseSum, item) => phaseSum + lineSaleBase(item), 0), 0);
-  const totalSaleRaw = totalSaleBase * (1 + adjustmentPct / 100);
-  const totalSale = showIncrement
-    ? phases.reduce((sum, phase) => sum + itemsSaleDisplay(countableItems(phase.items)), 0)
-    : adjustmentPct !== 0
-      ? Math.round(totalSaleRaw)
-      : totalSaleRaw;
+  const lineSaleDisplay = (item: LineItem, optional = false) => sharedLineSaleDisplay(item, adjustmentPct, optional);
+  const itemsSaleDisplay = (items: LineItem[], optional = false) => sharedItemsSaleDisplay(items, adjustmentPct, optional);
   // For visual feedback in the partides list: positive adjustments are
   // propagated to every displayed amount (same behaviour as the PDF).
   // Negative adjustments (descompte) stay as a separate line in the summary.
-  // Markup sobre coste: (Venda - Cost) / Cost  →  ×1.3 = 30%
-  // Marge sobre venda: (venda - cost) / venda * 100
-  const markup = totalSale > 0 ? ((totalSale - totalCost) / totalSale) * 100 : 0;
+  // See src/lib/budgetFinancials.ts for the shared rule (also used by
+  // StepRevisio.tsx's Resum Financer, so both panels always agree).
+  const grandTotal = computeGrandTotal(phases, adjustmentPct);
+  const totalCost = grandTotal.cost;
+  const totalSale = grandTotal.sale;
+  const markup = grandTotal.marginPct;
+  const phaseTotalsByName = new Map(computePhaseTotals(phases, adjustmentPct).map((p) => [p.name, p]));
 
   const inputClass = 'w-full px-2 py-1.5 rounded border border-input bg-card text-sm focus:outline-none focus:ring-1 focus:ring-ring/20 min-h-[44px]';
 
@@ -214,8 +214,8 @@ export function StepPartides() {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1 min-w-0 space-y-4">
           {phases.map((phase, phaseIndex) => {
-            const phaseTotalBase = countableItems(phase.items).reduce((sum, item) => sum + lineSaleBase(item), 0);
-            const phaseTotal = showIncrement ? itemsSaleDisplay(countableItems(phase.items)) : phaseTotalBase;
+            const phaseTotalBase = phaseTotalsByName.get(phase.name)?.saleBase ?? 0;
+            const phaseTotal = phaseTotalsByName.get(phase.name)?.sale ?? 0;
             return (
               <div key={phase.id} className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
                 <button onClick={() => togglePhase(phaseIndex)} className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
@@ -396,8 +396,8 @@ export function StepPartides() {
           <div className="bg-card rounded-xl border border-border shadow-card p-5 lg:sticky lg:top-8 space-y-4">
             <h3 className="font-semibold text-foreground">Resum Financer</h3>
             {phases.map((phase) => {
-              const totalBase = countableItems(phase.items).reduce((sum, item) => sum + lineSaleBase(item), 0);
-              const total = showIncrement ? itemsSaleDisplay(countableItems(phase.items)) : totalBase;
+              const totalBase = phaseTotalsByName.get(phase.name)?.saleBase ?? 0;
+              const total = phaseTotalsByName.get(phase.name)?.sale ?? 0;
               return totalBase > 0 ? (
                 <div key={phase.id} className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{phase.name}</span>

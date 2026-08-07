@@ -4,6 +4,7 @@
  */
 import type { PdfData } from './pdfTypes';
 import { PageCover } from './PageCover';
+import { PagePlanol } from './PagePlanol';
 import { PageEstructura } from './PageEstructura';
 import { PageElementsEstructurals } from './PageElementsEstructurals';
 import { PageAcabats } from './PageAcabats';
@@ -108,6 +109,16 @@ export function PdfDocument({ data }: { data: PdfData }) {
   const revestimentOn = data.revestimentInclos !== false;
   const showAcabats = coronamentOn || revestimentOn;
 
+  // Instal·lacions pill numbering (1.- DEPURACIÓ … 7.- ACCESSORIS ENCASTATS)
+  // is hardcoded per-page today — sections 1-7 are always rendered, so their
+  // numbers never move. The one genuinely variable case is PageAccessoris'
+  // own "8.- ACCESSORIS ADDICIONALS" pill, which only renders when there's
+  // at least one accessori opcional selected (data.accOptionalLines). Since
+  // Cascada always follows it, its number depends on whether that pill
+  // exists this time — the only part of the sequence that can actually shift.
+  const showAccessorisAddicionalsPill = (data.accOptionalLines?.length ?? 0) > 0;
+  const cascadaPillNumber = showAccessorisAddicionalsPill ? 9 : 8;
+
   // Build the ordered list of "inclos" annexes to enumerate them and know
   // which page is the last (where we render the TOTAL ANNEX badge).
   const inclosOrder: string[] = [];
@@ -133,6 +144,7 @@ export function PdfDocument({ data }: { data: PdfData }) {
 
   const pages = [
     <PageCover key="cover" data={data} />,
+    ...(data.poolShape === 'regular' && !data.hasExteriorStairs ? [<PagePlanol key="planol" data={data} />] : []),
     <PageEstructura key="estructura" data={data} />,
     <PageElementsEstructurals key="elements" data={data} />,
     ...(showAcabats ? [<PageAcabats key="acabats" data={data} />] : []),
@@ -140,7 +152,9 @@ export function PdfDocument({ data }: { data: PdfData }) {
     <PageDepuracio2 key="dep2" data={data} />,
     <PageElectricitat key="elec" data={data} />,
     <PageAccessoris key="accessoris" data={data} showTotalBadge={!data.accCascadaEnabled} />,
-    ...(data.accCascadaEnabled ? [<PageCascada key="cascada" data={data} />] : []),
+    ...(data.accCascadaEnabled
+      ? [<PageCascada key="cascada" data={data} pillNumber={cascadaPillNumber} />]
+      : []),
     ...(projecteEstat === 'inclos'
       ? [<PageAnnexProjecte key="annex-projecte-in" data={data} variant="inclos" {...annexProps('projecte')} />]
       : []),
