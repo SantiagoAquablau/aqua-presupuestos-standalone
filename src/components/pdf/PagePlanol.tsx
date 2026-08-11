@@ -395,6 +395,16 @@ function PlanView({ data }: { data: PdfData }) {
   // against a corner, not floating mid-wall.
   const stairsY = rectY + rectH - stairsAlongWall;
   const stepsCount = computeStepsCount(data.poolDepthMin);
+  // First tread's own width (x-span from the wall to the first riser line,
+  // rectX to rectX + stairsProtrusion/stepsCount below) — same geometry
+  // ProfileView's stairsTreadW is built from (flatWidth/(totalRisers-1),
+  // and flatWidth===stairsProtrusion here since both come from the same
+  // stairsLengthM*scale), so the two views' tread cotas describe the exact
+  // same real-world step. Needs a real first riser line to sit against,
+  // which only exists once stepsCount>=2 (see the riser <line> map below —
+  // stepsCount-1 risers are drawn, so stepsCount===1 draws none).
+  const firstTreadX = rectX + stairsProtrusion / stepsCount;
+  const showTreadDetailCota = showStairs && stepsCount >= 2;
 
   // escala/plataforma (and escala/banc) boundary line — normally drawn
   // wall-to-boca in one piece, but step 2 (counting from the wall) sits
@@ -721,6 +731,44 @@ function PlanView({ data }: { data: PdfData }) {
               labelGap={1.6}
               color={DIM_INTERIOR}
             />
+            {/* Tread width detail — the first step's own tread (rectX to
+                firstTreadX), moved here from ProfileView (where it used to
+                sit right against the waterline/wave with no clean room once
+                the corona pushed things around — see ProfileView's riser
+                detail cota comment). Same "single representative step"
+                idea and same fixed 0.30m label (fmtM(0.3) — no real field
+                backs this value, it's schematic regardless of the pool's
+                actual computed tread width, per the same explicit
+                confirmation ProfileView's version used). Positioned INSIDE
+                the escala block near its bottom edge (objPos=stairsY+
+                stairsAlongWall−1.5, outward=−1 i.e. pointing up into the
+                box) rather than the top: the top edge doubles as the
+                escala/plataforma or escala/banc boundary line in those
+                cases, so the bottom stays clear in all 4 interiorStairsType
+                variants. Well clear of the Ample cota above (that one's on
+                the FAR edge, x=rectX+stairsProtrusion, whereas this sits
+                against the near wall) and of the riser lines (0.3 stroke,
+                not a cota). Guarded on stepsCount>=2 (showTreadDetailCota):
+                with only 1 step there's no first riser line to bound the
+                tread against. Small detail-cota sizing, matching
+                ProfileView's own detailFontSize/detailOffset/etc. */}
+            {showTreadDetailCota && (
+              <Dimension
+                orientation="horizontal"
+                objPos={stairsY + stairsAlongWall - 1.5}
+                outward={-1}
+                from={rectX}
+                to={firstTreadX}
+                label={`${fmtM(0.3)} m`}
+                fontSize={1.8}
+                offset={1}
+                gap={0.6}
+                overshoot={0.4}
+                tick={0.2}
+                labelGap={0.8}
+                color={DIM_INTERIOR}
+              />
+            )}
             {/* Ample cota — plataforma, same reference line as the escala
                 one (same objPos/offset), just adjoining it above. */}
             {showPlatform && (
@@ -912,23 +960,53 @@ function ProfileView({ data }: { data: PdfData }) {
   const profX = rectX;
   const profW = rectW;
   const endX = profX + profW;
+  // Corona, in section — deliberately its own constant, not the module-level
+  // CORONA (=4, PlanView's ring thickness): a section cut reads better with
+  // a visibly thinner slab than PlanView's plan-view ring does, so this is
+  // roughly half of it.
+  const PROFILE_CORONA = 2;
+  // The corona physically cantilevers past the pool walls on both sides —
+  // per the técnica, about 1.5cm of overhang — rather than sitting flush
+  // with them. Converted from real metres to viewBox mm through the same
+  // `scale` PlanView's own horizontal dimensions use (this IS a genuine
+  // physical measurement of the pool, unlike PROFILE_CORONA above which is
+  // just a drawing-thickness convention), so the overhang stays physically
+  // accurate at any pool size/print scale.
+  const CORONA_OVERHANG_M = 0.015;
+  const coronaOverhangX = CORONA_OVERHANG_M * scale;
   // topMargin/bottomMargin only need to fit ProfileView's OWN vertical
   // content (the llarg cota now sits above the waterline, see below) —
   // they're independent of PlanView's own margins, unlike the horizontal
   // ones. availH (and so vScale, and the pool's own vertical proportions)
   // stays 42 regardless of exactly how topMargin/bottomMargin split the
-  // remaining Vh between them.
-  const topMargin = 22;
+  // remaining Vh between them. topMargin itself is grown by PROFILE_CORONA
+  // (below) to fit the new corona block above waterlineY — same "grow the
+  // canvas, don't compress what already works" approach used elsewhere on
+  // this page, so the Length cota that already lives in this margin keeps
+  // exactly the headroom it had before.
+  const topMargin = 22 + PROFILE_CORONA;
   const bottomMargin = 9;
   const availH = 42;
   const Vh = topMargin + availH + bottomMargin;
 
   const vScale = availH / Math.max(dMax, 0.01);
 
+  // waterlineY is the construction reference level — the corona's own top
+  // edge, built straight, per the técnica's spec — NOT the actual water
+  // surface. Every depth/riser/platform/llarg cota below still measures
+  // from here: pool depths are built relative to the coping, not the
+  // water, so they must keep referencing this level rather than
+  // waterActualY. Only the visual water fill and wave (waterActualY, just
+  // below) sit lower than this.
   const waterlineY = topMargin;
   const minY = waterlineY + dMin * vScale;
   const maxY = waterlineY + dMax * vScale;
   const drainY = waterlineY + drainDepth * vScale;
+  // Real water surface — always 10cm below the corona's top edge
+  // (waterlineY), per the técnica: the corona is built level and the water
+  // sits below it, never coincident with it. Only used for the wave line
+  // and the fill's own top edge (see fillPathD below).
+  const waterActualY = waterlineY + 0.1 * vScale;
 
   // Floor profile, stairs wall → opposite wall:
   //  1. flat at dMin, stairsLengthM long (the stairs' structural base —
@@ -1002,7 +1080,13 @@ function ProfileView({ data }: { data: PdfData }) {
   // Fill shape (straight top — the wavy waterline is drawn separately on
   // top so the two don't overlap into a doubled edge) and its contour, which
   // deliberately excludes the top edge for the same reason.
-  const fillPathD = `M ${profX} ${waterlineY} L ${endX} ${waterlineY} L ${endX} ${drainY} L ${vertexX} ${maxY} L ${flatEndX} ${minY} L ${profX} ${minY} Z`;
+  // Top edge of the fill sits at waterActualY (real water surface), not
+  // waterlineY (corona top) — the 10cm gap between the two is left
+  // unpainted, reading as the dry corona/wall strip above the water.
+  // outlinePathD (the structural wall/floor contour) still starts and ends
+  // at waterlineY: the walls themselves are built up to the corona, and
+  // stay there in the drawing regardless of where the water sits.
+  const fillPathD = `M ${profX} ${waterActualY} L ${endX} ${waterActualY} L ${endX} ${drainY} L ${vertexX} ${maxY} L ${flatEndX} ${minY} L ${profX} ${minY} Z`;
   const outlinePathD = `M ${profX} ${waterlineY} L ${profX} ${minY} L ${flatEndX} ${minY} L ${vertexX} ${maxY} L ${endX} ${drainY} L ${endX} ${waterlineY}`;
 
   // Staircase overlay — riser+tread zigzag from the waterline down to dMin,
@@ -1071,13 +1155,17 @@ function ProfileView({ data }: { data: PdfData }) {
   // minY already sits well clear of maxY/Vh for any realistic depth.
   const showStairsLengthCota = !!data.hasInteriorStairs;
 
-  // Single-step construction-detail cotas — riser height + tread width for
-  // ONE representative step, as opposed to the escala-llarg cota above
-  // which measures the whole flat zone. Shown under the same condition
-  // (hasInteriorStairs), for all 4 types. Both need a "second step" to
-  // exist (totalRisers>1): the tread cota measures the first tread, the
-  // riser cota (see below) was moved to measure the SECOND riser
-  // specifically, so both require the same guard.
+  // Single-step construction-detail cota — riser height for ONE
+  // representative step, as opposed to the escala-llarg cota above which
+  // measures the whole flat zone. Shown under the same condition
+  // (hasInteriorStairs), for all 4 types. Needs a "second step" to exist
+  // (totalRisers>1): this cota measures the SECOND riser specifically (see
+  // the Dimension below for why), which only exists past that guard.
+  // (The equivalent tread-width detail cota now lives in PlanView instead
+  // — see showTreadDetailCota there — since here it sat right against the
+  // waterline/wave with nowhere clean to go once the corona pushed things
+  // around; PlanView's escala-in-plan drawing has a natural empty first-step
+  // box for it.)
   //
   // Riser height uses the ACTUAL computed value for this pool
   // (dMin/totalRisers — the very same division riserH itself, passed into
@@ -1090,12 +1178,6 @@ function ProfileView({ data }: { data: PdfData }) {
   // is the same height, so measuring the second one instead of the first
   // (see the Dimension below) doesn't change this value.
   const riserHeightM = dMin / totalRisers;
-  // Tread width has no equivalent fixed constant anywhere in the app
-  // (stairsTreadW is derived per-pool from stairsLengthM/totalRisers, not a
-  // fixed value) — shown as a fixed 0.30m label per explicit confirmation,
-  // even though it won't generally match this specific pool's actual
-  // computed stairsTreadW value.
-  const treadWidthLabel = `${fmtM(0.3)} m`;
   const showStepDetailCota = showStairsLengthCota && totalRisers > 1;
 
   // Deliberately smaller than the small-interior sizing used elsewhere in
@@ -1112,9 +1194,64 @@ function ProfileView({ data }: { data: PdfData }) {
 
   return (
     <svg viewBox={`0 0 ${Vw} ${Vh}`} width={`${Vw}mm`} height={`${Vh}mm`} style={{ display: "block" }}>
+      <defs>
+        {/* Same tiled-piece pattern PlanView's own corona ring uses
+            (geometry/colors copied 1:1 from there), just built from
+            PROFILE_CORONA instead of the module-level CORONA — since both
+            the piece's own thickness (=PROFILE_CORONA) and its length
+            (=PROFILE_CORONA*2) shrink by the same factor, the piece's
+            short:long proportion (1:2, matching the real ~31x62cm format)
+            is preserved even though the strip itself is thinner than
+            PlanView's. Defined again here, local to this <svg>, rather than
+            referenced across the two views' separate root <svg> elements:
+            each page's <svg> gets serialized to its own image independently
+            when the PDF is rendered, so a cross-svg url(#corona-tiles)
+            reference wouldn't resolve at export time even though it can
+            work in a live browser preview. In section the corona always
+            runs horizontally (this is a single straight cut through it, not
+            a ring with corners to turn), so only the horizontal variant
+            (vertical joints) is needed — no equivalent of PlanView's
+            corona-tiles-vertical here. */}
+        <pattern id="corona-tiles" patternUnits="userSpaceOnUse" width={PROFILE_CORONA * 2} height={PROFILE_CORONA}>
+          <rect width={PROFILE_CORONA * 2} height={PROFILE_CORONA} fill="#e8dcc0" />
+          <line x1="0" y1="0" x2="0" y2={PROFILE_CORONA} stroke="#b8a67e" strokeWidth="0.3" />
+        </pattern>
+      </defs>
       {/* Pool contour in section */}
       <path d={fillPathD} fill={WATER} stroke="none" />
       <path d={outlinePathD} fill="none" stroke={DRAW} strokeWidth="0.6" strokeLinejoin="round" />
+      {/* Corona, in section — the straight top edge at waterlineY is the
+          corona's own real construction level (replacing what used to be a
+          wavy "water surface" line drawn right at the wall top, which
+          wasn't accurate: the técnica builds the corona level and dead
+          straight, and the water always sits 10cm below it, never flush
+          with it — see waterActualY/the wave below). Tiled fill (no stroke
+          of its own) plus a separate outline on top, fill="none" — same
+          two-layer convention PlanView's own corona ring uses (fill
+          segments first, one unbroken border drawn over them after), so the
+          tile joints don't get double-stroked at the block's own edge.
+          x/width extend coronaOverhangX past profX/endX on both sides — the
+          corona physically cantilevers past the pool walls (see
+          coronaOverhangX's own comment above), so it should read as
+          visibly wider than the pool contour at both ends, not flush with
+          it. */}
+      <rect
+        x={profX - coronaOverhangX}
+        y={waterlineY - PROFILE_CORONA}
+        width={profW + 2 * coronaOverhangX}
+        height={PROFILE_CORONA}
+        fill="url(#corona-tiles)"
+      />
+      <rect
+        x={profX - coronaOverhangX}
+        y={waterlineY - PROFILE_CORONA}
+        width={profW + 2 * coronaOverhangX}
+        height={PROFILE_CORONA}
+        fill="none"
+        stroke={DRAW}
+        strokeWidth="0.5"
+      />
+      <line x1={profX} y1={waterlineY} x2={endX} y2={waterlineY} stroke={DRAW} strokeWidth="0.6" />
       {/* Staircase, in section — same stroke style as the main contour. */}
       <path d={stairsProfileD} fill="none" stroke={DRAW} strokeWidth="0.6" strokeLinejoin="round" />
       {/* "Escala amb plataforma" shelf, in section — schematic secondary
@@ -1147,10 +1284,14 @@ function ProfileView({ data }: { data: PdfData }) {
           color={DIM_INTERIOR}
         />
       )}
-      {/* Waterline — subtle wave instead of a ruled edge, reads as water.
-          Spans exactly profX to profX + profW, matching the wall x-positions
-          in outlinePathD, so it never pokes out past the vessel's sides. */}
-      <path d={wavePath(profX, waterlineY, profW, 0.6, 11)} fill="none" stroke={DRAW} strokeWidth="0.5" />
+      {/* Real waterline — subtle wave instead of a ruled edge, reads as
+          water. Drawn at waterActualY (10cm below the corona's straight top
+          edge, waterlineY — see its own comment above), matching fillPathD's
+          own top edge so the wave sits right at the painted water's surface
+          instead of floating above or cutting into it. Spans exactly profX
+          to profX + profW, matching the wall x-positions in outlinePathD, so
+          it never pokes out past the vessel's sides. */}
+      <path d={wavePath(profX, waterActualY, profW, 0.6, 11)} fill="none" stroke={DRAW} strokeWidth="0.5" />
 
       {/* Profunditat mitjana — informative marker only, not a dimension
           line. avgMarkerX/avgMarkerY (the point ON the down-slope where
@@ -1182,7 +1323,13 @@ function ProfileView({ data }: { data: PdfData }) {
           competing with the deepest point for space. Lets the plan and
           profile "match" as two real cuts of the same object, per the
           geometry-matching goal (from/to = profX/endX are now literally
-          PlanView's own rectX/rectX+rectW). */}
+          PlanView's own rectX/rectX+rectW). objPos stays waterlineY, not
+          waterActualY: this measures the pool's plan footprint at the
+          corona/reference level, unrelated to the water. Clears the new
+          corona block above it without any adjustment — mainDimOffset
+          (=CORONA+DIM_OFFSET=11, the module-level CORONA, not this view's
+          own thinner PROFILE_CORONA) already reserves more room than the
+          corona block's actual PROFILE_CORONA(=2mm) thickness. */}
       <Dimension
         orientation="horizontal"
         objPos={waterlineY}
@@ -1303,27 +1450,26 @@ function ProfileView({ data }: { data: PdfData }) {
           color={DIM_INTERIOR}
         />
       )}
-      {/* Riser height detail — moved again per feedback: still overlapped
-          the tread cota's label while sharing the first-step box with it.
-          Now measures the SECOND riser instead of the first — same height
-          (every riser is identical), but at a spot with no other cota
-          nearby. objPos=profX+stairsTreadW is the x of that second riser
-          (exactly where the zigzag's own stroke already runs, from
-          waterlineY+riserH down to waterlineY+2*riserH — see
-          stairsProfilePath/totalRisers above). outward=1 (offset to the
-          RIGHT) puts this cota in the THIRD step's box — x roughly
-          [profX+2*stairsTreadW, profX+3*stairsTreadW] — a completely empty
-          area with no tread cota, no llarg cota, nothing else drawn in it,
-          unlike the first step's box. offset back down to the shared
-          detailOffset (1mm) since there's no longer a second cota in the
-          same box to budge away from. Guarded by totalRisers>1
-          (showStepDetailCota, shared with the tread cota below) since a
-          "second riser" only exists once there are at least 2.
-          horizontalLabel: this span is only ~riserH tall (a single step),
-          too short for the rotated label Dimension normally uses — the
-          glyphs came out cramped and the trailing "m" touched the step's
-          own stroke. Unrotated text just needs horizontal room instead,
-          which the empty third-step box has plenty of. */}
+      {/* Riser height detail — measures the SECOND riser rather than the
+          first, at a spot with no other cota nearby. objPos=profX+
+          stairsTreadW is the x of that second riser (exactly where the
+          zigzag's own stroke already runs, from waterlineY+riserH down to
+          waterlineY+2*riserH — see stairsProfilePath/totalRisers above).
+          outward=1 (offset to the RIGHT) puts this cota in the THIRD step's
+          box — x roughly [profX+2*stairsTreadW, profX+3*stairsTreadW] — a
+          completely empty area with nothing else drawn in it. Guarded by
+          totalRisers>1 (showStepDetailCota) since a "second riser" only
+          exists once there are at least 2. horizontalLabel: this span is
+          only ~riserH tall (a single step), too short for the rotated label
+          Dimension normally uses — the glyphs came out cramped and the
+          trailing "m" touched the step's own stroke. Unrotated text just
+          needs horizontal room instead, which the empty third-step box has
+          plenty of.
+          (The tread-width detail cota that used to sit alongside this one,
+          on the first tread, was moved to PlanView — see
+          showTreadDetailCota there — since here it sat right against the
+          waterline/wave with no clean room once the corona pushed things
+          around.) */}
       {showStepDetailCota && (
         <Dimension
           orientation="vertical"
@@ -1339,38 +1485,6 @@ function ProfileView({ data }: { data: PdfData }) {
           tick={detailTick}
           labelGap={detailLabelGap}
           horizontalLabel
-          color={DIM_INTERIOR}
-        />
-      )}
-      {/* Tread width detail — the first tread only (profX to
-          profX+stairsTreadW). Positioned ABOVE that tread
-          (objPos=waterlineY+riserH, outward=-1) rather than below: the box
-          bounded by the wall (x=profX), the first tread's own line
-          (y=waterlineY+riserH) and the waterline above is otherwise empty
-          — the first riser is just the single stroke at x=profX, not a
-          filled area — so a small cota fits inside it without crossing any
-          other geometry. Below would instead land right where the SECOND
-          riser starts its drop, competing for the same few mm. The riser
-          height cota no longer shares this box (see above — moved to the
-          second riser / third step's box instead), so this one now has the
-          first step's box to itself. Guarded by totalRisers>1
-          (showStepDetailCota): with only 1 riser total there's no tread to
-          measure at all (stairsTreadW is 0 in that case, see its own guard
-          above). */}
-      {showStepDetailCota && (
-        <Dimension
-          orientation="horizontal"
-          objPos={waterlineY + riserH}
-          outward={-1}
-          from={profX}
-          to={profX + stairsTreadW}
-          label={treadWidthLabel}
-          fontSize={detailFontSize}
-          offset={detailOffset}
-          gap={detailGap}
-          overshoot={detailOvershoot}
-          tick={detailTick}
-          labelGap={detailLabelGap}
           color={DIM_INTERIOR}
         />
       )}
@@ -1416,7 +1530,7 @@ function DataBox({ data }: { data: PdfData }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "0 6mm",
+          padding: "0 4mm",
           borderRight: `1px solid ${NAVY}`,
           flexShrink: 0,
         }}
@@ -1429,9 +1543,13 @@ function DataBox({ data }: { data: PdfData }) {
             two adjoining margins collapse to a net 0 (CSS collapses
             adjoining positive/negative margins to their sum), restoring the
             wrapper's true natural height so alignItems:"center" above
-            centers it correctly against the full cajetí height. */}
+            centers it correctly against the full cajetí height. The -46
+            offset itself is a fixed constant inside PdfLogo, independent of
+            `size`, so this cancellation still holds at the smaller size
+            used here (55, down from 85 — shrunk along with the rest of the
+            cajetí so it doesn't dominate its now-reduced height). */}
         <div style={{ marginBottom: 46 }}>
-          <PdfLogo size={85} />
+          <PdfLogo size={55} />
         </div>
       </div>
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
@@ -1448,15 +1566,15 @@ function DataBox({ data }: { data: PdfData }) {
             <div
               key={label}
               style={{
-                padding: "1.5mm 3mm",
+                padding: "1mm 2.5mm",
                 borderBottom: rowIndex < totalRows - 1 ? `1px solid ${NAVY}33` : "none",
                 borderRight: colIndex < cols - 1 ? `1px solid ${NAVY}33` : "none",
               }}
             >
-              <div style={{ fontSize: "5.5pt", color: NAVY, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>
+              <div style={{ fontSize: "4.5pt", color: NAVY, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>
                 {label}
               </div>
-              <div style={{ fontSize: "7.5pt", color: "#1a1a1a", marginTop: 1 }}>{value}</div>
+              <div style={{ fontSize: "6pt", color: "#1a1a1a", marginTop: 0.5 }}>{value}</div>
             </div>
           );
         })}
