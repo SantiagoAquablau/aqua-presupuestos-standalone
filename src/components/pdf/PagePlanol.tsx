@@ -1418,24 +1418,33 @@ function ProfileView({ data }: { data: PdfData }) {
     <svg viewBox={`0 0 ${Vw} ${Vh}`} width={`${Vw}mm`} height={`${Vh}mm`} style={{ display: "block" }}>
       <defs>
         {/* Same tiled-piece pattern PlanView's own corona ring uses
-            (geometry/colors copied 1:1 from there), just built from
-            PROFILE_CORONA instead of the module-level CORONA — since both
-            the piece's own thickness (=PROFILE_CORONA) and its length
-            (=PROFILE_CORONA*2) shrink by the same factor, the piece's
-            short:long proportion (1:2, matching the real ~31x62cm format)
-            is preserved even though the strip itself is thinner than
-            PlanView's. Defined again here, local to this <svg>, rather than
-            referenced across the two views' separate root <svg> elements:
-            each page's <svg> gets serialized to its own image independently
-            when the PDF is rendered, so a cross-svg url(#corona-tiles)
-            reference wouldn't resolve at export time even though it can
-            work in a live browser preview. In section the corona always
-            runs horizontally (this is a single straight cut through it, not
-            a ring with corners to turn), so only the horizontal variant
-            (vertical joints) is needed — no equivalent of PlanView's
-            corona-tiles-vertical here. */}
-        <pattern id="corona-tiles" patternUnits="userSpaceOnUse" width={PROFILE_CORONA * 2} height={PROFILE_CORONA}>
-          <rect width={PROFILE_CORONA * 2} height={PROFILE_CORONA} fill="#e8dcc0" />
+            (geometry/colors copied 1:1 from there). The joint SPACING
+            (pattern width, the piece's "long" dimension) deliberately stays
+            tied to the module-level CORONA — i.e. the SAME absolute value
+            PlanView's own pattern uses (CORONA*2) — rather than scaling
+            down with PROFILE_CORONA the way an earlier version did
+            (PROFILE_CORONA*2). Both views render at 1 viewBox unit = 1
+            physical page mm, so shrinking width together with thickness
+            didn't just make the strip thinner, it also doubled the joint
+            frequency per mm of page — the pieces read as visibly more
+            cramped here than in PlanView, not just narrower. Keeping width
+            at the plan's own absolute scale (only height/thickness uses
+            PROFILE_CORONA) restores the same visual joint "rhythm" in both
+            views, at the cost of the piece's own short:long proportion no
+            longer matching the ~1:2 real coronament format here — a
+            deliberate trade-off for cross-view consistency. Defined again
+            here, local to this <svg>, rather than referenced across the two
+            views' separate root <svg> elements: each page's <svg> gets
+            serialized to its own image independently when the PDF is
+            rendered, so a cross-svg url(#corona-tiles) reference wouldn't
+            resolve at export time even though it can work in a live browser
+            preview. In section the corona always runs horizontally (this is
+            a single straight cut through it, not a ring with corners to
+            turn), so only the horizontal variant (vertical joints) is
+            needed — no equivalent of PlanView's corona-tiles-vertical
+            here. */}
+        <pattern id="corona-tiles" patternUnits="userSpaceOnUse" width={CORONA * 2} height={PROFILE_CORONA}>
+          <rect width={CORONA * 2} height={PROFILE_CORONA} fill="#e8dcc0" />
           <line x1="0" y1="0" x2="0" y2={PROFILE_CORONA} stroke="#b8a67e" strokeWidth="0.3" />
         </pattern>
         {/* Water fill — vertical depth gradient, reusing the SAME 3 anchors
@@ -1763,6 +1772,18 @@ function DataBox({ data }: { data: PdfData }) {
     ["Coronament", coronamentValue],
     ["Revestiment interior", revestimentValue],
   ];
+  // logo-color.png's real intrinsic pixel size (1003×365) — used to compute
+  // its actual rendered height at LOGO_SIZE ourselves, rather than relying
+  // on PdfLogo's own marginBottom:-46 (a fixed constant, unrelated to
+  // `size`, calibrated for its OTHER call site's overlap effect in
+  // PdfPageHeader) to cancel out via margin collapsing. That collapsing
+  // trick is mathematically sound in a spec-compliant browser, but this PDF
+  // is ultimately rasterized through html2canvas (see pdfRender.ts), which
+  // is known to be unreliable with negative-margin collapsing — exactly the
+  // kind of thing that can look centered in a live preview yet render
+  // shifted up in the actual exported PDF, matching what was reported here.
+  const LOGO_SIZE = 75; // px — up from 55, still well inside the row-grid's own content height (see the logo cell below)
+  const LOGO_HEIGHT = LOGO_SIZE * (365 / 1003);
   return (
     <div
       style={{
@@ -1789,21 +1810,18 @@ function DataBox({ data }: { data: PdfData }) {
           flexShrink: 0,
         }}
       >
-        {/* PdfLogo hardcodes marginBottom:-46 on its <img> (used elsewhere,
-            e.g. PdfPageHeader, to intentionally overlap content below it) —
-            left as-is here it would shrink this flex item's margin box by
-            46px, throwing off the vertical centering below. Wrapping it in
-            a plain (non-flex) div with an equal +46 marginBottom makes the
-            two adjoining margins collapse to a net 0 (CSS collapses
-            adjoining positive/negative margins to their sum), restoring the
-            wrapper's true natural height so alignItems:"center" above
-            centers it correctly against the full cajetí height. The -46
-            offset itself is a fixed constant inside PdfLogo, independent of
-            `size`, so this cancellation still holds at the smaller size
-            used here (55, down from 85 — shrunk along with the rest of the
-            cajetí so it doesn't dominate its now-reduced height). */}
-        <div style={{ marginBottom: 46 }}>
-          <PdfLogo size={55} />
+        {/* Fixed-size, overflow:hidden wrapper instead of a margin-collapse
+            cancellation trick (see LOGO_SIZE/LOGO_HEIGHT's own comment
+            above for why): explicitly sizing this box to the logo's real
+            rendered dimensions and clipping to it makes PdfLogo's internal
+            -46px margin irrelevant — there's no "next box" inside this
+            bounded, non-auto-height container for that margin to pull on,
+            so the box always renders as exactly LOGO_SIZE×LOGO_HEIGHT
+            regardless of the margin trick's cross-renderer fidelity. That
+            in turn makes alignItems:"center" above center it correctly and
+            predictably against the full cajetí height. */}
+        <div style={{ width: LOGO_SIZE, height: LOGO_HEIGHT, overflow: "hidden" }}>
+          <PdfLogo size={LOGO_SIZE} />
         </div>
       </div>
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
