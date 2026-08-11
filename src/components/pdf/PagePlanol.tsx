@@ -740,14 +740,15 @@ function PlanView({ data }: { data: PdfData }) {
                 color={DIM_INTERIOR}
               />
             )}
-            {/* Ample cota — banc, same pattern/reference line as the
-                plataforma one above (objPos stays at the escala's own front
-                edge, not the banc's shorter one, for the same continuous
-                vertical cota column). */}
+            {/* Ample cota — banc. objPos anchors to the banc's own front
+                edge (benchEdgeX) rather than the escala's, since the banc
+                is often shorter than the escala (benchProtrusion <
+                stairsProtrusion) and sharing the escala's edge left this
+                cota visually detached from the banc drawing it labels. */}
             {showBench && (
               <Dimension
                 orientation="vertical"
-                objPos={rectX + stairsProtrusion}
+                objPos={benchEdgeX}
                 outward={1}
                 from={benchY}
                 to={stairsY}
