@@ -12,6 +12,16 @@ import { PDF_COLORS, PDF_FONTS, formatEuro, pdfPageStyle } from "./pdfStyles";
 import { PdfLogo } from "./PdfShared";
 
 export function PageDepuracio1({ data }: { data: PdfData }) {
+  // "Incloure aquesta secció en el pressupost" toggle for DEPURACIÓ
+  // specifically — this page also independently shows "GRUP MOTOBOMBA
+  // AUTOASPIRANT" below (gated on data.bombaInclosTipus), so the whole page
+  // can't just be skipped from PdfDocument.tsx when this is off; only the
+  // DEPURACIÓ pill + filter block is hidden here instead. Without this, the
+  // block would otherwise fall back to a hardcoded generic filter
+  // name/image (see SorraBlock/CartutxBlock's own fallbacks) even with no
+  // real filter configured, on top of depuracioAmount already reading 0 —
+  // still misleading, not just a wrong price.
+  const depuracioOn = data.depuracioEnabled !== false;
   const isSorra = (data.filtreInclosTipus ?? "sorra") === "sorra";
   const depuracioAmount =
     typeof data.depuracioSectionAmount === "number" ? data.depuracioSectionAmount : data.phaseDepuracioTotal;
@@ -74,13 +84,16 @@ export function PageDepuracio1({ data }: { data: PdfData }) {
       />
 
       <div style={{ padding: "0 14mm", position: "relative", zIndex: 1 }}>
-        <SectionPillTenor number="1" title="DEPURACIÓ" amount={depuracioAmount} />
-
-        {isSorra ? <SorraBlock data={data} /> : <CartutxBlock data={data} />}
+        {depuracioOn && (
+          <>
+            <SectionPillTenor number="1" title="DEPURACIÓ" amount={depuracioAmount} />
+            {isSorra ? <SorraBlock data={data} /> : <CartutxBlock data={data} />}
+          </>
+        )}
 
         {/* Section 2 — GRUP MOTOBOMBA AUTOASPIRANT */}
         {data.bombaInclosTipus && (
-          <div style={{ marginTop: "4mm" }}>
+          <div style={{ marginTop: depuracioOn ? "4mm" : 0 }}>
             <SectionPillTenor number="2" title="GRUP MOTOBOMBA AUTOASPIRANT" amount={data.bombaInclosTotal || 0} />
             {data.bombaInclosTipus === "inverter" ? (
               <BombaVariableBlock data={data} />

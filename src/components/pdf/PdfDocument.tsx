@@ -148,8 +148,17 @@ export function PdfDocument({ data }: { data: PdfData }) {
     <PageEstructura key="estructura" data={data} />,
     <PageElementsEstructurals key="elements" data={data} />,
     ...(showAcabats ? [<PageAcabats key="acabats" data={data} />] : []),
+    // PageDepuracio1/PageElectricitat stay unconditional even though they
+    // each host one toggleable section (DEPURACIÓ / QUADRE ELÈCTRIC
+    // respectively) — both pages also always show other, independent
+    // content (bomba, or Fontaneria/Escomesa) unrelated to that toggle, so
+    // hiding the whole page would wrongly hide that too. Those two pages
+    // gate their own toggleable section internally instead (see
+    // data.depuracioEnabled / data.quadreEnabled). PageDepuracio2 is
+    // dedicated solely to Dosificació/Cloració Salina, so it's safe to gate
+    // as a whole page here.
     <PageDepuracio1 key="dep1" data={data} />,
-    <PageDepuracio2 key="dep2" data={data} />,
+    ...(data.dosificacioEnabled !== false ? [<PageDepuracio2 key="dep2" data={data} />] : []),
     <PageElectricitat key="elec" data={data} />,
     <PageAccessoris key="accessoris" data={data} showTotalBadge={!data.accCascadaEnabled} />,
     ...(data.accCascadaEnabled

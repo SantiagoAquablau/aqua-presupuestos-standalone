@@ -119,6 +119,12 @@ export interface PdfData {
   bombaInverterName?: string;
   bombaInverterImageUrl?: string;
   // Bomba INCLOSA in the budget (standard on/off OR variable inverter)
+  /** "Incloure aquesta secció en el pressupost" toggle (instalBombaEnabled
+   *  in the draft) for "GRUP MOTOBOMBA AUTOASPIRANT" specifically — NOT for
+   *  the whole of Page 5 (PageDepuracio1), which also independently shows
+   *  DEPURACIÓ (see depuracioEnabled). bombaInclosTipus/Total already
+   *  correctly come out unset when this is false. */
+  bombaEnabled?: boolean;
   bombaInclosTipus?: 'standard' | 'inverter';
   bombaInclosName?: string;
   bombaInclosImageUrl?: string;
@@ -166,6 +172,14 @@ export interface PdfData {
   // Sum of every Instal·lacions section (4+5+6+7+8) — shown on Page 8 badge
   instalacionsTotal?: number;
   // Electrolisi salina
+  /** "Incloure aquesta secció en el pressupost" toggle (instalDosificacioEnabled
+   *  in the draft) — drives whether Page 6 (PageDepuracio2) is included at
+   *  all in PdfDocument.tsx. Kept as an explicit flag rather than inferring
+   *  from hidrolisiTotal/hidrolisiName being set: those already correctly
+   *  come out undefined when this is false (see budgetSave.ts), but a
+   *  boolean is a more direct, less fragile thing for the page-inclusion
+   *  check to depend on. */
+  dosificacioEnabled?: boolean;
   hidrolisiName?: string;
   hidrolisiImageUrl?: string;
   hidrolisiAltName?: string; // the non-recommended alternative
@@ -181,11 +195,28 @@ export interface PdfData {
   wifiSale?: number;
   machineRoomImageUrl?: string;
   // Electricitat & fontaneria
+  /** "Incloure aquesta secció en el pressupost" toggle (instalQuadreEnabled
+   *  in the draft) for the QUADRE ELÈCTRIC line specifically — NOT for the
+   *  whole of Page 7 (PageElectricitat), which also always shows unrelated
+   *  Instal·lació elèctrica (presa de terra)/Fontaneria/Escomesa content
+   *  regardless of this toggle. Used inside PageElectricitat itself to hide
+   *  just the "Quadre elèctric de maniobra" row when off. */
+  quadreEnabled?: boolean;
   quadreText?: string;
   quadreTotal?: number;
   quadreSale?: number;            // total sale of the quadre elèctric (page 7)
+  /** "Incloure aquesta secció en el pressupost" toggle (instalElectricaEnabled
+   *  in the draft) for the "Presa de terra" row specifically — NOT for the
+   *  whole page (see quadreEnabled's own comment). electricaSale already
+   *  correctly comes out 0 when this is false. */
+  electricaEnabled?: boolean;
   electricaSale?: number;         // total sale of the instal·lació elèctrica (cable + piqueta + brida)
   presaTerraTotal?: number;
+  /** "Incloure aquesta secció en el pressupost" toggle (instalFontaneriaEnabled
+   *  in the draft) for the whole "INSTAL·LACIÓ FONTANERIA" pill — safe to
+   *  gate the whole pill, unlike Quadre/Electricitat: Fontaneria's pill is
+   *  self-contained, with no unrelated content sharing it. */
+  fontaneriaEnabled?: boolean;
   fontaneriaText?: string;
   fontaneriaTotal?: number;
   fontaneriaDistancia?: number;   // user-defined distance (m) shown in "Fins a Xm*"
@@ -308,6 +339,13 @@ export interface PdfData {
   annexGespaAmount?: number;     // total to display in the pill
   /** Section pill amount for "DEPURACIÓ" on Page 5 (equip + subfase depuracio when sorra + 20h MO + prefiltre). */
   depuracioSectionAmount?: number;
+  /** "Incloure aquesta secció en el pressupost" toggle (instalDepuracioEnabled
+   *  in the draft) for the DEPURACIÓ section specifically — NOT for the whole
+   *  of Page 5 (PageDepuracio1), which also independently shows "GRUP
+   *  MOTOBOMBA AUTOASPIRANT" when data.bombaInclosTipus is set, unrelated to
+   *  this toggle. Used inside PageDepuracio1 itself to hide just the
+   *  DEPURACIÓ pill + filter block when off. */
+  depuracioEnabled?: boolean;
   phases?: PdfPhase[]; // optional detailed breakdown (annex)
   totalSale: number;
   paymentConditions?: string;

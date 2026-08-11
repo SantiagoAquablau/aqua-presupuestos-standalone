@@ -805,11 +805,37 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   });
   const totalSale = pdfPhases.reduce((s, p) => s + p.subtotal, 0);
 
+  // "Incloure aquesta secció en el pressupost" toggles — same pattern
+  // wizardEquipment.ts already uses correctly for Partides (depuracioOn/
+  // dosificacioOn/quadreOn there, see its own const of the same names).
+  // Mirrored here so the PDF's own separate data prep can't drift from what
+  // Partides shows: previously, instalDosificacioStdId/instalQuadreId (and
+  // the section amounts derived from them) were read regardless of these
+  // toggles, so a persisted article id/price survived the user switching a
+  // section off — the section still showed up in the PDF with its old
+  // equip and price even though Partides/the Instal·lacions total had
+  // already correctly dropped it. See dosificacio/quadre/*SectionAmount
+  // below, all now gated on these.
+  const depuracioOn = draft.instalDepuracioEnabled !== false;
+  const dosificacioOn = draft.instalDosificacioEnabled !== false;
+  const quadreOn = draft.instalQuadreEnabled !== false;
+  // Same pattern, same bug, for the 3 remaining toggleable Instal·lacions
+  // sections (Bomba/Fontaneria/Electricitat) — see bombaInclosTipus/
+  // electricaSale/fontaneriaTotal below.
+  const bombaOn = draft.instalBombaEnabled !== false;
+  const fontaneriaOn = draft.instalFontaneriaEnabled !== false;
+  const electricaOn = draft.instalElectricaEnabled !== false;
+
   // Filtration filtre = polies if set, otherwise especial
   const filtre = a(draft.instalFiltrePoliesId) || a(draft.instalFiltreEspecialId);
   const bomba = a(draft.instalBombaVariableId) || a(draft.instalBombaOnoffId);
   const hidrolisi = a(draft.instalHidrolisiId);
-  const dosificacio = a(draft.instalDosificacioStdId);
+  // Gated on dosificacioOn: every hidrolisiName/hidrolisiTotal/hidrolisiFeatures/
+  // etc. field below derives from this ONE variable, so gating it here at its
+  // single source is enough to correctly blank all of them out when the
+  // section is off — no need to separately re-check dosificacioOn at each
+  // downstream field.
+  const dosificacio = dosificacioOn ? a(draft.instalDosificacioStdId) : undefined;
   const hidrolisiFeatures = (() => {
     const specs = dosificacio?.technical_specs;
     if (!specs) return undefined;
@@ -838,7 +864,11 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   // wifi_incorporat case, where the cost is already bundled into the equip's
   // own price and must NOT be added again.
   const hidrolisiWifiModulCompraInterna = dosificacio?.technical_specs?.wifi_modul_compra_interna === true;
-  const quadre = a(draft.instalQuadreId);
+  // Gated on quadreOn — same reasoning as dosificacio above. Also covers the
+  // instalQuadreFinalSale fallback in quadreEquipSale below, which used to
+  // bypass this variable entirely and could keep a manually-typed override
+  // price alive even with the section switched off.
+  const quadre = quadreOn ? a(draft.instalQuadreId) : undefined;
   const revestimentArt = a(draft.revestimentModelId);
 
   // ---- Mano de obra técnico instalador (preu unitari) +
@@ -923,11 +953,15 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   // that already generates its own full-price line tagged sub_phase
   // "depuracio", which depuracioSubTotal below picks up automatically. Adding
   // it again here would double-count it.
-  const depuracioSectionAmount =
-    Math.ceil(filtreInclosSale) +
-    (filtreInclosArt.tipus === "sorra" ? depuracioSubTotal : 0) +
-    Math.ceil(11 * preuMo) +
-    (prefiltreOn ? Math.ceil(prefiltreSaleVal) : 0);
+  // Gated on depuracioOn as a whole expression (not just its individual
+  // terms) — the 11h MO figure was previously added unconditionally even
+  // with the section switched off.
+  const depuracioSectionAmount = depuracioOn
+    ? Math.ceil(filtreInclosSale) +
+      (filtreInclosArt.tipus === "sorra" ? depuracioSubTotal : 0) +
+      Math.ceil(11 * preuMo) +
+      (prefiltreOn ? Math.ceil(prefiltreSaleVal) : 0)
+    : 0;
 
   // Bomba (group autobomba) — equip sale + 12h MO
   const bombaSaleVal = (() => {
@@ -957,22 +991,32 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   // (wifi_modul_compra_interna), the cost is real and must still count.
   const wifiOn =
     !!draft.instalWifiEnabled && (!hidrolisiWifiIncorporat || hidrolisiWifiModulCompraInterna);
-  const electrolisiSectionAmount =
-    Math.ceil(dosificacioEquipSale) +
-    dosificacioSubTotal +
-    Math.ceil(18 * preuMo) +
-    (wifiOn && typeof wifiSaleAmount === "number" ? Math.ceil(wifiSaleAmount) : 0);
+  // Gated on dosificacioOn as a whole expression, same reasoning as
+  // depuracioSectionAmount above — the 18h MO figure was previously added
+  // unconditionally even with the section switched off.
+  const electrolisiSectionAmount = dosificacioOn
+    ? Math.ceil(dosificacioEquipSale) +
+      dosificacioSubTotal +
+      Math.ceil(18 * preuMo) +
+      (wifiOn && typeof wifiSaleAmount === "number" ? Math.ceil(wifiSaleAmount) : 0)
+    : 0;
 
-  // Quadre elèctric — equip sale + 4h MO
-  const quadreEquipSale = editedEquipSale(
-    "instal_quadre",
-    typeof draft.instalQuadreFinalSale === "number"
-      ? Number(draft.instalQuadreFinalSale)
-      : quadre
-        ? Number(quadre.sale || 0)
-        : 0,
-  );
-  const quadreRowAmount = Math.ceil(quadreEquipSale) + Math.ceil(4 * preuMo);
+  // Quadre elèctric — equip sale + 4h MO. Both gated on quadreOn as a whole
+  // expression: quadreEquipSale's own instalQuadreFinalSale fallback (a
+  // manually-typed override price) bypasses the `quadre` variable entirely,
+  // so it needed its own explicit check here rather than relying on `quadre`
+  // already being undefined when the section is off.
+  const quadreEquipSale = quadreOn
+    ? editedEquipSale(
+        "instal_quadre",
+        typeof draft.instalQuadreFinalSale === "number"
+          ? Number(draft.instalQuadreFinalSale)
+          : quadre
+            ? Number(quadre.sale || 0)
+            : 0,
+      )
+    : 0;
+  const quadreRowAmount = quadreOn ? Math.ceil(quadreEquipSale) + Math.ceil(4 * preuMo) : 0;
 
   // Company settings
   let company: any = {};
@@ -1457,7 +1501,19 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     bombaStandardImageUrl: a(draft.instalBombaOnoffId)?.image_url || undefined,
     bombaInverterName: a(draft.instalBombaVariableId)?.name,
     bombaInverterImageUrl: a(draft.instalBombaVariableId)?.image_url || undefined,
+    // Drives just the "GRUP MOTOBOMBA AUTOASPIRANT" section inside Page 5
+    // (PageDepuracio1) — NOT that whole page's inclusion (see
+    // depuracioEnabled's own comment for why). bombaInclosTipus/Total below
+    // already correctly come out unset when this is false; kept as an
+    // explicit flag for the same reason as the other 3.
+    bombaEnabled: bombaOn,
     ...(function () {
+      // Gated on bombaOn — same bug/fix as Depuració/Dosificació/Quadre: a
+      // persisted instalBombaOnoffId/instalBombaVariableId used to survive
+      // the "Incloure aquesta secció" toggle being switched off, so this
+      // whole block (and the "GRUP MOTOBOMBA AUTOASPIRANT" section it
+      // feeds on Page 5) kept showing the old equip/price regardless.
+      if (!bombaOn) return {};
       const onoffInclos = !!draft.instalBombaOnoffId && !draft.instalBombaOnoffOpcional;
       const variableInclos = !!draft.instalBombaVariableId && !draft.instalBombaVariableOpcional;
       const tipus: "standard" | "inverter" | undefined = variableInclos
@@ -1580,6 +1636,13 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     cascadaModelImageUrl: cascadaArt?.image_url || undefined,
     cascadaEncastada,
     cascadaBombaName: cascadaBombaArt?.name,
+    // Drives whether Page 6 (PageDepuracio2) is included at all, in
+    // PdfDocument.tsx. hidrolisiName/hidrolisiTotal below already correctly
+    // come out undefined when this is false (they derive from `dosificacio`,
+    // itself gated on dosificacioOn above) — this flag is kept as an
+    // explicit, separate signal for the page-inclusion check rather than
+    // inferring it from those being unset.
+    dosificacioEnabled: dosificacioOn,
     // Page 6 (Desinfecció amb electròlisi salina) is dedicated to the
     // standard dosification equipment (clorador salino), NOT the HIDROLISI/UV slot.
     hidrolisiName: dosificacio?.name,
@@ -1594,11 +1657,26 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     wifiName: wifiArt?.name,
     wifiImageUrl: wifiArt?.image_url || undefined,
     wifiSale: wifiSaleAmount,
+    // Drives just the "Quadre elèctric de maniobra" row inside Page 7
+    // (PageElectricitat) — NOT that whole page's inclusion, since it also
+    // always shows unrelated Electricitat/Fontaneria/Escomesa content.
+    quadreEnabled: quadreOn,
     quadreText: quadre?.name,
     quadreTotal: undefined,
     // Row amount (Quadre elèctric) = equip sale + 4h MO.
     quadreSale: typeof draft.instalQuadreFinalSale === "number" || quadre ? quadreRowAmount : undefined,
+    // Drives just the "Presa de terra" row inside Page 7 (PageElectricitat)
+    // — NOT that whole page's inclusion (see quadreEnabled's own comment
+    // for why: the page also shows the unrelated Quadre/Fontaneria/Escomesa
+    // content). electricaSale below already correctly comes out 0 when
+    // this is false; kept as an explicit flag for the same reason as the
+    // other 4.
+    electricaEnabled: electricaOn,
     electricaSale: (() => {
+      // Gated on electricaOn — same bug/fix as Depuració/Dosificació/
+      // Quadre/Bomba: this used to recompute regardless of the "Incloure
+      // aquesta secció" toggle.
+      if (!electricaOn) return 0;
       // Recompute live (mirrors src/lib/wizardLines.ts + StepInstalacions.tsx)
       // instead of trusting the cached draft.instalElectricaTotal — that field
       // is only kept in sync while the user is on StepInstalacions, so it goes
@@ -1624,8 +1702,15 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
       return total > 0 ? total : (draft.instalElectricaTotal ?? 0);
     })(),
     presaTerraTotal: undefined,
+    // Drives the whole "INSTAL·LACIÓ FONTANERIA" pill on Page 7
+    // (PageElectricitat): unlike Quadre/Electricitat (which each share a
+    // pill with unrelated content), Fontaneria's pill is self-contained —
+    // safe to hide entirely, same as Depuració/Dosificació/Bomba's blocks.
+    fontaneriaEnabled: fontaneriaOn,
     fontaneriaText: draft.instalFontaneriaText || undefined,
     fontaneriaTotal: (() => {
+      // Gated on fontaneriaOn — same bug/fix as the other 4 sections above.
+      if (!fontaneriaOn) return 0;
       // Recompute live (mirrors src/lib/wizardLines.ts) so toggling
       // perforacions in the wizard is always reflected in the PDF, even
       // if the user never clicked Next/Back to persist instalFontaneriaTotal.
@@ -1666,6 +1751,11 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     phaseElectricitatTotal,
     // Section pill amount used by Page 5 (DEPURACIÓ).
     depuracioSectionAmount,
+    // Drives just the DEPURACIÓ pill + filter block inside Page 5
+    // (PageDepuracio1) — NOT that whole page's inclusion, since it also
+    // independently shows "GRUP MOTOBOMBA AUTOASPIRANT" when
+    // data.bombaInclosTipus is set, unrelated to this toggle.
+    depuracioEnabled: depuracioOn,
     // Annex — Projecte Tècnic d'Obra
     annexProjecteEstat: (draft.annexProjecteEstat as any) || "no",
     annexProjecteName: a(draft.annexProjecteArticleId)?.name,

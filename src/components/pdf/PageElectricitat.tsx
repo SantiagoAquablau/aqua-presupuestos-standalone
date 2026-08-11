@@ -35,10 +35,24 @@ function smartCase(s: string): string {
 }
 
 export function PageElectricitat({ data }: { data: PdfData }) {
-  const quadreSale = typeof data.quadreSale === "number" ? data.quadreSale : 0;
-  const electricaSale = typeof data.electricaSale === "number" ? data.electricaSale : 0;
+  // "Incloure aquesta secció en el pressupost" toggle for QUADRE ELÈCTRIC
+  // specifically — this page also always shows Electricitat's OWN "Presa de
+  // terra" row plus Fontaneria/Escomesa, all unrelated to this toggle, so
+  // the whole page can't just be skipped from PdfDocument.tsx when this is
+  // off; only the "Quadre elèctric de maniobra" row is hidden here instead.
+  const quadreOn = data.quadreEnabled !== false;
+  const quadreSale = quadreOn && typeof data.quadreSale === "number" ? data.quadreSale : 0;
+  // Same toggle idea as quadreOn, for the "Presa de terra" row specifically
+  // (Electricitat has its own separate "Incloure aquesta secció" toggle in
+  // the wizard, independent of Quadre, even though both share this pill).
+  const electricaOn = data.electricaEnabled !== false;
+  const electricaSale = electricaOn && typeof data.electricaSale === "number" ? data.electricaSale : 0;
   const electricaSubtotal = quadreSale + electricaSale;
-  const fontaneriaSubtotal = typeof data.fontaneriaTotal === "number" ? data.fontaneriaTotal : 0;
+  // Fontaneria's own pill is self-contained (no unrelated content sharing
+  // it, unlike Quadre/Electricitat above), so this gates the WHOLE pill
+  // below rather than just one row.
+  const fontaneriaOn = data.fontaneriaEnabled !== false;
+  const fontaneriaSubtotal = fontaneriaOn && typeof data.fontaneriaTotal === "number" ? data.fontaneriaTotal : 0;
   const distancia = data.fontaneriaDistancia ?? 10;
   const showFontaneriaNote = !data.fontaneriaPerforacions;
 
@@ -102,34 +116,42 @@ export function PageElectricitat({ data }: { data: PdfData }) {
         {/* 4 — Instal·lació elèctrica */}
         <SectionPillTenor number="4" title="INSTAL·LACIÓ ELÈCTRICA" amount={electricaSubtotal} />
         <div style={{ padding: "0 4mm", fontSize: "10pt", lineHeight: 1.45, marginBottom: "8mm" }}>
-          <Row left={smartCase(data.quadreText || "Quadre elèctric de maniobra")} right={formatEuro(quadreSale)} />
-          <Row
-            left={"Presa de terra cable CU nu 35mm toma terra + piqueta coure + brida coure"}
-            right={formatEuro(electricaSale)}
-          />
+          {quadreOn && (
+            <Row left={smartCase(data.quadreText || "Quadre elèctric de maniobra")} right={formatEuro(quadreSale)} />
+          )}
+          {electricaOn && (
+            <Row
+              left={"Presa de terra cable CU nu 35mm toma terra + piqueta coure + brida coure"}
+              right={formatEuro(electricaSale)}
+            />
+          )}
         </div>
 
         {/* 5 — Instal·lació fontaneria */}
-        <SectionPillTenor number="5" title="INSTAL·LACIÓ FONTANERIA" amount={fontaneriaSubtotal} />
-        <div style={{ padding: "0 4mm", fontSize: "10pt", lineHeight: 1.5, marginBottom: "8mm" }}>
-          <p style={{ margin: 0 }}>
-            - Instal·lació de canonades de 10 atm de pressió per a unió Depuradora - Piscina (inclòs tots els accessoris
-            necessaris). Fins a {Math.round(distancia)}m*.
-          </p>
-          {showFontaneriaNote && (
-            <p
-              style={{
-                margin: "6px 0 0 0",
-                fontStyle: "italic",
-                color: OBS_COLOR,
-                fontSize: "8pt",
-              }}
-            >
-              *En distàncies superiors o si cal travessar murs amb corona de 63 per fer arribar les canonades fins al
-              garatge o una altra ubicació similar, es comptabilitzarà a part.
-            </p>
-          )}
-        </div>
+        {fontaneriaOn && (
+          <>
+            <SectionPillTenor number="5" title="INSTAL·LACIÓ FONTANERIA" amount={fontaneriaSubtotal} />
+            <div style={{ padding: "0 4mm", fontSize: "10pt", lineHeight: 1.5, marginBottom: "8mm" }}>
+              <p style={{ margin: 0 }}>
+                - Instal·lació de canonades de 10 atm de pressió per a unió Depuradora - Piscina (inclòs tots els
+                accessoris necessaris). Fins a {Math.round(distancia)}m*.
+              </p>
+              {showFontaneriaNote && (
+                <p
+                  style={{
+                    margin: "6px 0 0 0",
+                    fontStyle: "italic",
+                    color: OBS_COLOR,
+                    fontSize: "8pt",
+                  }}
+                >
+                  *En distàncies superiors o si cal travessar murs amb corona de 63 per fer arribar les canonades fins
+                  al garatge o una altra ubicació similar, es comptabilitzarà a part.
+                </p>
+              )}
+            </div>
+          </>
+        )}
 
         {/* 6 — Escomesa */}
         <SectionPillTenor number="6" title="ESCOMESA ELÈCTRICA, AIGUA I DESAIGUA" amountLabel="INCLÒS" />
