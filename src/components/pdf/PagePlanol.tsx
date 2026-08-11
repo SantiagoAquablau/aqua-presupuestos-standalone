@@ -29,14 +29,70 @@ const DRAW = "#3a3a3a"; // neutral dark gray for all technical linework (contour
 const WATER = "#cfe0ee";
 const DIM_MAIN = DRAW; // main pool dimensions (llarg/ample, profile depths) — neutral gray, matching the vessel geometry
 const DIM_INTERIOR = NAVY; // escala/plataforma dimensions — navy, so they read apart from the gray main cotas and geometry
-// PlanView escala/plataforma/banc background — semi-transparent white
-// instead of solid, so the water-gradient rect underneath shows through
-// and the steps read as submerged rather than floating on an opaque white
-// patch. Risers/boundary lines are drawn as separate, fully opaque strokes
-// on top of these rects, so legibility isn't affected by the opacity here.
-// Lowered from an initial 0.65 (read as too much white, not enough of the
-// water tone underneath) per feedback.
-const STAIRS_FILL_OPACITY = 0.38;
+
+// Fallback water-gradient anchors — only used when depth data is missing
+// (hasDepthColor false in PlanView, see its water-gradient), reproducing
+// the page's original flat 2-stop fade. Not used for anything depth-driven
+// anymore now that both PlanView's main body and its escala steps are
+// keyed off lastStepColor/WATER_STEP_DARK/WATER_BODY_DEEP instead (see
+// below) — kept only for that no-data fallback.
+const WATER_SHALLOW = "#dcebf5";
+const WATER_DEEP = "#7fb0d6";
+
+// Escala step colors — index-based (see PlanView's stepColor), not
+// depth-based: those treads are all shallower than poolDepthMin itself,
+// which would put them outside a depth→color interpolation's valid
+// [dMin,dMax] domain (an earlier depth-based, unclamped version of this
+// produced solid white steps because of that — see git history/prior
+// comments if curious). WATER_STEP_DARK reuses WATER_DEEP's exact tone
+// rather than inventing a new color, and is deliberately darker/more
+// saturated than WATER_SHALLOW, the ramp's dark end used to originally sit
+// at (5 steps' worth of difference wasn't visible enough against that
+// lighter anchor).
+//
+// WATER_STEP_LIGHT was originally #eef6fb (near-white) — too close to
+// literal white to read as tinted water at all, especially once the PDF
+// export pipeline's lossy JPEG pass (see pdfRender.ts, toDataURL("image/
+// jpeg", 0.88)) smooths out a difference that subtle. Moved closer to
+// WATER_SHALLOW itself (a touch more saturated, even) so the first step
+// reads as clearly blue rather than empty white.
+const WATER_STEP_LIGHT = "#c9e0f0";
+const WATER_STEP_DARK = WATER_DEEP;
+// The main body's OWN darkest anchor — the poolDepthMax vertex — kept
+// distinct from (and deliberately darker than) WATER_STEP_DARK: the escala
+// block's own last step and the main body's flat zone right after it are
+// now the SAME color on purpose (see lastStepColor's comment in PlanView),
+// so the vertex needs its own, darker anchor for the flat-zone→vertex
+// transition to still read as a real gradient rather than a plateau.
+const WATER_BODY_DEEP = "#2f6191";
+// <1 accelerates the ramp for the early/middle steps (2nd/3rd/4th) instead
+// of a straight linear split — human color perception isn't linear either,
+// so a pure linear t made those middle steps look too close together even
+// though their t values were evenly spaced. Applied as t^STEP_COLOR_GAMMA
+// in stepColor.
+const STEP_COLOR_GAMMA = 0.7;
+
+function clampByte(n: number): number {
+  return Math.min(255, Math.max(0, n));
+}
+
+function clamp01(t: number): number {
+  return Math.min(1, Math.max(0, t));
+}
+
+function lerpHexColor(hexA: string, hexB: string, t: number): string {
+  const a = parseInt(hexA.slice(1), 16);
+  const b = parseInt(hexB.slice(1), 16);
+  const channel = (shift: number) => {
+    const ca = (a >> shift) & 0xff;
+    const cb = (b >> shift) & 0xff;
+    return clampByte(Math.round(ca + (cb - ca) * t));
+  };
+  const r = channel(16);
+  const g = channel(8);
+  const bl = channel(0);
+  return `#${[r, g, bl].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
 
 function fmtM(n?: number): string {
   return typeof n === "number" && Number.isFinite(n)
@@ -472,6 +528,77 @@ function PlanView({ data }: { data: PdfData }) {
   const benchGapX1 = boundaryGapX1 !== null ? Math.min(boundaryGapX1, benchEdgeX) : null;
   const benchGapX2 = boundaryGapX2 !== null ? Math.min(boundaryGapX2, benchEdgeX) : null;
 
+  // Depth-driven water color. Guarded on both depths being present/valid —
+  // with missing data hasDepthColor stays false and every color below falls
+  // back to WATER (the old flat/solid tone), and the gradient further down
+  // falls back to its original static 2-stop version.
+  const dMin = data.poolDepthMin;
+  const dMax = data.poolDepthMax;
+  const hasDepthColor = typeof dMin === "number" && typeof dMax === "number" && dMin > 0 && dMax > 0;
+
+  // Main body — the same flat/slope/vertex/drain floor profile ProfileView
+  // computes for its own section cut, rebuilt here independently (not
+  // imported/shared) since only 2 x-positions are actually needed for the
+  // gradient stops. Deliberately mirrors ProfileView's OWN 0.9 clamp on the
+  // flat zone, not stairsProtrusion's 0.5 clamp just above — the two only
+  // diverge on extreme inputs, but using stairsProtrusion here would
+  // silently drift the plan's "deepest point" x away from where the profile
+  // actually draws it, breaking the two views' visual match.
+  const bodyFlatWidth = Math.min(stairsLengthM * scale, rectW * 0.9);
+  const bodyFlatEndX = rectX + bodyFlatWidth;
+  const bodyVertexX = bodyFlatEndX + maxDepthPositionRatio * (rectX + rectW - bodyFlatEndX);
+  const bodyDrainDepth = hasDepthColor ? (dMax as number) - 0.1 : 0;
+
+  // Escala step colors — interpolated by STEP INDEX (1..stepsCount), not by
+  // real depth (an earlier depth-based, unclamped version of this produced
+  // solid white steps — every tread short of the last is shallower than
+  // poolDepthMin, outside a depth→color interpolation's valid [dMin,dMax]
+  // domain). Two contrast passes on top of that fix, per feedback that the
+  // plain linear index ramp wasn't visible enough across 5 steps:
+  //  1. Wider anchors — WATER_STEP_LIGHT (near-white) to WATER_STEP_DARK
+  //     (=WATER_DEEP, deliberately darker/more saturated than
+  //     WATER_SHALLOW, which the ramp's dark end used to sit at — see
+  //     WATER_STEP_DARK's own comment for the resulting trade-off).
+  //  2. A gamma curve (t^STEP_COLOR_GAMMA, GAMMA<1) instead of a straight
+  //     linear split, so the middle steps (2nd/3rd/4th) diverge more from
+  //     each other than even spacing alone would — matching how human
+  //     color perception isn't linear.
+  const stepColor = (i: number): string => {
+    if (stepsCount <= 1) return WATER_STEP_DARK;
+    const linearT = (i - 1) / (stepsCount - 1);
+    const t = Math.pow(clamp01(linearT), STEP_COLOR_GAMMA);
+    return lerpHexColor(WATER_STEP_LIGHT, WATER_STEP_DARK, t);
+  };
+  // The escala's last-step color. Also, DELIBERATELY, the main body's own
+  // flat-zone color (see the water-gradient stops below) — per feedback on
+  // an earlier version that decoupled the two (each using its own
+  // depth-based tone): that made the flat zone restart at a LIGHT color
+  // right where the escala's dark last step ends, reading as an ugly seam
+  // between two disconnected patches of water instead of one continuous
+  // body. Reusing lastStepColor here means the color flows unbroken from
+  // the last step straight into the flat zone, then continues darkening
+  // from THERE toward the vertex (see WATER_BODY_DEEP) — a real
+  // progression, not two separate ramps that happen to sit side by side.
+  const lastStepColor = hasDepthColor ? stepColor(stepsCount) : WATER;
+  // Plataforma/banc shares step 2's level — the boundary gap above already
+  // marks that as the walk-across point. Falls back to the LAST step's
+  // color when there's no real step 2 (stepsCount<2), same fallback
+  // boundaryGapX1/2 themselves already use (they stay null then).
+  const step2Color = hasDepthColor ? stepColor(stepsCount >= 2 ? 2 : stepsCount) : WATER;
+  // Drain-wall stop (100%, the far end) — an intermediate tone between
+  // lastStepColor (flat zone) and WATER_BODY_DEEP (the vertex), NOT a flat
+  // fixed color: bodyDrainDepth (poolDepthMax − 0.10) sits almost, but not
+  // quite, at the pool's deepest point, so its color is placed at the same
+  // proportion along [poolDepthMin, poolDepthMax] that its depth actually
+  // sits at — close to WATER_BODY_DEEP, but visibly lighter than the
+  // vertex itself, same as the depth values themselves are close but not
+  // equal.
+  const bodyDrainT =
+    hasDepthColor && (dMax as number) > (dMin as number)
+      ? clamp01((bodyDrainDepth - (dMin as number)) / ((dMax as number) - (dMin as number)))
+      : 1;
+  const bodyDrainColor = lerpHexColor(lastStepColor, WATER_BODY_DEEP, bodyDrainT);
+
   return (
     <div>
       <svg viewBox={`0 0 ${Vw} ${Vh}`} width={`${Vw}mm`} height={`${Vh}mm`} style={{ display: "block" }}>
@@ -507,17 +634,40 @@ function PlanView({ data }: { data: PdfData }) {
             <rect width={CORONA} height={CORONA * 2} fill="#e8dcc0" />
             <line x1="0" y1="0" x2={CORONA} y2="0" stroke="#b8a67e" strokeWidth="0.3" />
           </pattern>
-          {/* Water — light blue on the escala/plataforma/banc side (always
-              the rectX wall, see stairsY/stairsProtrusion above) fading to
-              a darker blue at the opposite wall, suggesting the pool gets
-              deeper away from the stairs. userSpaceOnUse + explicit
-              rectX/rectX+rectW (not objectBoundingBox) so every shape that
-              references this gradient — the vas rect AND the escala
-              background below — reads as the same continuous body of
-              water, regardless of each shape's own bounding box. */}
+          {/* Water — 4 stops now instead of a flat 2-stop fade, tracking the
+              SAME flat/slope/vertex/drain depth profile ProfileView draws
+              for its own section cut (bodyFlatEndX/bodyVertexX are computed
+              above with the exact same formulas, so the "deepest point"
+              lands at the same x in both views): the flat zone CONTINUES
+              at lastStepColor (the same tone the escala's own last step —
+              and the lateral space beside it — already ends on, see its
+              own comment above for why: a seam-free handoff, not a fresh
+              restart at a light color), then darkens further toward
+              WATER_BODY_DEEP at the vertex, then eases back toward
+              bodyDrainColor (an intermediate tone, not a fixed one — see
+              its own comment) at the far wall. userSpaceOnUse + explicit
+              rectX/rectX+rectW (not objectBoundingBox) so this reads as the
+              same continuous body of water regardless of the vas rect's own
+              bounding box. Only the vas rect (the main body) uses this now
+              — the escala/plataforma/banc area below is painted with its
+              own discrete per-step colors instead, not this gradient (but
+              the two are stitched together at the shared boundary via
+              lastStepColor). Falls back to the original flat 2-stop
+              version when depth data is missing (hasDepthColor false). */}
           <linearGradient id="water-gradient" gradientUnits="userSpaceOnUse" x1={rectX} y1={rectY} x2={rectX + rectW} y2={rectY}>
-            <stop offset="0%" stopColor="#dcebf5" />
-            <stop offset="100%" stopColor="#7fb0d6" />
+            {hasDepthColor ? (
+              <>
+                <stop offset="0%" stopColor={lastStepColor} />
+                <stop offset={`${((bodyFlatEndX - rectX) / rectW) * 100}%`} stopColor={lastStepColor} />
+                <stop offset={`${((bodyVertexX - rectX) / rectW) * 100}%`} stopColor={WATER_BODY_DEEP} />
+                <stop offset="100%" stopColor={bodyDrainColor} />
+              </>
+            ) : (
+              <>
+                <stop offset="0%" stopColor={WATER_SHALLOW} />
+                <stop offset="100%" stopColor={WATER_DEEP} />
+              </>
+            )}
           </linearGradient>
         </defs>
 
@@ -548,8 +698,19 @@ function PlanView({ data }: { data: PdfData }) {
             joins. The inner edge is already covered by the vas rect's own
             stroke, drawn next. */}
         <rect x={outerX} y={outerY} width={outerW} height={outerH} fill="none" stroke={DRAW} strokeWidth="0.5" />
-        {/* Vas — pool water body, painted over the frame to leave only the ring visible */}
-        <rect x={rectX} y={rectY} width={rectW} height={rectH} fill="url(#water-gradient)" stroke={DRAW} strokeWidth="0.6" />
+        {/* Vas — pool water body, painted over the frame to leave only the ring visible.
+            Fill only, no stroke — the vessel's own border is redrawn as a
+            separate, later pass (see "Vas outline, redrawn on top" below,
+            right after the escala block) instead of stroking it here. The
+            escala's own opaque water-color fills (base column, plataforma/
+            banc, per-tread rects) are drawn after this rect and, at the
+            shared wall (x=rectX), would otherwise paint over roughly half
+            of a stroke drawn here — the border came out visibly thinner
+            wherever an escala/plataforma/banc fill touched it than
+            elsewhere around the perimeter. Redrawing the border on top of
+            everything, once, fixes that instead of having to reorder every
+            fill relative to it. */}
+        <rect x={rectX} y={rectY} width={rectW} height={rectH} fill="url(#water-gradient)" stroke="none" />
 
         {/* Schematic stairs — shallow end, bottom corner, fixed convention,
             drawn to the same metres→mm scale as the pool itself.
@@ -557,16 +718,67 @@ function PlanView({ data }: { data: PdfData }) {
             riser formula used for the exterior access stair elsewhere. */}
         {showStairs && (
           <g>
+            {/* Water-color fills — depth-derived and fully opaque (no more
+                translucent white wash over the gradient underneath: each
+                fill below already IS the intended final color). 3 layers,
+                back to front:
+                 1. a base rect over the whole "column" above the escala's
+                    own row (rectY→stairsY) in lastStepColor — exactly where
+                    a plataforma/banc sits when there is one; where there
+                    isn't (standard escala), or wherever one doesn't fully
+                    reach (short banc/platform width, or a banc shorter than
+                    the escala's own protrusion), this stays visible
+                    underneath and reads as "same color as the last step"
+                    per spec, with no separate case-by-case logic needed for
+                    those gaps.
+                 2. the plataforma/banc's own (smaller/more specific)
+                    footprint on top of that, in step2Color.
+                 3. the escala's own row, as one solid rect per tread
+                    (darkening with each step down — see stepColor above),
+                    replacing the old single uniform fill for the whole row.
+                Falls back to a flat, opaque WATER fill in the same shapes
+                the old translucent-white version used, when depth data is
+                missing (hasDepthColor false) — not pixel-identical to the
+                old look (no gradient shows through anymore), but this path
+                only matters for incomplete project data. */}
+            {hasDepthColor ? (
+              <>
+                <rect x={rectX} y={rectY} width={stairsProtrusion} height={Math.max(0, stairsY - rectY)} fill={lastStepColor} />
+                {showPlatform && <rect x={rectX} y={platformY} width={stairsProtrusion} height={platformAlongWall} fill={step2Color} />}
+                {showBench && <rect x={rectX} y={benchY} width={benchProtrusion} height={benchAlongWall} fill={step2Color} />}
+                {Array.from({ length: stepsCount }, (_, idx) => idx + 1).map((i) => (
+                  <rect
+                    key={i}
+                    x={rectX + ((i - 1) * stairsProtrusion) / stepsCount}
+                    y={stairsY}
+                    width={stairsProtrusion / stepsCount}
+                    height={stairsAlongWall}
+                    fill={stepColor(i)}
+                  />
+                ))}
+              </>
+            ) : showBench ? (
+              <>
+                <rect x={rectX} y={stairsY} width={stairsProtrusion} height={stairsAlongWall} fill={WATER} />
+                <rect x={rectX} y={benchY} width={benchProtrusion} height={benchAlongWall} fill={WATER} />
+              </>
+            ) : (
+              <rect
+                x={rectX}
+                y={showPlatform ? platformY : stairsY}
+                width={stairsProtrusion}
+                height={showPlatform ? stairsAlongWall + platformAlongWall : stairsAlongWall}
+                fill={WATER}
+              />
+            )}
             {showBench ? (
               <>
-                {/* escala + banc footprint — an L-shape (the banc's front
+                {/* escala + banc outline — an L-shape (the banc's front
                     edge sits short of the escala's), so unlike plataforma
-                    this can't be one closed <rect>: fill each half
-                    separately (stroke="none", so the shared white fill
-                    reads seamlessly) and draw every border as its own
-                    <line>, giving full control over which edges exist. */}
-                <rect x={rectX} y={stairsY} width={stairsProtrusion} height={stairsAlongWall} fill="#ffffff" fillOpacity={STAIRS_FILL_OPACITY} stroke="none" />
-                <rect x={rectX} y={benchY} width={benchProtrusion} height={benchAlongWall} fill="#ffffff" fillOpacity={STAIRS_FILL_OPACITY} stroke="none" />
+                    this can't be one closed <rect>: every border is drawn
+                    as its own <line>, giving full control over which edges
+                    exist. Fill is handled entirely above now — this is
+                    stroke-only. */}
                 <g stroke={DRAW} strokeWidth="0.5" fill="none">
                   {/* Wall — one continuous line covering both the banc's and escala's left edge. */}
                   <line x1={rectX} y1={benchY} x2={rectX} y2={stairsY + stairsAlongWall} />
@@ -581,17 +793,18 @@ function PlanView({ data }: { data: PdfData }) {
                 </g>
               </>
             ) : (
-              // Combined footprint — escala + plataforma (when present) share
-              // one continuous outline; the boundary between them is drawn
+              // Combined outline — escala + plataforma (when present) share
+              // one continuous border; the boundary between them is drawn
               // separately below rather than as two abutting <rect>s, to
-              // avoid a doubled-up seam stroke.
+              // avoid a doubled-up seam stroke. fill="none" now (was the
+              // single filled+stroked rect) — fill is handled entirely
+              // above, this is stroke-only, drawn on top of it.
               <rect
                 x={rectX}
                 y={showPlatform ? platformY : stairsY}
                 width={stairsProtrusion}
                 height={showPlatform ? stairsAlongWall + platformAlongWall : stairsAlongWall}
-                fill="#ffffff"
-                fillOpacity={STAIRS_FILL_OPACITY}
+                fill="none"
                 stroke={DRAW}
                 strokeWidth="0.5"
               />
@@ -812,6 +1025,15 @@ function PlanView({ data }: { data: PdfData }) {
             )}
           </g>
         )}
+
+        {/* Vas outline, redrawn on top — see the vas <rect>'s own comment
+            above for why: this is the SAME border that used to be stroked
+            directly on that rect, just moved to draw last (after the
+            escala/plataforma/banc fills, which sit earlier and would
+            otherwise cover part of it at the shared wall), so the
+            perimeter reads as a uniform stroke width all the way around
+            regardless of what's underneath it. */}
+        <rect x={rectX} y={rectY} width={rectW} height={rectH} fill="none" stroke={DRAW} strokeWidth="0.6" />
 
         {/* Length — measures the vas (water body / rectX,rectY,rectW,rectH),
             not the outer corona rect: rectW/rectH are exactly
