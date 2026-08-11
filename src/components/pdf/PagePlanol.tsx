@@ -29,6 +29,14 @@ const DRAW = "#3a3a3a"; // neutral dark gray for all technical linework (contour
 const WATER = "#cfe0ee";
 const DIM_MAIN = DRAW; // main pool dimensions (llarg/ample, profile depths) — neutral gray, matching the vessel geometry
 const DIM_INTERIOR = NAVY; // escala/plataforma dimensions — navy, so they read apart from the gray main cotas and geometry
+// PlanView escala/plataforma/banc background — semi-transparent white
+// instead of solid, so the water-gradient rect underneath shows through
+// and the steps read as submerged rather than floating on an opaque white
+// patch. Risers/boundary lines are drawn as separate, fully opaque strokes
+// on top of these rects, so legibility isn't affected by the opacity here.
+// Lowered from an initial 0.65 (read as too much white, not enough of the
+// water tone underneath) per feedback.
+const STAIRS_FILL_OPACITY = 0.38;
 
 function fmtM(n?: number): string {
   return typeof n === "number" && Number.isFinite(n)
@@ -458,16 +466,80 @@ function PlanView({ data }: { data: PdfData }) {
     <div>
       <svg viewBox={`0 0 ${Vw} ${Vh}`} width={`${Vw}mm`} height={`${Vh}mm`} style={{ display: "block" }}>
         <defs>
-          <pattern id="corona-hatch" patternUnits="userSpaceOnUse" width="3" height="3" patternTransform="rotate(45)">
-            <rect width="3" height="3" fill="#eaeaea" />
-            <line x1="0" y1="0" x2="0" y2="3" stroke={DRAW} strokeWidth="0.6" />
+          {/* Corona — a single row of full-width coronament planks running
+              along the perimeter, not a grid of small tiles. Pattern
+              height is exactly CORONA (the ring's own width in SVG units)
+              so only one row of pieces ever fits across the ring, never
+              two stacked — and width is 2x that, matching the real ~31cm x
+              62cm proportions of a coronament piece (short side = the
+              corona's own width, long side = along the perimeter). Only a
+              vertical joint line is drawn (at x=0, spanning the full
+              height) — dividing consecutive pieces along the row — and NO
+              horizontal line, since with a single row there's no second
+              row to divide; the pattern repeating vertically would just
+              redraw the same un-joined row, which is what we want. See the
+              corona <rect> below for a caveat re: this pattern's fixed
+              orientation on the ring's vertical sides/corners. */}
+          <pattern id="corona-tiles" patternUnits="userSpaceOnUse" width={CORONA * 2} height={CORONA}>
+            <rect width={CORONA * 2} height={CORONA} fill="#e8dcc0" />
+            <line x1="0" y1="0" x2="0" y2={CORONA} stroke="#b8a67e" strokeWidth="0.3" />
           </pattern>
+          {/* Same piece, rotated 90° — for the left/right ring segments
+              (see the 4-segment corona below), where pieces run vertically
+              instead of horizontally. A separate pattern with width/height
+              swapped (rather than patternTransform="rotate(90)" on
+              corona-tiles itself), so its own tile origin lines up with
+              the left/right segments' own x/y independently — rotating
+              the existing pattern in place would rotate around the SVG's
+              origin, not each segment's own origin, drifting the joints
+              out of alignment with where each segment actually starts. */}
+          <pattern id="corona-tiles-vertical" patternUnits="userSpaceOnUse" width={CORONA} height={CORONA * 2}>
+            <rect width={CORONA} height={CORONA * 2} fill="#e8dcc0" />
+            <line x1="0" y1="0" x2={CORONA} y2="0" stroke="#b8a67e" strokeWidth="0.3" />
+          </pattern>
+          {/* Water — light blue on the escala/plataforma/banc side (always
+              the rectX wall, see stairsY/stairsProtrusion above) fading to
+              a darker blue at the opposite wall, suggesting the pool gets
+              deeper away from the stairs. userSpaceOnUse + explicit
+              rectX/rectX+rectW (not objectBoundingBox) so every shape that
+              references this gradient — the vas rect AND the escala
+              background below — reads as the same continuous body of
+              water, regardless of each shape's own bounding box. */}
+          <linearGradient id="water-gradient" gradientUnits="userSpaceOnUse" x1={rectX} y1={rectY} x2={rectX + rectW} y2={rectY}>
+            <stop offset="0%" stopColor="#dcebf5" />
+            <stop offset="100%" stopColor="#7fb0d6" />
+          </linearGradient>
         </defs>
 
-        {/* Corona — hatched frame around the perimeter */}
-        <rect x={outerX} y={outerY} width={outerW} height={outerH} fill="url(#corona-hatch)" stroke={DRAW} strokeWidth="0.5" />
+        {/* Corona — 4 independent ring segments instead of one shared
+            <rect>, so the tile pattern can follow each side's own running
+            direction (per feedback on the earlier single-pattern version).
+            Top/bottom span the FULL outer width — i.e. they each absorb
+            both of their own corners — using corona-tiles (pieces running
+            horizontally, vertical joints). Left/right then only need to
+            fill the straight run of height rectH directly between top and
+            bottom (not the corners), using corona-tiles-vertical (pieces
+            running vertically, horizontal joints). Splitting it this way
+            means the 4 segments tile the ring exactly, no gaps/overlaps,
+            without needing any special corner-mitering geometry.
+            No corner miter — the two orientations simply meet edge-to-edge
+            where top/bottom end and left/right begin — but since none of
+            the 4 fill rects are stroked individually (see the single
+            outer-perimeter <rect> below instead), there's no visible seam
+            line at those joins, just a plain, clean edge. */}
+        <rect x={outerX} y={outerY} width={outerW} height={CORONA} fill="url(#corona-tiles)" />
+        <rect x={outerX} y={rectY + rectH} width={outerW} height={CORONA} fill="url(#corona-tiles)" />
+        <rect x={outerX} y={rectY} width={CORONA} height={rectH} fill="url(#corona-tiles-vertical)" />
+        <rect x={rectX + rectW} y={rectY} width={CORONA} height={rectH} fill="url(#corona-tiles-vertical)" />
+        {/* Single continuous outer border for the whole ring, drawn
+            separately (fill="none") on top of the 4 fill segments above —
+            keeps the corona's outer edge as one unbroken line instead of 4
+            separate rect outlines that would double up at the segment
+            joins. The inner edge is already covered by the vas rect's own
+            stroke, drawn next. */}
+        <rect x={outerX} y={outerY} width={outerW} height={outerH} fill="none" stroke={DRAW} strokeWidth="0.5" />
         {/* Vas — pool water body, painted over the frame to leave only the ring visible */}
-        <rect x={rectX} y={rectY} width={rectW} height={rectH} fill={WATER} stroke={DRAW} strokeWidth="0.6" />
+        <rect x={rectX} y={rectY} width={rectW} height={rectH} fill="url(#water-gradient)" stroke={DRAW} strokeWidth="0.6" />
 
         {/* Schematic stairs — shallow end, bottom corner, fixed convention,
             drawn to the same metres→mm scale as the pool itself.
@@ -483,8 +555,8 @@ function PlanView({ data }: { data: PdfData }) {
                     separately (stroke="none", so the shared white fill
                     reads seamlessly) and draw every border as its own
                     <line>, giving full control over which edges exist. */}
-                <rect x={rectX} y={stairsY} width={stairsProtrusion} height={stairsAlongWall} fill="#ffffff" stroke="none" />
-                <rect x={rectX} y={benchY} width={benchProtrusion} height={benchAlongWall} fill="#ffffff" stroke="none" />
+                <rect x={rectX} y={stairsY} width={stairsProtrusion} height={stairsAlongWall} fill="#ffffff" fillOpacity={STAIRS_FILL_OPACITY} stroke="none" />
+                <rect x={rectX} y={benchY} width={benchProtrusion} height={benchAlongWall} fill="#ffffff" fillOpacity={STAIRS_FILL_OPACITY} stroke="none" />
                 <g stroke={DRAW} strokeWidth="0.5" fill="none">
                   {/* Wall — one continuous line covering both the banc's and escala's left edge. */}
                   <line x1={rectX} y1={benchY} x2={rectX} y2={stairsY + stairsAlongWall} />
@@ -509,6 +581,7 @@ function PlanView({ data }: { data: PdfData }) {
                 width={stairsProtrusion}
                 height={showPlatform ? stairsAlongWall + platformAlongWall : stairsAlongWall}
                 fill="#ffffff"
+                fillOpacity={STAIRS_FILL_OPACITY}
                 stroke={DRAW}
                 strokeWidth="0.5"
               />
