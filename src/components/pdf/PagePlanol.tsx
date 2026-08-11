@@ -1438,9 +1438,35 @@ function ProfileView({ data }: { data: PdfData }) {
           <rect width={PROFILE_CORONA * 2} height={PROFILE_CORONA} fill="#e8dcc0" />
           <line x1="0" y1="0" x2="0" y2={PROFILE_CORONA} stroke="#b8a67e" strokeWidth="0.3" />
         </pattern>
+        {/* Water fill — vertical depth gradient, reusing the SAME 3 anchors
+            PlanView's own water coloring settled on (see the module-level
+            WATER_STEP_LIGHT/WATER_STEP_DARK/WATER_BODY_DEEP definitions and
+            PlanView's water-gradient), not WATER_SHALLOW: after PlanView's
+            last redesign, WATER_SHALLOW is only its no-depth-data fallback
+            color, no longer tied to "shallow" anywhere in the real
+            gradient — WATER_STEP_LIGHT is the actual lightest tone the page
+            uses for shallow water. Unlike PlanView's own horizontal
+            gradient, this doesn't need to trace flatEndX/vertexX/drain
+            proportionally — it's a single straight top-to-bottom read (the
+            water only gets deeper going down in a section cut, no
+            horizontal component to it), so a plain 3-stop vertical gradient
+            is enough: light at the surface, WATER_STEP_DARK (the same tone
+            PlanView's own escala-floor/flat-zone reaches) at the shallow
+            floor, WATER_BODY_DEEP at the true deepest point (maxY, the
+            vertex) — mirroring PlanView's own light→mid→deep progression
+            tier for tier. x1/x2 identical (purely vertical); y1/y2 span
+            waterActualY (the real water surface) to maxY (the deepest
+            floor point) — everything below maxY, if any, just holds the
+            final stop's color, per SVG's normal gradient extend
+            behavior. */}
+        <linearGradient id="water-fill-gradient" gradientUnits="userSpaceOnUse" x1={profX} y1={waterActualY} x2={profX} y2={maxY}>
+          <stop offset="0%" stopColor={WATER_STEP_LIGHT} />
+          <stop offset="55%" stopColor={WATER_STEP_DARK} />
+          <stop offset="100%" stopColor={WATER_BODY_DEEP} />
+        </linearGradient>
       </defs>
       {/* Pool contour in section */}
-      <path d={fillPathD} fill={WATER} stroke="none" />
+      <path d={fillPathD} fill="url(#water-fill-gradient)" stroke="none" />
       <path d={outlinePathD} fill="none" stroke={DRAW} strokeWidth="0.6" strokeLinejoin="round" />
       {/* Corona, in section — the straight top edge at waterlineY is the
           corona's own real construction level (replacing what used to be a
@@ -1604,7 +1630,12 @@ function ProfileView({ data }: { data: PdfData }) {
           floating away from it now that pos no longer does.
           tick/overshoot stay the shared mainDim* ones — those don't move
           `pos` itself, only offset does, so they're still safe to match
-          the plan's main-cota sizing. */}
+          the plan's main-cota sizing. color=DIM_INTERIOR (navy) instead of
+          the default gray DIM_MAIN: this cota now sits right at the
+          deepest, darkest point of the new water-fill gradient, where the
+          gray default read poorly against the blue background — navy
+          matches the rest of this page's interior/secondary cotas
+          (escala/plataforma/banc) and stands out better there. */}
       <Dimension
         orientation="vertical"
         objPos={vertexX}
@@ -1616,6 +1647,7 @@ function ProfileView({ data }: { data: PdfData }) {
         gap={vertexDimGap}
         overshoot={mainDimOvershoot}
         tick={mainDimTick}
+        color={DIM_INTERIOR}
       />
       {/* Drain depth (desguàs) — opposite wall, right. NOT poolDepthAvg: per
           the técnica's construction spec, this wall is always built at a
