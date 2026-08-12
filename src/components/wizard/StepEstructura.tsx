@@ -242,10 +242,23 @@ export function StepEstructura() {
     }
 
     if (type === 'estandard') {
+      // When "Escala Exterior d'Obra" is active, treat it as describing the
+      // SAME physical escala as this 'estandard' interior one, just built
+      // outside the vas instead of carved into its corner (see
+      // PagePlanol.tsx's ext-stairs block) — so the interior W×L fields
+      // default to whatever the user already entered for the exterior
+      // escala, instead of the depth-derived formula. Still just a
+      // suggestion: markUserModified/userModifiedRef below let the user
+      // override either pair independently, same as always.
+      const useExtSize = !!draft.hasExteriorStairs && (draft.extStairsLength || 0) > 0 && (draft.extStairsWidth || 0) > 0;
       return {
         ...empty,
-        stairsWidth: w > 0 ? Math.min(round2(1.5 + widthExtra), 1.5) : undefined,
-        stairsLength: d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined,
+        stairsWidth: useExtSize
+          ? round2(draft.extStairsWidth as number)
+          : w > 0 ? Math.min(round2(1.5 + widthExtra), 1.5) : undefined,
+        stairsLength: useExtSize
+          ? round2(draft.extStairsLength as number)
+          : d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined,
         stairsHeight: d > 0 ? round2(d) : undefined,
       };
     }
@@ -314,7 +327,7 @@ export function StepEstructura() {
     });
     if (Object.keys(patch).length > 0) updateDraft(patch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.poolWidth, draft.poolDepthMin, draft.interiorStairsType]);
+  }, [draft.poolWidth, draft.poolDepthMin, draft.interiorStairsType, draft.hasExteriorStairs, draft.extStairsLength, draft.extStairsWidth]);
 
   const constructionOptions: { value: ConstructionSystem; label: string; desc: string }[] = [
     { value: 'gunite', label: 'Gunite', desc: 'Projecció de formigó. Alta resistència i adaptabilitat.' },

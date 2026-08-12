@@ -144,7 +144,7 @@ export function PdfDocument({ data }: { data: PdfData }) {
 
   const pages = [
     <PageCover key="cover" data={data} />,
-    ...(data.poolShape === 'regular' && !data.hasExteriorStairs ? [<PagePlanol key="planol" data={data} />] : []),
+    ...(data.poolShape === 'regular' ? [<PagePlanol key="planol" data={data} />] : []),
     <PageEstructura key="estructura" data={data} />,
     <PageElementsEstructurals key="elements" data={data} />,
     ...(showAcabats ? [<PageAcabats key="acabats" data={data} />] : []),

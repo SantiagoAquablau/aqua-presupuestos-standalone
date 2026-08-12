@@ -21,7 +21,7 @@
  * bomba images).
  */
 import type { PdfData } from "./pdfTypes";
-import { PDF_FONTS, formatPdfDate, pdfPageStyle } from "./pdfStyles";
+import { pdfPageStyle } from "./pdfStyles";
 import { PdfLogo } from "./PdfShared";
 import { computeInteriorStepsCount } from "@/lib/stairsGeometry";
 
@@ -366,7 +366,13 @@ const PLAN_BOTTOM_MARGIN = 22;
  *  same {scale, rectX, rectW} PlanView draws its vas rectangle with. Called
  *  independently by both PlanView and ProfileView with the same inputs
  *  (data.poolLength/data.poolWidth) — being pure and deterministic, both
- *  calls always agree, without needing to thread props through PagePlanol. */
+ *  calls always agree, without needing to thread props through PagePlanol.
+ *
+ *  Deliberately independent of ext-stairs: the pool's own drawn size must
+ *  stay identical whether or not hasExteriorStairs is active (explicit
+ *  product decision — an earlier version shrank scale here to make the
+ *  ext-stairs protrusion fit inside a fixed-height canvas; that's reverted
+ *  in favor of growing the canvas itself instead, see PlanView's own Vh). */
 function computePlanRect(length: number, width: number): { scale: number; rectX: number; rectW: number } {
   const availW = PLAN_VW - PLAN_LEFT_MARGIN - PLAN_RIGHT_MARGIN;
   const availH = PLAN_VH - PLAN_TOP_MARGIN - PLAN_BOTTOM_MARGIN;
@@ -388,7 +394,6 @@ function PlanView({ data }: { data: PdfData }) {
   }
 
   const Vw = PLAN_VW;
-  const Vh = PLAN_VH;
   const leftMargin = PLAN_LEFT_MARGIN;
   const rightMargin = PLAN_RIGHT_MARGIN;
   // Generous top margin: the length dimension line + its label need to sit
@@ -401,7 +406,13 @@ function PlanView({ data }: { data: PdfData }) {
   // exact same room to clear the corona + offset + label as the top one.
   const bottomMargin = PLAN_BOTTOM_MARGIN;
   const availW = Vw - leftMargin - rightMargin;
-  const availH = Vh - topMargin - bottomMargin;
+  // Fixed to the constant, NOT to the (possibly grown) Vh computed further
+  // down — availH governs the vas's own bounding box, which must stay
+  // identical whether or not there's an ext-stairs protrusion (see
+  // computePlanRect's own comment). Vh instead grows PAST topMargin+availH+
+  // bottomMargin when there's a protrusion, adding canvas below rather than
+  // compressing this budget.
+  const availH = PLAN_VH - topMargin - bottomMargin;
   const { scale, rectX, rectW } = computePlanRect(length, width);
   const rectH = width * scale;
   const rectY = topMargin + (availH - rectH) / 2;
@@ -420,7 +431,16 @@ function PlanView({ data }: { data: PdfData }) {
   const stairsLengthExtOffset = CORONA + 3;
   const stairsLengthExtGap = stairsLengthExtOffset - mainDimOvershoot;
 
-  const showStairs = !!data.hasInteriorStairs;
+  // "Escala Exterior d'Obra" (hasExteriorStairs/extStairsLength/extStairsWidth,
+  // StepEstructura.tsx section 3B) — drawn as its own dedicated block further
+  // down (see "Ext-stairs block" below), NOT a repositioning of the carved-in
+  // escala/plataforma/banc/tot_ample block below: it only supports the plain
+  // 'estandard' look for now (steps only, no plataforma/banc/tot_ample —
+  // those need a different measurement approach for the ext case, deferred).
+  // Mutually exclusive with the carved-in rendering (showStairs is
+  // suppressed whenever this is active), regardless of interiorStairsType.
+  const showExtStairs = !!data.hasExteriorStairs && (data.extStairsLength || 0) > 0 && (data.extStairsWidth || 0) > 0;
+  const showStairs = !!data.hasInteriorStairs && !showExtStairs;
   // "escala a tot l'ample" — geometrically identical to the standard escala
   // (same risers, same computeInteriorStepsCount formula, same protrusion), the only
   // difference being stairsWidth: computeSuggestions() in StepEstructura.tsx
@@ -441,6 +461,11 @@ function PlanView({ data }: { data: PdfData }) {
   // Bottom corner of the shallow-end wall, not centered — a real stair sits
   // against a corner, not floating mid-wall.
   const stairsY = rectY + rectH - stairsAlongWall;
+  // Kept as a plain alias for rectX (was a real second mode in an earlier
+  // version of this file; the carved-in block below only ever runs when
+  // showExtStairs is false now, so this is always rectX) — not renamed back
+  // throughout the block below to keep this diff small.
+  const stairsOriginX = rectX;
   const stepsCount = computeInteriorStepsCount(data.poolDepthMin);
   // First tread's own width (x-span from the wall to the first riser line,
   // rectX to rectX + stairsProtrusion/stepsCount below) — same geometry
@@ -453,6 +478,39 @@ function PlanView({ data }: { data: PdfData }) {
   const firstTreadX = rectX + stairsProtrusion / stepsCount;
   const showTreadDetailCota = showStairs && stepsCount >= 2;
 
+  // Ext-stairs block geometry — "Escala Exterior d'Obra", 'estandard' look
+  // only (see showExtStairs comment above). Protrudes from the LONG bottom
+  // wall (along poolLength) instead of the short left wall the carved-in
+  // block above uses, left-aligned to the poolDepthMin-side corner (same
+  // corner the carved-in escala already occupies). extStairsWidth runs
+  // along the wall (x, from rectX rightward, capped to the available
+  // length rectW — mirrors the rectH cap the carved-in block's own
+  // stairsAlongWall uses for its wall); extStairsLength is the protrusion,
+  // straight down (y) with no cap — it's outside the vas, not bounded by
+  // the pool's own footprint, same reasoning as the previous (left-wall)
+  // ext-stairs cap removal.
+  const extAlongWallPx = showExtStairs ? Math.min((data.extStairsWidth as number) * scale, rectW) : 0;
+  const extProtrusionPx = showExtStairs ? (data.extStairsLength as number) * scale : 0;
+  const extOriginX = rectX;
+  const extOriginY = rectY + rectH;
+  // Canvas height — grows past PLAN_VH only as far as the ext-stairs
+  // protrusion's own content actually reaches, instead of shrinking scale
+  // (see computePlanRect's own comment) or reserving the full generic
+  // bottomMargin (22mm) below it like the fixed case does. That generic
+  // bottomMargin is sized for the WORST case among several unrelated cotas
+  // sharing it elsewhere on this page — reusing it here left a visibly
+  // empty gap before the "posició esquemàtica" note below the <svg> (see
+  // PagePlanol.tsx), since the Ample cota below the protrusion only needs a
+  // fraction of that room. EXT_COTA_TAIL covers exactly what that cota
+  // needs instead: its own offset (stairsLengthExtOffset = CORONA + 3,
+  // i.e. already clears the corona) plus its label's own vertical extent
+  // (labelGap=1.3 + fontSize*0.75≈1.95 ≈ 3.25mm, per Dimension's own
+  // horizontal-label math), rounded up for a small safety margin. 0
+  // whenever there's no ext-stairs, so Vh===PLAN_VH exactly for that case.
+  const EXT_COTA_TAIL = 12;
+  const extBottomContentY = showExtStairs ? extOriginY + extProtrusionPx + EXT_COTA_TAIL : 0;
+  const Vh = Math.max(PLAN_VH, extBottomContentY);
+
   // escala/plataforma (and escala/banc) boundary line — normally drawn
   // wall-to-boca in one piece, but step 2 (counting from the wall) sits
   // exactly level with the plataforma/banc, so the boundary opens up over
@@ -462,8 +520,8 @@ function PlanView({ data }: { data: PdfData }) {
   // there's a real "step 2" tread, i.e. at least 2 interior risers. Computed
   // early (before the banc block below) because the banc's own front edge
   // is snapped to boundaryGapX2 — see benchProtrusion.
-  const boundaryGapX1 = stepsCount >= 2 ? rectX + (stairsProtrusion * 1) / stepsCount : null;
-  const boundaryGapX2 = stepsCount >= 2 ? rectX + (stairsProtrusion * 2) / stepsCount : null;
+  const boundaryGapX1 = stepsCount >= 2 ? stairsOriginX + (stairsProtrusion * 1) / stepsCount : null;
+  const boundaryGapX2 = stepsCount >= 2 ? stairsOriginX + (stairsProtrusion * 2) / stepsCount : null;
 
   // "escala amb plataforma" — the platform sits directly above the escala
   // sub-block, sharing its wall (x=rectX) and front edge (protrusion), per
@@ -505,9 +563,9 @@ function PlanView({ data }: { data: PdfData }) {
   const benchProtrusion = !showBench
     ? 0
     : boundaryGapX2 !== null
-      ? Math.min(boundaryGapX2 - rectX, stairsProtrusion)
+      ? Math.min(boundaryGapX2 - stairsOriginX, stairsProtrusion)
       : Math.min(benchLengthM * scale, stairsProtrusion);
-  const benchEdgeX = rectX + benchProtrusion;
+  const benchEdgeX = stairsOriginX + benchProtrusion;
 
   // For the escala/banc boundary specifically: the gap only makes sense
   // where the banc is actually present above the escala — beyond the banc's
@@ -589,6 +647,26 @@ function PlanView({ data }: { data: PdfData }) {
       ? clamp01((bodyDrainDepth - (dMin as number)) / ((dMax as number) - (dMin as number)))
       : 1;
   const bodyDrainColor = lerpHexColor(lastStepColor, WATER_BODY_DEEP, bodyDrainT);
+
+  // Ext-stairs L-shape polygons — 6 vertices each, water body and outer
+  // (corona) perimeter. Protrusion sticks out of the BOTTOM wall now (along
+  // poolLength), left-aligned to rectX (the poolDepthMin-side corner), so
+  // the reflex vertex is at the water polygon's (rectX+extAlongWallPx,
+  // rectY+rectH) instead of the previous left-wall version's (rectX,
+  // stairsY). Re-derived per-edge (not pattern-matched from the old
+  // left-wall version): each of the 6 corners was individually checked for
+  // which side water is on to get its true outward normal, since this
+  // reflex corner's offset direction (+CORONA on both axes) is the OPPOSITE
+  // sign from the old left-wall version's (-CORONA on both) — the two
+  // shapes are mirror images, not simple rotations, so the signs don't
+  // carry over. Only built/used when showExtStairs; the plain vas
+  // <rect>/<rect stroke> stay exactly as before otherwise. */
+  const waterPathD = showExtStairs
+    ? `M ${rectX} ${rectY} L ${rectX + rectW} ${rectY} L ${rectX + rectW} ${rectY + rectH} L ${rectX + extAlongWallPx} ${rectY + rectH} L ${rectX + extAlongWallPx} ${rectY + rectH + extProtrusionPx} L ${rectX} ${rectY + rectH + extProtrusionPx} Z`
+    : null;
+  const outerPathD = showExtStairs
+    ? `M ${outerX} ${outerY} L ${outerX + outerW} ${outerY} L ${outerX + outerW} ${rectY + rectH + CORONA} L ${rectX + extAlongWallPx + CORONA} ${rectY + rectH + CORONA} L ${rectX + extAlongWallPx + CORONA} ${rectY + rectH + extProtrusionPx + CORONA} L ${outerX} ${rectY + rectH + extProtrusionPx + CORONA} Z`
+    : null;
 
   return (
     <div>
@@ -679,29 +757,89 @@ function PlanView({ data }: { data: PdfData }) {
             outer-perimeter <rect> below instead), there's no visible seam
             line at those joins, just a plain, clean edge. */}
         <rect x={outerX} y={outerY} width={outerW} height={CORONA} fill="url(#corona-tiles)" />
-        <rect x={outerX} y={rectY + rectH} width={outerW} height={CORONA} fill="url(#corona-tiles)" />
-        <rect x={outerX} y={rectY} width={CORONA} height={rectH} fill="url(#corona-tiles-vertical)" />
+        {/* Bottom — of the MAIN rect only now: shortened to start at the
+            protrusion's own reflex vertex x (rectX+extAlongWallPx) when
+            showExtStairs, since that corner is no longer a plain corner but
+            where the protrusion attaches (its own bottom wall, below, takes
+            over the ring from there). Still absorbs the vas's own
+            bottom-right corner at its other end, unchanged. */}
+        <rect
+          x={showExtStairs ? rectX + extAlongWallPx : outerX}
+          y={rectY + rectH}
+          width={showExtStairs ? outerX + outerW - (rectX + extAlongWallPx) : outerW}
+          height={CORONA}
+          fill="url(#corona-tiles)"
+        />
+        {/* Left — extended down past rectY+rectH when showExtStairs, to
+            cover the protrusion's own left wall too (a straight
+            continuation of the same wall, not a corner — rectX is shared by
+            both, so no miter/overlap trick is even needed here, unlike the
+            other new segment below) and absorb its bottom-left corner. */}
+        <rect
+          x={outerX}
+          y={rectY}
+          width={CORONA}
+          height={showExtStairs ? rectY + rectH + extProtrusionPx + CORONA - rectY : rectH}
+          fill="url(#corona-tiles-vertical)"
+        />
         <rect x={rectX + rectW} y={rectY} width={CORONA} height={rectH} fill="url(#corona-tiles-vertical)" />
+        {showExtStairs && (
+          <>
+            {/* Protrusion's own bottom wall — absorbs its bottom-left corner
+                (redundant with, but harmless alongside, the extended Left
+                segment above) and its bottom-right corner (own outer edge). */}
+            <rect
+              x={outerX}
+              y={rectY + rectH + extProtrusionPx}
+              width={extAlongWallPx + 2 * CORONA}
+              height={CORONA}
+              fill="url(#corona-tiles)"
+            />
+            {/* Protrusion's own right wall — spans its own two corners: the
+                reflex corner at the top (already covered by the shortened
+                Bottom segment above, harmless overlap) and its bottom-right
+                corner at the bottom (absorbed here). */}
+            <rect
+              x={rectX + extAlongWallPx}
+              y={rectY + rectH}
+              width={CORONA}
+              height={extProtrusionPx + CORONA}
+              fill="url(#corona-tiles-vertical)"
+            />
+          </>
+        )}
         {/* Single continuous outer border for the whole ring, drawn
-            separately (fill="none") on top of the 4 fill segments above —
-            keeps the corona's outer edge as one unbroken line instead of 4
+            separately (fill="none") on top of the fill segments above —
+            keeps the corona's outer edge as one unbroken line instead of
             separate rect outlines that would double up at the segment
-            joins. The inner edge is already covered by the vas rect's own
-            stroke, drawn next. */}
-        <rect x={outerX} y={outerY} width={outerW} height={outerH} fill="none" stroke={DRAW} strokeWidth="0.5" />
+            joins. The inner edge is already covered by the vas outline's
+            own stroke, drawn next. showExtStairs uses the 6-vertex L outer
+            path instead of the plain rect (see outerPathD above). */}
+        {showExtStairs ? (
+          <path d={outerPathD as string} fill="none" stroke={DRAW} strokeWidth="0.5" />
+        ) : (
+          <rect x={outerX} y={outerY} width={outerW} height={outerH} fill="none" stroke={DRAW} strokeWidth="0.5" />
+        )}
         {/* Vas — pool water body, painted over the frame to leave only the ring visible.
             Fill only, no stroke — the vessel's own border is redrawn as a
             separate, later pass (see "Vas outline, redrawn on top" below,
             right after the escala block) instead of stroking it here. The
             escala's own opaque water-color fills (base column, plataforma/
             banc, per-tread rects) are drawn after this rect and, at the
-            shared wall (x=rectX), would otherwise paint over roughly half
-            of a stroke drawn here — the border came out visibly thinner
-            wherever an escala/plataforma/banc fill touched it than
-            elsewhere around the perimeter. Redrawing the border on top of
-            everything, once, fixes that instead of having to reorder every
-            fill relative to it. */}
-        <rect x={rectX} y={rectY} width={rectW} height={rectH} fill="url(#water-gradient)" stroke="none" />
+            shared wall, would otherwise paint over roughly half of a stroke
+            drawn here — the border came out visibly thinner wherever an
+            escala/plataforma/banc fill touched it than elsewhere around the
+            perimeter. Redrawing the border on top of everything, once,
+            fixes that instead of having to reorder every fill relative to
+            it. showExtStairs fills the 6-vertex L water polygon instead of
+            the plain vas rect (see waterPathD above) — continuous with the
+            protrusion, no dividing wall, per the "single L-shaped body of
+            water" design. */}
+        {showExtStairs ? (
+          <path d={waterPathD as string} fill="url(#water-gradient)" stroke="none" />
+        ) : (
+          <rect x={rectX} y={rectY} width={rectW} height={rectH} fill="url(#water-gradient)" stroke="none" />
+        )}
 
         {/* Schematic stairs — shallow end, bottom corner, fixed convention,
             drawn to the same metres→mm scale as the pool itself.
@@ -734,13 +872,17 @@ function PlanView({ data }: { data: PdfData }) {
                 only matters for incomplete project data. */}
             {hasDepthColor ? (
               <>
-                <rect x={rectX} y={rectY} width={stairsProtrusion} height={Math.max(0, stairsY - rectY)} fill={lastStepColor} />
-                {showPlatform && <rect x={rectX} y={platformY} width={stairsProtrusion} height={platformAlongWall} fill={step2Color} />}
-                {showBench && <rect x={rectX} y={benchY} width={benchProtrusion} height={benchAlongWall} fill={step2Color} />}
+                {/* Fills the open water column between the vas's own top
+                    wall and the escala's row (rectY→stairsY) so a
+                    plataforma/banc (or a gap next to one) reads as "same
+                    color as the last step" rather than the plain gradient. */}
+                <rect x={stairsOriginX} y={rectY} width={stairsProtrusion} height={Math.max(0, stairsY - rectY)} fill={lastStepColor} />
+                {showPlatform && <rect x={stairsOriginX} y={platformY} width={stairsProtrusion} height={platformAlongWall} fill={step2Color} />}
+                {showBench && <rect x={stairsOriginX} y={benchY} width={benchProtrusion} height={benchAlongWall} fill={step2Color} />}
                 {Array.from({ length: stepsCount }, (_, idx) => idx + 1).map((i) => (
                   <rect
                     key={i}
-                    x={rectX + ((i - 1) * stairsProtrusion) / stepsCount}
+                    x={stairsOriginX + ((i - 1) * stairsProtrusion) / stepsCount}
                     y={stairsY}
                     width={stairsProtrusion / stepsCount}
                     height={stairsAlongWall}
@@ -750,12 +892,12 @@ function PlanView({ data }: { data: PdfData }) {
               </>
             ) : showBench ? (
               <>
-                <rect x={rectX} y={stairsY} width={stairsProtrusion} height={stairsAlongWall} fill={WATER} />
-                <rect x={rectX} y={benchY} width={benchProtrusion} height={benchAlongWall} fill={WATER} />
+                <rect x={stairsOriginX} y={stairsY} width={stairsProtrusion} height={stairsAlongWall} fill={WATER} />
+                <rect x={stairsOriginX} y={benchY} width={benchProtrusion} height={benchAlongWall} fill={WATER} />
               </>
             ) : (
               <rect
-                x={rectX}
+                x={stairsOriginX}
                 y={showPlatform ? platformY : stairsY}
                 width={stairsProtrusion}
                 height={showPlatform ? stairsAlongWall + platformAlongWall : stairsAlongWall}
@@ -772,14 +914,14 @@ function PlanView({ data }: { data: PdfData }) {
                     stroke-only. */}
                 <g stroke={DRAW} strokeWidth="0.5" fill="none">
                   {/* Wall — one continuous line covering both the banc's and escala's left edge. */}
-                  <line x1={rectX} y1={benchY} x2={rectX} y2={stairsY + stairsAlongWall} />
+                  <line x1={stairsOriginX} y1={benchY} x2={stairsOriginX} y2={stairsY + stairsAlongWall} />
                   {/* Escala's own right edge and far (bottom) wall. */}
-                  <line x1={rectX + stairsProtrusion} y1={stairsY} x2={rectX + stairsProtrusion} y2={stairsY + stairsAlongWall} />
-                  <line x1={rectX} y1={stairsY + stairsAlongWall} x2={rectX + stairsProtrusion} y2={stairsY + stairsAlongWall} />
+                  <line x1={stairsOriginX + stairsProtrusion} y1={stairsY} x2={stairsOriginX + stairsProtrusion} y2={stairsY + stairsAlongWall} />
+                  <line x1={stairsOriginX} y1={stairsY + stairsAlongWall} x2={stairsOriginX + stairsProtrusion} y2={stairsY + stairsAlongWall} />
                   {/* Banc's top and right edge. No line continues from
                       benchEdgeX to the escala's own front edge — that
                       stretch is open pool water, left undrawn on purpose. */}
-                  <line x1={rectX} y1={benchY} x2={benchEdgeX} y2={benchY} />
+                  <line x1={stairsOriginX} y1={benchY} x2={benchEdgeX} y2={benchY} />
                   <line x1={benchEdgeX} y1={benchY} x2={benchEdgeX} y2={stairsY} />
                 </g>
               </>
@@ -791,7 +933,7 @@ function PlanView({ data }: { data: PdfData }) {
               // single filled+stroked rect) — fill is handled entirely
               // above, this is stroke-only, drawn on top of it.
               <rect
-                x={rectX}
+                x={stairsOriginX}
                 y={showPlatform ? platformY : stairsY}
                 width={stairsProtrusion}
                 height={showPlatform ? stairsAlongWall + platformAlongWall : stairsAlongWall}
@@ -810,7 +952,7 @@ function PlanView({ data }: { data: PdfData }) {
                 by a gap in the boundary line below, not by touching any
                 riser here.) */}
             {Array.from({ length: Math.max(0, stepsCount - 1) }, (_, i) => i + 1).map((i) => {
-              const x = rectX + (stairsProtrusion * i) / stepsCount;
+              const x = stairsOriginX + (stairsProtrusion * i) / stepsCount;
               return <line key={i} x1={x} y1={stairsY} x2={x} y2={stairsY + stairsAlongWall} stroke={DRAW} strokeWidth="0.3" />;
             })}
             {showPlatform && (
@@ -820,12 +962,12 @@ function PlanView({ data }: { data: PdfData }) {
                       step 2's tread, then resumes past it. The gap over
                       step 2 shows that stretch is walkable between the two
                       without a level change. */}
-                  <line x1={rectX} y1={stairsY} x2={boundaryGapX1} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
-                  <line x1={boundaryGapX2} y1={stairsY} x2={rectX + stairsProtrusion} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
+                  <line x1={stairsOriginX} y1={stairsY} x2={boundaryGapX1} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
+                  <line x1={boundaryGapX2} y1={stairsY} x2={stairsOriginX + stairsProtrusion} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
                 </>
               ) : (
                 // Fewer than 2 interior risers — no "step 2" tread exists, so draw the boundary whole.
-                <line x1={rectX} y1={stairsY} x2={rectX + stairsProtrusion} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
+                <line x1={stairsOriginX} y1={stairsY} x2={stairsOriginX + stairsProtrusion} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
               )
             )}
             {showBench && (
@@ -838,12 +980,12 @@ function PlanView({ data }: { data: PdfData }) {
                       escala's own front edge, covering both the rest of the
                       banc's row and the open-pool stretch beyond it in one
                       solid line. */}
-                  <line x1={rectX} y1={stairsY} x2={benchGapX1} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
-                  <line x1={benchGapX2} y1={stairsY} x2={rectX + stairsProtrusion} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
+                  <line x1={stairsOriginX} y1={stairsY} x2={benchGapX1} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
+                  <line x1={benchGapX2} y1={stairsY} x2={stairsOriginX + stairsProtrusion} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
                 </>
               ) : (
                 // Gap falls entirely beyond the banc (or fewer than 2 risers exist) — solid boundary throughout.
-                <line x1={rectX} y1={stairsY} x2={rectX + stairsProtrusion} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
+                <line x1={stairsOriginX} y1={stairsY} x2={stairsOriginX + stairsProtrusion} y2={stairsY} stroke={DRAW} strokeWidth="0.4" />
               )
             )}
 
@@ -860,8 +1002,8 @@ function PlanView({ data }: { data: PdfData }) {
                 orientation="horizontal"
                 objPos={platformY + 2}
                 outward={1}
-                from={rectX}
-                to={rectX + stairsProtrusion}
+                from={stairsOriginX}
+                to={stairsOriginX + stairsProtrusion}
                 label={`${fmtM(stairsLengthM)} m`}
                 fontSize={2.6}
                 offset={1.4}
@@ -884,7 +1026,7 @@ function PlanView({ data }: { data: PdfData }) {
                   orientation="horizontal"
                   objPos={benchY + 2}
                   outward={1}
-                  from={rectX}
+                  from={stairsOriginX}
                   to={benchEdgeX}
                   label={`${fmtM(benchLengthM)} m`}
                   fontSize={2.6}
@@ -907,8 +1049,8 @@ function PlanView({ data }: { data: PdfData }) {
                 orientation="horizontal"
                 objPos={stairsY}
                 outward={-1}
-                from={rectX}
-                to={rectX + stairsProtrusion}
+                from={stairsOriginX}
+                to={stairsOriginX + stairsProtrusion}
                 label={`${fmtM(stairsLengthM)} m`}
                 fontSize={2.6}
                 offset={1.6}
@@ -922,7 +1064,7 @@ function PlanView({ data }: { data: PdfData }) {
             {/* Ample cota — escala */}
             <Dimension
               orientation="vertical"
-              objPos={rectX + stairsProtrusion}
+              objPos={stairsOriginX + stairsProtrusion}
               outward={1}
               from={stairsY}
               to={stairsY + stairsAlongWall}
@@ -961,7 +1103,7 @@ function PlanView({ data }: { data: PdfData }) {
                 orientation="horizontal"
                 objPos={stairsY + stairsAlongWall - 1.5}
                 outward={-1}
-                from={rectX}
+                from={stairsOriginX}
                 to={firstTreadX}
                 label={`${fmtM(0.3)} m`}
                 fontSize={1.8}
@@ -978,7 +1120,7 @@ function PlanView({ data }: { data: PdfData }) {
             {showPlatform && (
               <Dimension
                 orientation="vertical"
-                objPos={rectX + stairsProtrusion}
+                objPos={stairsOriginX + stairsProtrusion}
                 outward={1}
                 from={platformY}
                 to={stairsY}
@@ -1017,14 +1159,109 @@ function PlanView({ data }: { data: PdfData }) {
           </g>
         )}
 
-        {/* Vas outline, redrawn on top — see the vas <rect>'s own comment
+        {/* Ext-stairs block — "Escala Exterior d'Obra", 'estandard' look
+            only (plataforma/banc/tot_ample not supported here yet — see
+            showExtStairs comment above; interiorStairsType is ignored for
+            this block entirely). Rotated 90° from the carved-in escala
+            above: treads stack downward (y) instead of sideways (x), risers
+            are horizontal lines instead of vertical ones, growing from
+            extOriginY (the vas's own bottom wall) instead of from a side
+            wall. Same stepColor/hasDepthColor fallback logic reused as-is —
+            only the axis differs, not the coloring.
+            Tread-to-index mapping is DELIBERATELY reversed from the naive
+            "i-1 offset from extOriginY" the carved-in block's own x formula
+            would suggest copying: stepColor ramps light→dark as i goes
+            1→stepsCount, and stepsCount must land on the tread touching
+            OPEN WATER (so it matches lastStepColor/the flat zone right next
+            to it — see stepColor's own comment). In the carved-in block
+            that's the high-x end (open pool is at stairsOriginX+
+            stairsProtrusion, away from the wall at stairsOriginX), so
+            index i increasing with x already puts stepsCount there
+            correctly. Here open water is the OPPOSITE end from the
+            wall-side offset direction: extOriginY (low y, top of the
+            block) is where it's continuous with the vas, while the wall
+            (obra) is at high y (extOriginY+extProtrusionPx). Indexing y the
+            same "low y ← i=1" way as the carved-in block's x would put
+            i=1 (lightest) next to the open water and stepsCount (darkest)
+            next to the wall — backwards, since open water needs the DARK
+            end. Flipping the y formula to (stepsCount-i) instead of (i-1)
+            fixes it: i=1 now lands at high y (wall, lightest) and
+            i=stepsCount lands at low y (open water, darkest). */}
+        {showExtStairs && (
+          <g>
+            {hasDepthColor ? (
+              Array.from({ length: stepsCount }, (_, idx) => idx + 1).map((i) => (
+                <rect
+                  key={i}
+                  x={extOriginX}
+                  y={extOriginY + ((stepsCount - i) * extProtrusionPx) / stepsCount}
+                  width={extAlongWallPx}
+                  height={extProtrusionPx / stepsCount}
+                  fill={stepColor(i)}
+                />
+              ))
+            ) : (
+              <rect x={extOriginX} y={extOriginY} width={extAlongWallPx} height={extProtrusionPx} fill={WATER} />
+            )}
+            {/* No separate outline rect here — unlike the carved-in block,
+                every edge of this block (left/right/bottom) is already part
+                of the L water polygon's own outer perimeter (see
+                waterPathD), redrawn on top further down (same "redraw on
+                top of the fills" pass the carved-in escala relies on for
+                its own shared wall). The top edge is deliberately never
+                stroked anywhere — it's the open boundary where this block's
+                water is continuous with the main vas, no dividing wall. */}
+            {/* Risers — horizontal now (constant y, spanning x), same
+                "stepsCount-1 lines, never omitted" rule as the carved-in
+                block's own risers. */}
+            {Array.from({ length: Math.max(0, stepsCount - 1) }, (_, i) => i + 1).map((i) => {
+              const y = extOriginY + (extProtrusionPx * i) / stepsCount;
+              return <line key={i} x1={extOriginX} y1={y} x2={extOriginX + extAlongWallPx} y2={y} stroke={DRAW} strokeWidth="0.3" />;
+            })}
+            {/* Ample cota (extStairsWidth, along the wall) — horizontal,
+                below the block's own corona. offset/gap reuse the same
+                "clear the corona, short centered crossing" recipe
+                stairsLengthExtOffset/stairsLengthExtGap already use for the
+                banc/tot_ample external llarg cota elsewhere on this page
+                (CORONA + a few mm, not the tiny in-block offset the interior
+                escala's own Ample/plataforma/banc cotas use — those sit
+                INSIDE the water area against a wall, this one sits OUTSIDE
+                the ext-stairs block's own corona, needing real clearance
+                past it). The Llarg cota (extStairsLength) moved out of this
+                block entirely — it now shares the vas's own Width cota's
+                line (same objPos/offset), see further down. */}
+            <Dimension
+              orientation="horizontal"
+              objPos={extOriginY + extProtrusionPx}
+              outward={1}
+              from={extOriginX}
+              to={extOriginX + extAlongWallPx}
+              label={`${fmtM(data.extStairsWidth)} m`}
+              fontSize={2.6}
+              offset={stairsLengthExtOffset}
+              gap={stairsLengthExtGap}
+              overshoot={mainDimOvershoot}
+              tick={0.3}
+              labelGap={1.3}
+              color={DIM_INTERIOR}
+            />
+          </g>
+        )}
+
+        {/* Vas outline, redrawn on top — see the vas fill's own comment
             above for why: this is the SAME border that used to be stroked
-            directly on that rect, just moved to draw last (after the
+            directly on that fill, just moved to draw last (after the
             escala/plataforma/banc fills, which sit earlier and would
             otherwise cover part of it at the shared wall), so the
             perimeter reads as a uniform stroke width all the way around
-            regardless of what's underneath it. */}
-        <rect x={rectX} y={rectY} width={rectW} height={rectH} fill="none" stroke={DRAW} strokeWidth="0.6" />
+            regardless of what's underneath it. showExtStairs strokes the
+            6-vertex L water polygon instead of the plain vas rect, same as
+            the fill pass above. */}
+        {showExtStairs ? (
+          <path d={waterPathD as string} fill="none" stroke={DRAW} strokeWidth="0.6" />
+        ) : (
+          <rect x={rectX} y={rectY} width={rectW} height={rectH} fill="none" stroke={DRAW} strokeWidth="0.6" />
+        )}
 
         {/* Length — measures the vas (water body / rectX,rectY,rectW,rectH),
             not the outer corona rect: rectW/rectH are exactly
@@ -1072,6 +1309,34 @@ function PlanView({ data }: { data: PdfData }) {
           overshoot={mainDimOvershoot}
           tick={mainDimTick}
         />
+        {/* Llarg cota — ext-stairs (extStairsLength), sharing the exact
+            same line as Width above (same objPos=rectX, outward=-1, offset)
+            instead of its own separate line on the block's right edge — a
+            straight continuation downward past Width's own span
+            (rectY..rectY+rectH), covering the protrusion's span
+            (extOriginY..extOriginY+extProtrusionPx, and extOriginY===
+            rectY+rectH so the two spans meet with no gap or overlap). Kept
+            at the smaller interior-cota font/color (DIM_INTERIOR) rather
+            than matching Width's own navy/fontSize=4 — it's still labelling
+            the escala, not the vas, just positioned on the vas's sight-line
+            for a clean, consistent, uncluttered layout. */}
+        {showExtStairs && (
+          <Dimension
+            orientation="vertical"
+            objPos={rectX}
+            outward={-1}
+            from={extOriginY}
+            to={extOriginY + extProtrusionPx}
+            label={`${fmtM(data.extStairsLength)} m`}
+            offset={mainDimOffset}
+            fontSize={2.6}
+            gap={mainDimGap}
+            overshoot={mainDimOvershoot}
+            tick={mainDimTick}
+            labelGap={1.6}
+            color={DIM_INTERIOR}
+          />
+        )}
         {/* escala llarg cota — banc AND tot_ample cases, external. Drawn
             inside the escala block it either sits on top of the riser lines
             (banc) or has nowhere left to go since the block already spans
@@ -1097,8 +1362,8 @@ function PlanView({ data }: { data: PdfData }) {
             orientation="horizontal"
             objPos={rectY + rectH}
             outward={1}
-            from={rectX}
-            to={rectX + stairsProtrusion}
+            from={stairsOriginX}
+            to={stairsOriginX + stairsProtrusion}
             label={`${fmtM(stairsLengthM)} m`}
             fontSize={2.6}
             offset={stairsLengthExtOffset}
@@ -1110,7 +1375,7 @@ function PlanView({ data }: { data: PdfData }) {
           />
         )}
       </svg>
-      {showStairs && (
+      {(showStairs || showExtStairs) && (
         <div style={{ fontSize: "7.5pt", color: DRAW, fontStyle: "italic", marginTop: "1mm" }}>
           * Posició de l'escala esquemàtica — no correspon a la ubicació exacta d'obra.
         </div>
@@ -1168,7 +1433,9 @@ function ProfileView({ data }: { data: PdfData }) {
   // this view computing its own independent horizontal fit. profX/profW
   // replace the old leftMargin/rightMargin/hScale-based layout entirely:
   // the pool footprint's horizontal position and width are now dictated by
-  // PlanView, not chosen locally here.
+  // PlanView, not chosen locally here. Deliberately ext-stairs-independent
+  // (same as PlanView's own scale) — ProfileView never draws the
+  // ext-stairs protrusion itself, only PlanView does.
   const { scale, rectX, rectW } = computePlanRect(length, width);
   const profX = rectX;
   const profW = rectW;
@@ -1746,106 +2013,6 @@ function ProfileView({ data }: { data: PdfData }) {
   );
 }
 
-function DataBox({ data }: { data: PdfData }) {
-  // Same "tipus · format" join used by PageAcabats.tsx for these two
-  // fields (coronamentModelName/coronamentTipusFormat and
-  // revestimentTipusLabel/revestimentTipusFormat) — just condensed into one
-  // line each here since the cajetí only has room for a single value per row.
-  const coronamentValue = [data.coronamentModelName, data.coronamentTipusFormat].filter(Boolean).join(" · ") || "—";
-  const revestimentValue = [data.revestimentTipusLabel, data.revestimentTipusFormat].filter(Boolean).join(" · ") || "—";
-  const rows: [string, string][] = [
-    ["Referència", data.budgetNumber || "—"],
-    ["Data", formatPdfDate(data.budgetDate)],
-    ["Client", data.clientName || "—"],
-    ["Població", data.clientTown || "—"],
-    ["Adreça", data.clientAddress || "—"],
-    ["Comercial", data.comercialName || "—"],
-    ["Coronament", coronamentValue],
-    ["Revestiment interior", revestimentValue],
-  ];
-  // logo-color.png's real intrinsic pixel size (1003×365) — used to compute
-  // its actual rendered height at LOGO_SIZE ourselves, rather than relying
-  // on PdfLogo's own marginBottom:-46 (a fixed constant, unrelated to
-  // `size`, calibrated for its OTHER call site's overlap effect in
-  // PdfPageHeader) to cancel out via margin collapsing. That collapsing
-  // trick is mathematically sound in a spec-compliant browser, but this PDF
-  // is ultimately rasterized through html2canvas (see pdfRender.ts), which
-  // is known to be unreliable with negative-margin collapsing — exactly the
-  // kind of thing that can look centered in a live preview yet render
-  // shifted up in the actual exported PDF, matching what was reported here.
-  const LOGO_SIZE = 75; // px — up from 55, still well inside the row-grid's own content height (see the logo cell below)
-  const LOGO_HEIGHT = LOGO_SIZE * (365 / 1003);
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: "14mm",
-        right: "14mm",
-        bottom: "12mm",
-        display: "flex",
-        alignItems: "stretch",
-        border: `1px solid ${NAVY}`,
-        borderRadius: 4,
-        background: "#ffffff",
-        fontFamily: PDF_FONTS.sans,
-        zIndex: 1,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "0 4mm",
-          borderRight: `1px solid ${NAVY}`,
-          flexShrink: 0,
-        }}
-      >
-        {/* Fixed-size, overflow:hidden wrapper instead of a margin-collapse
-            cancellation trick (see LOGO_SIZE/LOGO_HEIGHT's own comment
-            above for why): explicitly sizing this box to the logo's real
-            rendered dimensions and clipping to it makes PdfLogo's internal
-            -46px margin irrelevant — there's no "next box" inside this
-            bounded, non-auto-height container for that margin to pull on,
-            so the box always renders as exactly LOGO_SIZE×LOGO_HEIGHT
-            regardless of the margin trick's cross-renderer fidelity. That
-            in turn makes alignItems:"center" above center it correctly and
-            predictably against the full cajetí height. */}
-        <div style={{ width: LOGO_SIZE, height: LOGO_HEIGHT, overflow: "hidden" }}>
-          <PdfLogo size={LOGO_SIZE} />
-        </div>
-      </div>
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
-        {rows.map(([label, value], i) => {
-          // Generic row/col math (not hardcoded to a column count like the
-          // old i%2/rows.length-2 version was) — works for any number of
-          // columns, and for a last row that isn't fully populated (8 rows
-          // in 3 columns leaves the last row with only 2 of 3 cells).
-          const cols = 3;
-          const totalRows = Math.ceil(rows.length / cols);
-          const rowIndex = Math.floor(i / cols);
-          const colIndex = i % cols;
-          return (
-            <div
-              key={label}
-              style={{
-                padding: "1mm 2.5mm",
-                borderBottom: rowIndex < totalRows - 1 ? `1px solid ${NAVY}33` : "none",
-                borderRight: colIndex < cols - 1 ? `1px solid ${NAVY}33` : "none",
-              }}
-            >
-              <div style={{ fontSize: "4.5pt", color: NAVY, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>
-                {label}
-              </div>
-              <div style={{ fontSize: "6pt", color: "#1a1a1a", marginTop: 0.5 }}>{value}</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function PagePlanol({ data }: { data: PdfData }) {
   return (
     <section style={pdfPageStyle}>
@@ -1898,8 +2065,6 @@ export function PagePlanol({ data }: { data: PdfData }) {
           <ProfileView data={data} />
         </div>
       </div>
-
-      <DataBox data={data} />
     </section>
   );
 }
