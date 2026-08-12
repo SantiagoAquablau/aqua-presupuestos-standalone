@@ -338,7 +338,7 @@ function SectionLabel({ children }: { children: string }) {
         fontSize: "11pt",
         color: NAVY,
         letterSpacing: 1.5,
-        marginBottom: "2mm",
+        marginBottom: "1mm",
       }}
     >
       {children}
@@ -510,6 +510,18 @@ function PlanView({ data }: { data: PdfData }) {
   const EXT_COTA_TAIL = 12;
   const extBottomContentY = showExtStairs ? extOriginY + extProtrusionPx + EXT_COTA_TAIL : 0;
   const Vh = Math.max(PLAN_VH, extBottomContentY);
+  // Tread-width detail cota (0.30m) — same "single representative step"
+  // idea as the carved-in block's own showTreadDetailCota, adapted to this
+  // block's rotated axis: the FIRST tread here is the one nearest the wall
+  // (high y, i=1, lightest per the point-3 color fix — the natural entry
+  // point from the obra, same role stairsOriginX/the wall plays in the
+  // carved-in block), not the one nearest open water. extFirstTreadY is
+  // that first riser line's y (the boundary between tread 1 and tread 2),
+  // mirroring firstTreadX's role there. Guarded the same way
+  // (stepsCount>=2): with only 1 step there's no first riser line to bound
+  // the cota against.
+  const extFirstTreadY = extOriginY + ((stepsCount - 1) * extProtrusionPx) / stepsCount;
+  const showExtTreadDetailCota = showExtStairs && stepsCount >= 2;
 
   // escala/plataforma (and escala/banc) boundary line — normally drawn
   // wall-to-boca in one piece, but step 2 (counting from the wall) sits
@@ -795,15 +807,36 @@ function PlanView({ data }: { data: PdfData }) {
               height={CORONA}
               fill="url(#corona-tiles)"
             />
-            {/* Protrusion's own right wall — spans its own two corners: the
-                reflex corner at the top (already covered by the shortened
-                Bottom segment above, harmless overlap) and its bottom-right
-                corner at the bottom (absorbed here). */}
+            {/* Protrusion's own right wall — straight run ONLY, trimmed by
+                CORONA at both ends so it does NOT reach into either of its
+                two corner squares, mirroring how the base ring's Right
+                segment (see above) spans exactly rectY..rectY+rectH and
+                never overlaps the top/bottom corners Top/Bottom already
+                absorb. Getting this wrong was the actual corona-joint bug:
+                an earlier version spanned the FULL rectY+rectH..
+                rectY+rectH+extProtrusionPx+CORONA range, deliberately
+                overlapping both corner squares "for the fill segments below
+                to absorb" — but since this rect is drawn AFTER Bottom (the
+                shortened main-rect bottom segment, which owns the reflex
+                corner by ending its own left edge exactly there) yet BEFORE
+                nothing draws over it again, its vertical-grain pattern won
+                the top corner square outright, leaving that one corner with
+                joints running the wrong way vs. the other 3 (all
+                horizontal-grain, per the established "Top/Bottom always own
+                every corner" rule this ring otherwise follows everywhere
+                else). The bottom corner square (shared with Protrusion's own
+                bottom wall below) happened to render correctly regardless,
+                only because that segment is drawn AFTER this one and so
+                painted over the overlap — real, but accidental/fragile.
+                Trimming this rect to the pure straight run avoids relying on
+                draw-order luck at either corner: both are left entirely to
+                their rightful horizontal-grain segment (Bottom above,
+                Protrusion's own bottom wall below). */}
             <rect
               x={rectX + extAlongWallPx}
-              y={rectY + rectH}
+              y={rectY + rectH + CORONA}
               width={CORONA}
-              height={extProtrusionPx + CORONA}
+              height={extProtrusionPx - CORONA}
               fill="url(#corona-tiles-vertical)"
             />
           </>
@@ -1211,10 +1244,25 @@ function PlanView({ data }: { data: PdfData }) {
                 its own shared wall). The top edge is deliberately never
                 stroked anywhere — it's the open boundary where this block's
                 water is continuous with the main vas, no dividing wall. */}
-            {/* Risers — horizontal now (constant y, spanning x), same
-                "stepsCount-1 lines, never omitted" rule as the carved-in
-                block's own risers. */}
-            {Array.from({ length: Math.max(0, stepsCount - 1) }, (_, i) => i + 1).map((i) => {
+            {/* Risers — horizontal now (constant y, spanning x). Unlike the
+                carved-in block's own risers (which only need the
+                stepsCount-1 INTERNAL dividers, because its own closing edge
+                at the open-water side doubles as the last riser via the
+                "combined outline" rect stroke — see that block's own
+                comment), this block's open-water edge (y=extOriginY, the
+                top) is deliberately never stroked by the L-polygon's own
+                perimeter (see waterPathD's comment: no dividing wall there).
+                That edge is still a real physical riser though — the last
+                tread (i=stepsCount, darkest, flush with the flat zone's
+                depth) still has its own riser face dropping onto the pool
+                floor, exactly like every other tread does. So this loop
+                covers i=0..stepsCount-1 (stepsCount lines total: the
+                open-water closing riser at i=0, PLUS the stepsCount-1
+                internal dividers) instead of the carved-in block's
+                i=1..stepsCount-1 — i=stepsCount itself (the wall-side edge,
+                y=extOriginY+extProtrusionPx) is intentionally excluded since
+                that one's already covered by the L-polygon's own stroke. */}
+            {Array.from({ length: stepsCount }, (_, i) => i).map((i) => {
               const y = extOriginY + (extProtrusionPx * i) / stepsCount;
               return <line key={i} x1={extOriginX} y1={y} x2={extOriginX + extAlongWallPx} y2={y} stroke={DRAW} strokeWidth="0.3" />;
             })}
@@ -1245,6 +1293,37 @@ function PlanView({ data }: { data: PdfData }) {
               labelGap={1.3}
               color={DIM_INTERIOR}
             />
+            {/* Tread width detail — see extFirstTreadY/showExtTreadDetailCota
+                above. Vertical orientation (span is along y here, the
+                block's own tread axis), positioned INSIDE the block near its
+                right edge (objPos=extAlongWallPx-1.5, outward=-1, pointing
+                left/into the block) rather than centered, so it stays clear
+                of the risers (0.3 stroke, not a cota) and of the Ample cota
+                below (which sits OUTSIDE, south of the wall edge — this one
+                never leaves the block's own interior). Same small sizing as
+                the carved-in block's own tread-width detail cota
+                (fontSize/offset/gap/overshoot/tick/labelGap all copied from
+                there). horizontalLabel: same reasoning as ProfileView's own
+                single-riser-height detail cota — a single tread's height is
+                too short a span for the rotated label to read cleanly. */}
+            {showExtTreadDetailCota && (
+              <Dimension
+                orientation="vertical"
+                objPos={extOriginX + extAlongWallPx - 1.5}
+                outward={-1}
+                from={extFirstTreadY}
+                to={extOriginY + extProtrusionPx}
+                label={`${fmtM(0.3)} m`}
+                fontSize={1.8}
+                offset={1}
+                gap={0.6}
+                overshoot={0.4}
+                tick={0.2}
+                labelGap={0.8}
+                horizontalLabel
+                color={DIM_INTERIOR}
+              />
+            )}
           </g>
         )}
 
