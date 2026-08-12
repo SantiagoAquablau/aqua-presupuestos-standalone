@@ -252,7 +252,7 @@ export function StepEstructura() {
 
     if (type === 'plataforma') {
       const platformH = d > 0 ? round2(d - 0.4) : undefined;
-      const stairLen = 1.5;
+      const stairLen = d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined;
       return {
         ...empty,
         stairsWidth: w > 0 ? round2((3 + widthExtra) * (1 / 3)) : undefined,
@@ -269,7 +269,7 @@ export function StepEstructura() {
       return {
         ...empty,
         stairsWidth: w > 0 ? round2((3 + widthExtra) * (1 / 3)) : undefined,
-        stairsLength: 1.5,
+        stairsLength: d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined,
         stairsHeight: d > 0 ? round2(d) : undefined,
         benchWidth: w > 0 ? round2((3 + widthExtra) * (2 / 3)) : undefined,
         benchLength: 0.6,
@@ -281,7 +281,7 @@ export function StepEstructura() {
       return {
         ...empty,
         stairsWidth: w > 0 ? round2(w) : undefined,
-        stairsLength: 1.5,
+        stairsLength: d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined,
         stairsHeight: d > 0 ? round2(d) : undefined,
       };
     }
