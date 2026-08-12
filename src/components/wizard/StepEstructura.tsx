@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useWizardValidation, fieldErrorClass } from '@/hooks/useWizardValidation';
 import { FieldError } from '@/components/wizard/FieldError';
 import { DecimalInput } from '@/components/wizard/DecimalInput';
+import { computeInteriorStepsCount } from '@/lib/stairsGeometry';
 
 export function StepEstructura() {
   const { draft, updateDraft, setStep } = useBudgetStore();
@@ -243,8 +244,8 @@ export function StepEstructura() {
     if (type === 'estandard') {
       return {
         ...empty,
-        stairsWidth: w > 0 ? round2(1.5 + widthExtra) : undefined,
-        stairsLength: 1.5,
+        stairsWidth: w > 0 ? Math.min(round2(1.5 + widthExtra), 1.5) : undefined,
+        stairsLength: d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined,
         stairsHeight: d > 0 ? round2(d) : undefined,
       };
     }

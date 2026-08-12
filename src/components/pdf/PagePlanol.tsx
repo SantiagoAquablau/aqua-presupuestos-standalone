@@ -23,6 +23,7 @@
 import type { PdfData } from "./pdfTypes";
 import { PDF_FONTS, formatPdfDate, pdfPageStyle } from "./pdfStyles";
 import { PdfLogo } from "./PdfShared";
+import { computeInteriorStepsCount } from "@/lib/stairsGeometry";
 
 const NAVY = "#2f4494";
 const DRAW = "#3a3a3a"; // neutral dark gray for all technical linework (contour, hatching, risers)
@@ -107,16 +108,6 @@ function fmtM(n?: number): string {
 function parseMetersList(dims?: string): number[] {
   if (!dims) return [];
   return Array.from(dims.matchAll(/(\d+(?:,\d+)?)\s*m/g)).map((m) => parseFloat(m[1].replace(",", ".")));
-}
-
-/** Same riser-height convention used for the exterior access stair everywhere
- *  else in the app (StepEstructura.tsx, formulaEngine.ts, budgetSave.ts,
- *  PageElementsEstructurals.tsx): one 0.20m riser per step, minus 1 because
- *  the pool floor itself counts as the last "step". Applied here with
- *  poolDepthMin, the depth at the shallow end where the interior stairs are
- *  drawn. */
-function computeStepsCount(depth?: number): number {
-  return typeof depth === "number" && depth > 0 ? Math.max(0, Math.round(depth / 0.2 - 1)) : 0;
 }
 
 /** Gentle repeating sine-like wave built from alternating quadratic bezier
@@ -431,7 +422,7 @@ function PlanView({ data }: { data: PdfData }) {
 
   const showStairs = !!data.hasInteriorStairs;
   // "escala a tot l'ample" — geometrically identical to the standard escala
-  // (same risers, same computeStepsCount formula, same protrusion), the only
+  // (same risers, same computeInteriorStepsCount formula, same protrusion), the only
   // difference being stairsWidth: computeSuggestions() in StepEstructura.tsx
   // sets it to the full poolWidth for this type (stairsWidth = w) instead of
   // a partial value, so the block spans the pool's entire wall height rather
@@ -450,7 +441,7 @@ function PlanView({ data }: { data: PdfData }) {
   // Bottom corner of the shallow-end wall, not centered — a real stair sits
   // against a corner, not floating mid-wall.
   const stairsY = rectY + rectH - stairsAlongWall;
-  const stepsCount = computeStepsCount(data.poolDepthMin);
+  const stepsCount = computeInteriorStepsCount(data.poolDepthMin);
   // First tread's own width (x-span from the wall to the first riser line,
   // rectX to rectX + stairsProtrusion/stepsCount below) — same geometry
   // ProfileView's stairsTreadW is built from (flatWidth/(totalRisers-1),
@@ -714,7 +705,7 @@ function PlanView({ data }: { data: PdfData }) {
 
         {/* Schematic stairs — shallow end, bottom corner, fixed convention,
             drawn to the same metres→mm scale as the pool itself.
-            Riser count follows computeStepsCount(poolDepthMin), same 0.20m
+            Riser count follows computeInteriorStepsCount(poolDepthMin), same 0.20m
             riser formula used for the exterior access stair elsewhere. */}
         {showStairs && (
           <g>
@@ -1164,7 +1155,7 @@ function ProfileView({ data }: { data: PdfData }) {
   const stairsNums = parseMetersList(data.stairsDimensions);
   const stairsWidthM = stairsNums[0] > 0 ? stairsNums[0] : 0.9;
   const stairsLengthM = stairsNums[1] > 0 ? stairsNums[1] : stairsWidthM * 0.8;
-  const stepsCount = computeStepsCount(dMin);
+  const stepsCount = computeInteriorStepsCount(dMin);
 
   // Vw MUST stay PLAN_VW (not just "the same number") — both this <svg> and
   // PlanView's render at width="182mm" with a viewBox of the same width, so
@@ -1316,7 +1307,7 @@ function ProfileView({ data }: { data: PdfData }) {
   // it lands at flatEndX/minY regardless of step count). Purely a visual
   // detail drawn over the already-flat floor, same idea as PlanView's riser
   // lines over its escala rect; doesn't affect fillPathD/outlinePathD.
-  // totalRisers = stepsCount + 1: computeStepsCount already subtracts one
+  // totalRisers = stepsCount + 1: computeInteriorStepsCount already subtracts one
   // riser "because the pool floor counts as the last step" (see its own
   // doc comment) — added back here since every riser, including that last
   // one down onto the floor, needs to actually be drawn.
@@ -1392,7 +1383,7 @@ function ProfileView({ data }: { data: PdfData }) {
   // Riser height uses the ACTUAL computed value for this pool
   // (dMin/totalRisers — the very same division riserH itself, passed into
   // stairsProfilePath above, is built from) rather than hardcoding 0.20:
-  // the 0.20m baked into computeStepsCount's formula is a target/nominal
+  // the 0.20m baked into computeInteriorStepsCount's formula is a target/nominal
   // riser height, and Math.round there means a specific pool's
   // dMin/totalRisers doesn't always land on exactly 0.20 once rounded —
   // showing the real number keeps this cota consistent with the riser
