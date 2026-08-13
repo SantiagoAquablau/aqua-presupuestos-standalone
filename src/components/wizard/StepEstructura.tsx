@@ -187,7 +187,8 @@ export function StepEstructura() {
   type StairField =
     | 'stairsWidth' | 'stairsLength' | 'stairsHeight'
     | 'platformWidth' | 'platformLength' | 'platformHeight'
-    | 'benchWidth' | 'benchLength' | 'benchHeight';
+    | 'benchWidth' | 'benchLength' | 'benchHeight'
+    | 'extStairsLength';
   const userModifiedRef = useRef<Record<StairField, boolean> | null>(null);
   if (userModifiedRef.current === null) {
     // Initialize from existing draft: if a stair field already has a value
@@ -197,6 +198,7 @@ export function StepEstructura() {
       stairsWidth: false, stairsLength: false, stairsHeight: false,
       platformWidth: false, platformLength: false, platformHeight: false,
       benchWidth: false, benchLength: false, benchHeight: false,
+      extStairsLength: false,
     };
     const type = draft.interiorStairsType;
     if (type && type !== 'sense') {
@@ -237,6 +239,19 @@ export function StepEstructura() {
       benchWidth: undefined, benchLength: undefined, benchHeight: undefined,
     };
 
+    // Ext-stairs own length suggestion — poolDepthMin stays the source of
+    // truth for how many risers the exterior escala needs (same
+    // computeInteriorStepsCount*0.30 formula the no-exterior-stairs
+    // stairsLength case already uses below), independently of whichever
+    // interiorStairsType is selected: the exterior escala is a physical
+    // structure of its own (section 3B), not a property of the interior
+    // escala type (section 3C). Deliberately NOT folded into `empty`/the
+    // 'sense' branch below — 'sense' means "no interior escala", not "no
+    // exterior escala", so switching interiorStairsType to 'sense' must not
+    // wipe out an unrelated extStairsLength the user already has (whether
+    // auto-suggested or hand-edited).
+    const extStairsLen = draft.hasExteriorStairs && d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined;
+
     if (type === 'sense') {
       return { ...empty, stairsWidth: 0, stairsLength: 0, stairsHeight: 0, platformWidth: 0, platformLength: 0, platformHeight: 0, benchWidth: 0, benchLength: 0, benchHeight: 0 };
     }
@@ -260,6 +275,7 @@ export function StepEstructura() {
           ? round2(draft.extStairsLength as number)
           : d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined,
         stairsHeight: d > 0 ? round2(d) : undefined,
+        extStairsLength: extStairsLen,
       };
     }
 
@@ -292,6 +308,7 @@ export function StepEstructura() {
         // Platform length must mirror the stair length (per business rule)
         platformLength: useExtSize ? extLen : stairLen,
         platformHeight: platformH,
+        extStairsLength: extStairsLen,
       };
     }
 
@@ -304,6 +321,7 @@ export function StepEstructura() {
         benchWidth: w > 0 ? round2((3 + widthExtra) * (2 / 3)) : undefined,
         benchLength: 0.6,
         benchHeight: d > 0 ? round2(d - 0.4) : undefined,
+        extStairsLength: extStairsLen,
       };
     }
 
@@ -313,6 +331,7 @@ export function StepEstructura() {
         stairsWidth: w > 0 ? round2(w) : undefined,
         stairsLength: d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined,
         stairsHeight: d > 0 ? round2(d) : undefined,
+        extStairsLength: extStairsLen,
       };
     }
 
@@ -325,6 +344,7 @@ export function StepEstructura() {
       stairsWidth: false, stairsLength: false, stairsHeight: false,
       platformWidth: false, platformLength: false, platformHeight: false,
       benchWidth: false, benchLength: false, benchHeight: false,
+      extStairsLength: false,
     };
     const suggestions = computeSuggestions(value, draft.poolWidth || 0, draft.poolDepthMin || 0);
     updateDraft({ interiorStairsType: value, ...suggestions });
@@ -470,7 +490,7 @@ export function StepEstructura() {
             </div>
             {draft.hasExteriorStairs && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label className={labelClass}>Llarg escala (m)</label><input type="number" step="0.01" className={inputClass} value={draft.extStairsLength || ''} onChange={(e) => updateDraft({ extStairsLength: (e.target.value === "" ? undefined : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : undefined)) })} /></div>
+                <div><label className={labelClass}>Llarg escala (m)</label><input type="number" step="0.01" className={inputClass} value={draft.extStairsLength || ''} onChange={(e) => { markUserModified('extStairsLength'); updateDraft({ extStairsLength: (e.target.value === "" ? undefined : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : undefined)) }); }} /></div>
                 <div><label className={labelClass}>Ample escala (m)</label><input type="number" step="0.01" className={inputClass} value={draft.extStairsWidth || ''} onChange={(e) => updateDraft({ extStairsWidth: (e.target.value === "" ? undefined : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : undefined)) })} /></div>
               </div>
             )}
