@@ -1334,20 +1334,30 @@ function PlanView({ data }: { data: PdfData }) {
                 {isExtPlataforma && extPlatformWidthPx > 0 && (
                   <rect x={extOriginX + extStairsWidthPx} y={extOriginY} width={extPlatformWidthPx} height={extProtrusionPx} fill={step2Color} />
                 )}
-                {/* Banc — same 2-layer fill the carved-in block's own
+                {/* Banc — same 2-layer idea the carved-in block's own
                     hasDepthColor branch uses (see its own comment): a base
-                    rect spanning the FULL protrusion depth in lastStepColor
-                    (so the stretch beyond the banc's own reach, toward open
-                    water, still reads as "same color as the last step" —
-                    exactly like the carved-in block's column fill, per the
-                    same design spec), then the banc's own actual footprint
-                    (extBenchProtrusion, near the wall — see isExtBanc above)
-                    on top in step2Color. Unlike the platform above, this
-                    can't be a single rect: the banc genuinely doesn't reach
-                    open water in this axis either. */}
+                    rect spanning the FULL protrusion depth, then the banc's
+                    own actual footprint (extBenchProtrusion, near the wall —
+                    see isExtBanc above) on top in step2Color. Unlike the
+                    platform above, this can't be a single rect: the banc
+                    genuinely doesn't reach open water in this axis either.
+                    The base layer, UNLIKE the carved-in block's own
+                    (lastStepColor, a flat solid tone — correct there, since
+                    that space sits INSIDE the carved-in block, walled off
+                    from the main body), uses the water-gradient here
+                    instead: this block sits OUTSIDE the vas, and per
+                    waterPathD's own design the stretch beyond the banc's
+                    reach is continuous open water with the main body (no
+                    dividing wall in the polygon) — a flat lastStepColor
+                    patch there would show as a visibly disconnected block
+                    against the main body's own horizontal gradient. Reusing
+                    the exact same gradient (userSpaceOnUse, keyed off
+                    rectX/rectW — see its own def above) makes this rect
+                    pick up whatever color the main body already has at this
+                    x-range, so the two fuse into one continuous field. */}
                 {showExtBench && (
                   <>
-                    <rect x={extOriginX + extStairsWidthPx} y={extOriginY} width={extBenchWidthPx} height={extProtrusionPx} fill={lastStepColor} />
+                    <rect x={extOriginX + extStairsWidthPx} y={extOriginY} width={extBenchWidthPx} height={extProtrusionPx} fill="url(#water-gradient)" />
                     <rect x={extOriginX + extStairsWidthPx} y={extBenchEdgeY} width={extBenchWidthPx} height={extBenchProtrusion} fill={step2Color} />
                   </>
                 )}
@@ -2000,7 +2010,14 @@ function ProfileView({ data }: { data: PdfData }) {
   // same point the last riser of the main zigzag also lands on) and falls
   // straight down to minY (the escala floor level).
   const isPlataformaProfile = data.interiorStairsType === "plataforma" && !!data.hasPlatform;
-  const showPlatformProfile = isPlataformaProfile && totalRisers >= 2;
+  // !data.hasExteriorStairs: when the escala exterior d'obra is active, the
+  // real stairs are OUTSIDE the vas (see PlanView's own ext-stairs block) —
+  // this view's vas cut should show a clean vessel with no interior-escala
+  // element drawn inside it at all. Gating here (rather than at each
+  // individual cota's own flag) covers the platform shelf/height cota
+  // together in one place; the zigzag itself and the escala-llarg/riser-
+  // detail cotas are gated the same way at their own definitions below.
+  const showPlatformProfile = isPlataformaProfile && totalRisers >= 2 && !data.hasExteriorStairs;
   const platformLevelY = waterlineY + 2 * riserH;
   const platformStartX = profX + stairsTreadW;
   const platformProfileD = `M ${platformStartX} ${platformLevelY} L ${flatEndX} ${platformLevelY} L ${flatEndX} ${minY}`;
@@ -2027,7 +2044,10 @@ function ProfileView({ data }: { data: PdfData }) {
   // cotas), objPos=minY (the escala's own floor level, not the pool's
   // deepest point) since this cota only spans the escala's own x-range and
   // minY already sits well clear of maxY/Vh for any realistic depth.
-  const showStairsLengthCota = !!data.hasInteriorStairs;
+  // !data.hasExteriorStairs — see showPlatformProfile's own comment above:
+  // no interior-escala element (including this cota) should draw at all
+  // once the real stairs live outside the vas.
+  const showStairsLengthCota = !!data.hasInteriorStairs && !data.hasExteriorStairs;
 
   // Single-step construction-detail cota — riser height for ONE
   // representative step, as opposed to the escala-llarg cota above which
@@ -2161,8 +2181,13 @@ function ProfileView({ data }: { data: PdfData }) {
         strokeWidth="0.5"
       />
       <line x1={profX} y1={waterlineY} x2={endX} y2={waterlineY} stroke={DRAW} strokeWidth="0.6" />
-      {/* Staircase, in section — same stroke style as the main contour. */}
-      <path d={stairsProfileD} fill="none" stroke={DRAW} strokeWidth="0.6" strokeLinejoin="round" />
+      {/* Staircase, in section — same stroke style as the main contour.
+          !data.hasExteriorStairs: see showPlatformProfile's own comment
+          above — no interior-escala element draws once the real stairs are
+          outside the vas. */}
+      {!data.hasExteriorStairs && (
+        <path d={stairsProfileD} fill="none" stroke={DRAW} strokeWidth="0.6" strokeLinejoin="round" />
+      )}
       {/* "Escala amb plataforma" shelf, in section — schematic secondary
           element, not part of the structural contour: same DRAW color but
           half the contour's strokeWidth (0.3 vs 0.6) so it visually reads
