@@ -313,12 +313,35 @@ export function StepEstructura() {
     }
 
     if (type === 'banc') {
+      // Same "Escala Exterior d'Obra describes this same physical escala"
+      // idea as 'estandard'/'plataforma' above: when active, stairsWidth/
+      // benchWidth apply the SAME 1:2 split formula as plataforma's own
+      // stairsWidth/platformWidth, just driven by extStairsWidth instead of
+      // poolWidth, and stairsLength mirrors extStairsLength directly (the
+      // escala sub-block shares the exterior escala's own protrusion depth
+      // — see PagePlanol.tsx's ext-stairs block). benchLength, UNLIKE
+      // platformLength, does NOT mirror stairsLength/extStairsLength — it
+      // stays fixed at 0.6m regardless (confirmed business rule: the banc
+      // always protrudes LESS than the escala, snapped in PagePlanol.tsx to
+      // the step-2/step-3 riser divider — see its own extBenchProtrusion —
+      // independent of poolDepthMin/extStairsLength). Still just a
+      // suggestion: markUserModified/userModifiedRef let the user override
+      // any of the 4 fields independently, same as always.
+      const useExtSize = !!draft.hasExteriorStairs && (draft.extStairsLength || 0) > 0 && (draft.extStairsWidth || 0) > 0;
+      const extW = useExtSize ? (draft.extStairsWidth as number) : 0;
+      const widthExtraExt = extW > 3 ? extW - 3 : 0;
       return {
         ...empty,
-        stairsWidth: w > 0 ? round2((3 + widthExtra) * (1 / 3)) : undefined,
-        stairsLength: d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined,
+        stairsWidth: useExtSize
+          ? round2((3 + widthExtraExt) * (1 / 3))
+          : w > 0 ? round2((3 + widthExtra) * (1 / 3)) : undefined,
+        stairsLength: useExtSize
+          ? round2(draft.extStairsLength as number)
+          : d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined,
         stairsHeight: d > 0 ? round2(d) : undefined,
-        benchWidth: w > 0 ? round2((3 + widthExtra) * (2 / 3)) : undefined,
+        benchWidth: useExtSize
+          ? round2((3 + widthExtraExt) * (2 / 3))
+          : w > 0 ? round2((3 + widthExtra) * (2 / 3)) : undefined,
         benchLength: 0.6,
         benchHeight: d > 0 ? round2(d - 0.4) : undefined,
         extStairsLength: extStairsLen,

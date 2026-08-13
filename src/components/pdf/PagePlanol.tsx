@@ -478,16 +478,23 @@ function PlanView({ data }: { data: PdfData }) {
   const firstTreadX = rectX + stairsProtrusion / stepsCount;
   const showTreadDetailCota = showStairs && stepsCount >= 2;
 
-  // "escala amb plataforma" — platform identity/width, hoisted up here
-  // (originally declared right before platformAlongWall/platformY further
-  // down) because the ext-stairs block below (isExtPlataforma) now also
-  // needs isPlataforma/platformWidthM, not just the carved-in block.
-  // platformAlongWall/platformY/showPlatform stay in their original spot —
-  // those are interior-axis-specific (platformAlongWall is capped against
-  // rectH-stairsAlongWall, meaningless for the ext block's own axis/cap).
+  // "escala amb plataforma"/"escala amb banc" — platform/bench identity+width,
+  // hoisted up here (originally declared right before
+  // platformAlongWall/platformY and benchAlongWall/benchY further down)
+  // because the ext-stairs block below (isExtPlataforma/isExtBanc) now also
+  // needs isPlataforma/platformWidthM and isBanc/benchWidthM, not just the
+  // carved-in block. platformAlongWall/platformY/showPlatform and
+  // benchAlongWall/benchY/showBench/benchProtrusion/benchEdgeX stay in their
+  // original spot — those are interior-axis-specific (their AlongWall is
+  // capped against rectH-stairsAlongWall, and benchProtrusion snaps to the
+  // interior-axis boundaryGapX2, both meaningless for the ext block's own
+  // axis/cap/boundary).
   const isPlataforma = data.interiorStairsType === "plataforma" && !!data.hasPlatform;
   const platformNums = isPlataforma ? parseMetersList(data.platformDimensions) : [];
   const platformWidthM = platformNums[0] > 0 ? platformNums[0] : undefined;
+  const isBanc = data.interiorStairsType === "banc" && !!data.hasPlatform;
+  const benchNums = isBanc ? parseMetersList(data.platformDimensions) : [];
+  const benchWidthM = benchNums[0] > 0 ? benchNums[0] : undefined;
 
   // Ext-stairs block geometry — "Escala Exterior d'Obra". Protrudes from the
   // LONG bottom wall (along poolLength) instead of the short left wall the
@@ -499,31 +506,37 @@ function PlanView({ data }: { data: PdfData }) {
   // cap — it's outside the vas, not bounded by the pool's own footprint,
   // same reasoning as the previous (left-wall) ext-stairs cap removal.
   //
-  // Supports 'estandard' (steps only, full width) and 'plataforma' (steps +
-  // an adjacent flat platform, same 1:2 width split StepEstructura.tsx's
-  // computeSuggestions() already uses for the carved-in case, just driven by
-  // extStairsWidth instead of poolWidth — see its own 'plataforma' branch).
-  // 'banc'/'tot_ample' still fall back to the plain steps-only look
-  // (isExtPlataforma false for those), deferred to another session per the
-  // same reasoning as before.
+  // Supports 'estandard' (steps only, full width), 'plataforma' (steps + an
+  // adjacent flat platform spanning the FULL protrusion depth) and 'banc'
+  // (steps + an adjacent bench that only protrudes PART of the depth, near
+  // the wall — see extBenchProtrusion below), all reusing the same 1:2 width
+  // split StepEstructura.tsx's computeSuggestions() already uses for the
+  // carved-in case, just driven by extStairsWidth instead of poolWidth (see
+  // its own 'plataforma'/'banc' branches). 'tot_ample' still falls back to
+  // the plain steps-only look, deferred to another session per the same
+  // reasoning as before.
   //
-  // extStairsWidthPx/extPlatformWidthPx mirror the carved-in block's own
-  // stairsAlongWall/platformAlongWall split (a simple independent Math.min
-  // cap, escala first then platform capped to the leftover) rather than
-  // proportionally rescaling both from data.extStairsWidth directly — this
-  // keeps the two sub-widths exactly self-consistent with the polygon's own
-  // extAlongWallPx (now their sum) even in the edge case where
-  // stairsWidthM+platformWidthM doesn't exactly equal data.extStairsWidth
-  // (the same "floors at 3m combined" edge case computeSuggestions' own
-  // formula already has for poolWidth<3m, now inherited for extStairsWidth
-  // <3m too — not something introduced here, just carried through).
+  // extStairsWidthPx/extPlatformWidthPx/extBenchWidthPx mirror the carved-in
+  // block's own stairsAlongWall/platformAlongWall/benchAlongWall split (a
+  // simple independent Math.min cap, escala first then platform/banc capped
+  // to the leftover) rather than proportionally rescaling both from
+  // data.extStairsWidth directly — this keeps the two sub-widths exactly
+  // self-consistent with the polygon's own extAlongWallPx (now their sum)
+  // even in the edge case where stairsWidthM+platformWidthM/benchWidthM
+  // doesn't exactly equal data.extStairsWidth (the same "floors at 3m
+  // combined" edge case computeSuggestions' own formula already has for
+  // poolWidth<3m, now inherited for extStairsWidth<3m too — not something
+  // introduced here, just carried through).
   const isExtPlataforma = showExtStairs && isPlataforma;
+  const isExtBanc = showExtStairs && isBanc;
   const extStairsWidthPx = showExtStairs
-    ? Math.min((isExtPlataforma ? stairsWidthM : (data.extStairsWidth as number)) * scale, rectW)
+    ? Math.min(((isExtPlataforma || isExtBanc) ? stairsWidthM : (data.extStairsWidth as number)) * scale, rectW)
     : 0;
   const extPlatformWidthPx =
     isExtPlataforma && platformWidthM ? Math.min(platformWidthM * scale, rectW - extStairsWidthPx) : 0;
-  const extAlongWallPx = extStairsWidthPx + extPlatformWidthPx;
+  const extBenchWidthPx =
+    isExtBanc && benchWidthM ? Math.min(benchWidthM * scale, rectW - extStairsWidthPx) : 0;
+  const extAlongWallPx = extStairsWidthPx + extPlatformWidthPx + extBenchWidthPx;
   const extProtrusionPx = showExtStairs ? (data.extStairsLength as number) * scale : 0;
   const extOriginX = rectX;
   const extOriginY = rectY + rectH;
@@ -599,10 +612,9 @@ function PlanView({ data }: { data: PdfData }) {
   // front edge does, however, line up with the escala's step-2/step-3
   // divider — see benchProtrusion below.) Same data.platformDimensions field
   // is reused for the banc's own W×L×H (see budgetSave.ts), hence reusing
-  // parseMetersList/the "platform" name for the raw numbers here.
-  const isBanc = data.interiorStairsType === "banc" && !!data.hasPlatform;
-  const benchNums = isBanc ? parseMetersList(data.platformDimensions) : [];
-  const benchWidthM = benchNums[0] > 0 ? benchNums[0] : undefined;
+  // parseMetersList/the "platform" name for the raw numbers here. (isBanc/
+  // benchNums/benchWidthM themselves are hoisted above, next to isPlataforma
+  // — see that comment.)
   const benchLengthM = benchNums[1] > 0 ? benchNums[1] : 0.6; // matches the fixed 0.6m suggestion; still used for the cota's label
   const benchAlongWall = benchWidthM ? Math.min(benchWidthM * scale, rectH - stairsAlongWall) : 0;
   const benchY = stairsY - benchAlongWall;
@@ -631,6 +643,37 @@ function PlanView({ data }: { data: PdfData }) {
   // fully solid, same as the "no banc/no plataforma" case.
   const benchGapX1 = boundaryGapX1 !== null ? Math.min(boundaryGapX1, benchEdgeX) : null;
   const benchGapX2 = boundaryGapX2 !== null ? Math.min(boundaryGapX2, benchEdgeX) : null;
+
+  // Ext-axis "escala amb banc" — axis-swapped version of benchProtrusion/
+  // benchEdgeX/benchGapX1/X2 above, same snap-to-divider idea: the banc's
+  // own front (open-water-facing) edge snaps to extBoundaryGapY2 (the
+  // step-2/step-3 riser divider, "2 steps' worth of depth from the wall")
+  // instead of being computed from benchLengthM independently — the two
+  // must line up exactly, same physical level-match reasoning as the
+  // carved-in banc's own snap. Unlike the carved-in axis (wall at low x,
+  // banc protrudes toward increasing x), the ext axis has the wall at HIGH y
+  // (extOriginY+extProtrusionPx — see the ext-stairs block's own axis
+  // comment above showExtStairs) and open water at LOW y, so the banc
+  // protrudes from the wall toward DECREASING y instead: extBenchEdgeY sits
+  // BELOW the wall by extBenchProtrusion, not above extOriginY by it. Falls
+  // back to the metres-based benchLengthM calculation when there's no
+  // step-2 divider to snap to (fewer than 2 interior risers), same fallback
+  // benchProtrusion itself uses.
+  const showExtBench = isExtBanc && extBenchWidthPx > 0;
+  const extBenchProtrusion = !showExtBench
+    ? 0
+    : extBoundaryGapY2 !== null
+      ? Math.min(extOriginY + extProtrusionPx - extBoundaryGapY2, extProtrusionPx)
+      : Math.min(benchLengthM * scale, extProtrusionPx);
+  const extBenchEdgeY = extOriginY + extProtrusionPx - extBenchProtrusion;
+  // Clip the escala/banc level-match gap to the banc's own reach, same
+  // reasoning as benchGapX1/X2 above — Math.max instead of Math.min because
+  // the ext axis' "beyond the banc" direction is toward LOWER y (open
+  // water), the opposite of the carved-in axis' "beyond benchEdgeX" (higher
+  // x). If the gap falls entirely beyond the banc (or there's no real step 2
+  // to gap in the first place), the boundary line below renders fully solid.
+  const extBenchGapY1 = extBoundaryGapY1 !== null ? Math.max(extBoundaryGapY1, extBenchEdgeY) : null;
+  const extBenchGapY2 = extBoundaryGapY2 !== null ? Math.max(extBoundaryGapY2, extBenchEdgeY) : null;
 
   // Depth-driven water color. Guarded on both depths being present/valid —
   // with missing data hasDepthColor stays false and every color below falls
@@ -1236,11 +1279,14 @@ function PlanView({ data }: { data: PdfData }) {
         )}
 
         {/* Ext-stairs block — "Escala Exterior d'Obra". Supports 'estandard'
-            (steps spanning the full extAlongWallPx) and 'plataforma' (steps
+            (steps spanning the full extAlongWallPx), 'plataforma' (steps
             over extStairsWidthPx only, an adjacent flat platform over
-            extPlatformWidthPx — see isExtPlataforma above); 'banc'/
-            'tot_ample' still fall back to the plain steps-only look.
-            Rotated 90° from the carved-in escala above: treads stack
+            extPlatformWidthPx spanning the FULL protrusion depth — see
+            isExtPlataforma above) and 'banc' (steps over extStairsWidthPx,
+            an adjacent bench over extBenchWidthPx that only protrudes PART
+            of the depth, near the wall — see isExtBanc/extBenchProtrusion
+            above); 'tot_ample' still falls back to the plain steps-only
+            look. Rotated 90° from the carved-in escala above: treads stack
             downward (y) instead of sideways (x), risers are horizontal
             lines instead of vertical ones, growing from extOriginY (the
             vas's own bottom wall) instead of from a side wall. Same
@@ -1287,6 +1333,23 @@ function PlanView({ data }: { data: PdfData }) {
                     the escala along x. */}
                 {isExtPlataforma && extPlatformWidthPx > 0 && (
                   <rect x={extOriginX + extStairsWidthPx} y={extOriginY} width={extPlatformWidthPx} height={extProtrusionPx} fill={step2Color} />
+                )}
+                {/* Banc — same 2-layer fill the carved-in block's own
+                    hasDepthColor branch uses (see its own comment): a base
+                    rect spanning the FULL protrusion depth in lastStepColor
+                    (so the stretch beyond the banc's own reach, toward open
+                    water, still reads as "same color as the last step" —
+                    exactly like the carved-in block's column fill, per the
+                    same design spec), then the banc's own actual footprint
+                    (extBenchProtrusion, near the wall — see isExtBanc above)
+                    on top in step2Color. Unlike the platform above, this
+                    can't be a single rect: the banc genuinely doesn't reach
+                    open water in this axis either. */}
+                {showExtBench && (
+                  <>
+                    <rect x={extOriginX + extStairsWidthPx} y={extOriginY} width={extBenchWidthPx} height={extProtrusionPx} fill={lastStepColor} />
+                    <rect x={extOriginX + extStairsWidthPx} y={extBenchEdgeY} width={extBenchWidthPx} height={extBenchProtrusion} fill={step2Color} />
+                  </>
                 )}
               </>
             ) : (
@@ -1351,6 +1414,23 @@ function PlanView({ data }: { data: PdfData }) {
                 strokeWidth="0.3"
               />
             )}
+            {/* Banc's own front edge — its own riser/drop where the raised
+                bench ends and the open basin continues (in lastStepColor,
+                per the fill above), at y=extBenchEdgeY rather than
+                y=extOriginY: unlike the platform, the banc doesn't reach
+                open water in this axis, so this is an INTERNAL line (not on
+                the open-water boundary) and doesn't extend/continue the i=0
+                riser line above the way the platform's own edge does. */}
+            {showExtBench && (
+              <line
+                x1={extOriginX + extStairsWidthPx}
+                y1={extBenchEdgeY}
+                x2={extOriginX + extAlongWallPx}
+                y2={extBenchEdgeY}
+                stroke={DRAW}
+                strokeWidth="0.3"
+              />
+            )}
             {/* Escala/plataforma boundary — vertical divider at
                 x=extOriginX+extStairsWidthPx, axis-swapped version of the
                 carved-in block's own boundaryGapX1/X2 gap: open over step
@@ -1381,6 +1461,47 @@ function PlanView({ data }: { data: PdfData }) {
                 )}
               </g>
             )}
+            {/* Escala/banc boundary — same idea as the plataforma boundary
+                just above, but clipped to the banc's own (shorter) reach
+                via extBenchGapY1/Y2 instead of the raw extBoundaryGapY1/Y2
+                — same "clip to the bench's real edge" reasoning as the
+                carved-in block's own benchGapX1/X2 (see its own comment).
+                The gap still opens over the FULL step-2 y-span whenever the
+                banc reaches that far (the ordinary case, since
+                extBenchEdgeY===extBoundaryGapY2 by construction — see
+                extBenchProtrusion's own comment), same as plataforma; the
+                clip only matters as a defensive fallback, mirroring
+                benchGapX1/X2's own no-op-in-the-ordinary-case shape. The
+                second solid segment still runs all the way to extOriginY
+                (open water), NOT just to extBenchEdgeY — this divider
+                separates the escala column from "whatever sits beside it"
+                (banc where it reaches, open basin water beyond), so it
+                stays a real boundary for the FULL depth regardless of the
+                banc's own shorter footprint, same as the carved-in block's
+                own benchGapX1/X2 line resuming all the way to the escala's
+                own front edge. */}
+            {showExtBench && (
+              <g stroke={DRAW} strokeWidth="0.4">
+                {extBenchGapY1 !== null && extBenchGapY2 !== null ? (
+                  <>
+                    <line
+                      x1={extOriginX + extStairsWidthPx}
+                      y1={extOriginY + extProtrusionPx}
+                      x2={extOriginX + extStairsWidthPx}
+                      y2={extBenchGapY1}
+                    />
+                    <line x1={extOriginX + extStairsWidthPx} y1={extBenchGapY2} x2={extOriginX + extStairsWidthPx} y2={extOriginY} />
+                  </>
+                ) : (
+                  <line
+                    x1={extOriginX + extStairsWidthPx}
+                    y1={extOriginY}
+                    x2={extOriginX + extStairsWidthPx}
+                    y2={extOriginY + extProtrusionPx}
+                  />
+                )}
+              </g>
+            )}
             {/* Ample cota(s), along the wall — horizontal, below the block's
                 own corona. offset/gap reuse the same "clear the corona,
                 short centered crossing" recipe stairsLengthExtOffset/
@@ -1391,16 +1512,18 @@ function PlanView({ data }: { data: PdfData }) {
                 area against a wall, these sit OUTSIDE the ext-stairs
                 block's own corona, needing real clearance past it). Split
                 into two adjacent spans on the SAME line when isExtPlataforma
-                (escala then platform, chained end to end, same "one line,
-                two spans" pattern the carved-in plataforma's own Ample
-                cotas use — see showPlatform's Dimension pair above, just
-                horizontal here instead of vertical) — a single combined cota
-                otherwise. The Llarg cota (extStairsLength, shared by escala
-                AND platform since platformLength===stairsLength by
-                construction) moved out of this block entirely — it now
-                shares the vas's own Width cota's line (same objPos/offset),
-                see further down. */}
-            {isExtPlataforma && extPlatformWidthPx > 0 ? (
+                or showExtBench (escala then platform/banc, chained end to
+                end, same "one line, two spans" pattern the carved-in
+                plataforma/banc's own Ample cotas use — see showPlatform's/
+                showBench's Dimension pairs above, just horizontal here
+                instead of vertical) — a single combined cota otherwise. The
+                escala's own Llarg cota (extStairsLength, shared with the
+                platform when platformLength===stairsLength by construction
+                — NOT with the banc, whose own length differs, see its own
+                separate cota below) moved out of this block entirely — it
+                now shares the vas's own Width cota's line (same
+                objPos/offset), see further down. */}
+            {(isExtPlataforma && extPlatformWidthPx > 0) || showExtBench ? (
               <>
                 <Dimension
                   orientation="horizontal"
@@ -1423,7 +1546,7 @@ function PlanView({ data }: { data: PdfData }) {
                   outward={1}
                   from={extOriginX + extStairsWidthPx}
                   to={extOriginX + extAlongWallPx}
-                  label={`${fmtM(platformWidthM)} m`}
+                  label={`${fmtM(isExtBanc ? benchWidthM : platformWidthM)} m`}
                   fontSize={2.6}
                   offset={stairsLengthExtOffset}
                   gap={stairsLengthExtGap}
@@ -1445,6 +1568,39 @@ function PlanView({ data }: { data: PdfData }) {
                 offset={stairsLengthExtOffset}
                 gap={stairsLengthExtGap}
                 overshoot={mainDimOvershoot}
+                tick={0.3}
+                labelGap={1.3}
+                color={DIM_INTERIOR}
+              />
+            )}
+            {/* Banc's own Llarg cota — the banc protrudes LESS than the
+                escala (extBenchProtrusion < extProtrusionPx, unlike the
+                platform whose length always mirrors the escala's own — see
+                the Ample cota's own comment above), so unlike platform it
+                needs its own separate length cota, distinct from the
+                escala's own extStairsLength one shared with the vas's Width
+                cota further down. Same in-block placement/sizing as the
+                carved-in block's own banc llarg cota (objPos 2mm inset from
+                an edge, fontSize/offset/gap/overshoot/tick/labelGap all
+                copied from there) — axis-swapped to vertical (the banc's
+                length runs along y here) and inset from the banc's own
+                OUTER edge (extAlongWallPx) instead of its top, pointing
+                inward. label uses benchLengthM (the nominal/spec'd value),
+                NOT extBenchProtrusion — same "geometry snaps to the
+                divider, but the label keeps showing the nominal length"
+                reasoning as the carved-in block's own benchLengthM. */}
+            {showExtBench && (
+              <Dimension
+                orientation="vertical"
+                objPos={extOriginX + extAlongWallPx - 2}
+                outward={-1}
+                from={extBenchEdgeY}
+                to={extOriginY + extProtrusionPx}
+                label={`${fmtM(benchLengthM)} m`}
+                fontSize={2.6}
+                offset={1.4}
+                gap={0.4}
+                overshoot={0.6}
                 tick={0.3}
                 labelGap={1.3}
                 color={DIM_INTERIOR}
