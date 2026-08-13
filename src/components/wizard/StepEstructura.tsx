@@ -266,14 +266,31 @@ export function StepEstructura() {
     if (type === 'plataforma') {
       const platformH = d > 0 ? round2(d - 0.4) : undefined;
       const stairLen = d > 0 ? round2(computeInteriorStepsCount(d) * 0.30) : undefined;
+      // Same "Escala Exterior d'Obra describes this same physical escala"
+      // idea as 'estandard' above (see its own useExtSize comment): when
+      // active, stairsWidth/platformWidth apply the SAME 1:2 split formula
+      // but driven by extStairsWidth instead of poolWidth, and
+      // stairsLength/platformLength both mirror extStairsLength directly
+      // (both sub-blocks share the exterior escala's own protrusion depth —
+      // see PagePlanol.tsx's ext-stairs block). Still just a suggestion:
+      // markUserModified/userModifiedRef let the user override any of the 4
+      // fields independently, same as always.
+      const useExtSize = !!draft.hasExteriorStairs && (draft.extStairsLength || 0) > 0 && (draft.extStairsWidth || 0) > 0;
+      const extW = useExtSize ? (draft.extStairsWidth as number) : 0;
+      const widthExtraExt = extW > 3 ? extW - 3 : 0;
+      const extLen = useExtSize ? round2(draft.extStairsLength as number) : undefined;
       return {
         ...empty,
-        stairsWidth: w > 0 ? round2((3 + widthExtra) * (1 / 3)) : undefined,
-        stairsLength: stairLen,
+        stairsWidth: useExtSize
+          ? round2((3 + widthExtraExt) * (1 / 3))
+          : w > 0 ? round2((3 + widthExtra) * (1 / 3)) : undefined,
+        stairsLength: useExtSize ? extLen : stairLen,
         stairsHeight: d > 0 ? round2(d) : undefined,
-        platformWidth: w > 0 ? round2((3 + widthExtra) * (2 / 3)) : undefined,
+        platformWidth: useExtSize
+          ? round2((3 + widthExtraExt) * (2 / 3))
+          : w > 0 ? round2((3 + widthExtra) * (2 / 3)) : undefined,
         // Platform length must mirror the stair length (per business rule)
-        platformLength: stairLen,
+        platformLength: useExtSize ? extLen : stairLen,
         platformHeight: platformH,
       };
     }

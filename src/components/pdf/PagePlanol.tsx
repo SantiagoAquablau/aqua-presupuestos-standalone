@@ -478,18 +478,52 @@ function PlanView({ data }: { data: PdfData }) {
   const firstTreadX = rectX + stairsProtrusion / stepsCount;
   const showTreadDetailCota = showStairs && stepsCount >= 2;
 
-  // Ext-stairs block geometry — "Escala Exterior d'Obra", 'estandard' look
-  // only (see showExtStairs comment above). Protrudes from the LONG bottom
-  // wall (along poolLength) instead of the short left wall the carved-in
-  // block above uses, left-aligned to the poolDepthMin-side corner (same
-  // corner the carved-in escala already occupies). extStairsWidth runs
-  // along the wall (x, from rectX rightward, capped to the available
-  // length rectW — mirrors the rectH cap the carved-in block's own
-  // stairsAlongWall uses for its wall); extStairsLength is the protrusion,
-  // straight down (y) with no cap — it's outside the vas, not bounded by
-  // the pool's own footprint, same reasoning as the previous (left-wall)
-  // ext-stairs cap removal.
-  const extAlongWallPx = showExtStairs ? Math.min((data.extStairsWidth as number) * scale, rectW) : 0;
+  // "escala amb plataforma" — platform identity/width, hoisted up here
+  // (originally declared right before platformAlongWall/platformY further
+  // down) because the ext-stairs block below (isExtPlataforma) now also
+  // needs isPlataforma/platformWidthM, not just the carved-in block.
+  // platformAlongWall/platformY/showPlatform stay in their original spot —
+  // those are interior-axis-specific (platformAlongWall is capped against
+  // rectH-stairsAlongWall, meaningless for the ext block's own axis/cap).
+  const isPlataforma = data.interiorStairsType === "plataforma" && !!data.hasPlatform;
+  const platformNums = isPlataforma ? parseMetersList(data.platformDimensions) : [];
+  const platformWidthM = platformNums[0] > 0 ? platformNums[0] : undefined;
+
+  // Ext-stairs block geometry — "Escala Exterior d'Obra". Protrudes from the
+  // LONG bottom wall (along poolLength) instead of the short left wall the
+  // carved-in block above uses, left-aligned to the poolDepthMin-side corner
+  // (same corner the carved-in escala already occupies). Total width along
+  // the wall runs from extOriginX rightward, capped to the available length
+  // rectW (mirrors the rectH cap the carved-in block's own stairsAlongWall
+  // uses for its wall); the protrusion (length) is straight down (y) with no
+  // cap — it's outside the vas, not bounded by the pool's own footprint,
+  // same reasoning as the previous (left-wall) ext-stairs cap removal.
+  //
+  // Supports 'estandard' (steps only, full width) and 'plataforma' (steps +
+  // an adjacent flat platform, same 1:2 width split StepEstructura.tsx's
+  // computeSuggestions() already uses for the carved-in case, just driven by
+  // extStairsWidth instead of poolWidth — see its own 'plataforma' branch).
+  // 'banc'/'tot_ample' still fall back to the plain steps-only look
+  // (isExtPlataforma false for those), deferred to another session per the
+  // same reasoning as before.
+  //
+  // extStairsWidthPx/extPlatformWidthPx mirror the carved-in block's own
+  // stairsAlongWall/platformAlongWall split (a simple independent Math.min
+  // cap, escala first then platform capped to the leftover) rather than
+  // proportionally rescaling both from data.extStairsWidth directly — this
+  // keeps the two sub-widths exactly self-consistent with the polygon's own
+  // extAlongWallPx (now their sum) even in the edge case where
+  // stairsWidthM+platformWidthM doesn't exactly equal data.extStairsWidth
+  // (the same "floors at 3m combined" edge case computeSuggestions' own
+  // formula already has for poolWidth<3m, now inherited for extStairsWidth
+  // <3m too — not something introduced here, just carried through).
+  const isExtPlataforma = showExtStairs && isPlataforma;
+  const extStairsWidthPx = showExtStairs
+    ? Math.min((isExtPlataforma ? stairsWidthM : (data.extStairsWidth as number)) * scale, rectW)
+    : 0;
+  const extPlatformWidthPx =
+    isExtPlataforma && platformWidthM ? Math.min(platformWidthM * scale, rectW - extStairsWidthPx) : 0;
+  const extAlongWallPx = extStairsWidthPx + extPlatformWidthPx;
   const extProtrusionPx = showExtStairs ? (data.extStairsLength as number) * scale : 0;
   const extOriginX = rectX;
   const extOriginY = rectY + rectH;
@@ -522,6 +556,18 @@ function PlanView({ data }: { data: PdfData }) {
   // the cota against.
   const extFirstTreadY = extOriginY + ((stepsCount - 1) * extProtrusionPx) / stepsCount;
   const showExtTreadDetailCota = showExtStairs && stepsCount >= 2;
+  // Ext escala/plataforma boundary — same "step 2 opens up, walk across with
+  // no level change" idea as the carved-in block's own boundaryGapX1/X2
+  // (below), axis-swapped: the divider here is a VERTICAL line (at
+  // x=extOriginX+extStairsWidthPx) with a gap over step 2's own y-span
+  // instead of a horizontal line gapped over step 2's own x-span.
+  // extBoundaryGapY1 (near the wall, high y) reuses extFirstTreadY directly
+  // — that's exactly "the first riser line", i.e. the tread1/tread2 divider,
+  // same role boundaryGapX1 plays for the carved-in block's near-wall gap
+  // edge. extBoundaryGapY2 (near open water, low y) is the next riser down,
+  // the tread2/tread3 divider.
+  const extBoundaryGapY1 = stepsCount >= 2 ? extFirstTreadY : null;
+  const extBoundaryGapY2 = stepsCount >= 2 ? extOriginY + ((stepsCount - 2) * extProtrusionPx) / stepsCount : null;
 
   // escala/plataforma (and escala/banc) boundary line — normally drawn
   // wall-to-boca in one piece, but step 2 (counting from the wall) sits
@@ -540,9 +586,6 @@ function PlanView({ data }: { data: PdfData }) {
   // StepEstructura.tsx's computeSuggestions(): stairsLength and
   // platformLength are the same value (flush front edge), only the width
   // along the wall differs.
-  const isPlataforma = data.interiorStairsType === "plataforma" && !!data.hasPlatform;
-  const platformNums = isPlataforma ? parseMetersList(data.platformDimensions) : [];
-  const platformWidthM = platformNums[0] > 0 ? platformNums[0] : undefined;
   const platformAlongWall = platformWidthM ? Math.min(platformWidthM * scale, rectH - stairsAlongWall) : 0;
   const platformY = stairsY - platformAlongWall;
   const showPlatform = isPlataforma && platformAlongWall > 0;
@@ -1192,14 +1235,16 @@ function PlanView({ data }: { data: PdfData }) {
           </g>
         )}
 
-        {/* Ext-stairs block — "Escala Exterior d'Obra", 'estandard' look
-            only (plataforma/banc/tot_ample not supported here yet — see
-            showExtStairs comment above; interiorStairsType is ignored for
-            this block entirely). Rotated 90° from the carved-in escala
-            above: treads stack downward (y) instead of sideways (x), risers
-            are horizontal lines instead of vertical ones, growing from
-            extOriginY (the vas's own bottom wall) instead of from a side
-            wall. Same stepColor/hasDepthColor fallback logic reused as-is —
+        {/* Ext-stairs block — "Escala Exterior d'Obra". Supports 'estandard'
+            (steps spanning the full extAlongWallPx) and 'plataforma' (steps
+            over extStairsWidthPx only, an adjacent flat platform over
+            extPlatformWidthPx — see isExtPlataforma above); 'banc'/
+            'tot_ample' still fall back to the plain steps-only look.
+            Rotated 90° from the carved-in escala above: treads stack
+            downward (y) instead of sideways (x), risers are horizontal
+            lines instead of vertical ones, growing from extOriginY (the
+            vas's own bottom wall) instead of from a side wall. Same
+            stepColor/step2Color/hasDepthColor fallback logic reused as-is —
             only the axis differs, not the coloring.
             Tread-to-index mapping is DELIBERATELY reversed from the naive
             "i-1 offset from extOriginY" the carved-in block's own x formula
@@ -1223,16 +1268,27 @@ function PlanView({ data }: { data: PdfData }) {
         {showExtStairs && (
           <g>
             {hasDepthColor ? (
-              Array.from({ length: stepsCount }, (_, idx) => idx + 1).map((i) => (
-                <rect
-                  key={i}
-                  x={extOriginX}
-                  y={extOriginY + ((stepsCount - i) * extProtrusionPx) / stepsCount}
-                  width={extAlongWallPx}
-                  height={extProtrusionPx / stepsCount}
-                  fill={stepColor(i)}
-                />
-              ))
+              <>
+                {Array.from({ length: stepsCount }, (_, idx) => idx + 1).map((i) => (
+                  <rect
+                    key={i}
+                    x={extOriginX}
+                    y={extOriginY + ((stepsCount - i) * extProtrusionPx) / stepsCount}
+                    width={extStairsWidthPx}
+                    height={extProtrusionPx / stepsCount}
+                    fill={stepColor(i)}
+                  />
+                ))}
+                {/* Platform — same tone as the 2nd step (step2Color, already
+                    computed above for the carved-in block and reused as-is),
+                    spanning the FULL protrusion depth (y) since
+                    platformLength===stairsLength===extStairsLength by
+                    construction (see StepEstructura.tsx's sync), adjacent to
+                    the escala along x. */}
+                {isExtPlataforma && extPlatformWidthPx > 0 && (
+                  <rect x={extOriginX + extStairsWidthPx} y={extOriginY} width={extPlatformWidthPx} height={extProtrusionPx} fill={step2Color} />
+                )}
+              </>
             ) : (
               <rect x={extOriginX} y={extOriginY} width={extAlongWallPx} height={extProtrusionPx} fill={WATER} />
             )}
@@ -1241,11 +1297,16 @@ function PlanView({ data }: { data: PdfData }) {
                 of the L water polygon's own outer perimeter (see
                 waterPathD), redrawn on top further down (same "redraw on
                 top of the fills" pass the carved-in escala relies on for
-                its own shared wall). The top edge is deliberately never
-                stroked anywhere — it's the open boundary where this block's
-                water is continuous with the main vas, no dividing wall. */}
-            {/* Risers — horizontal now (constant y, spanning x). Unlike the
-                carved-in block's own risers (which only need the
+                its own shared wall). The top edge is NOT part of that
+                perimeter (waterPathD treats this block's water as
+                continuous with the main vas there, no dividing wall in the
+                polygon itself) — but it's still a real physical drop (the
+                escala's last riser, and the platform's own front edge when
+                present) and gets its own explicit stroke below instead. */}
+            {/* Risers — horizontal now (constant y, spanning x), only across
+                the escala's own width (extStairsWidthPx, not the full
+                extAlongWallPx — the platform, when present, has no risers).
+                Unlike the carved-in block's own risers (which only need the
                 stepsCount-1 INTERNAL dividers, because its own closing edge
                 at the open-water side doubles as the last riser via the
                 "combined outline" rect stroke — see that block's own
@@ -1264,43 +1325,141 @@ function PlanView({ data }: { data: PdfData }) {
                 that one's already covered by the L-polygon's own stroke. */}
             {Array.from({ length: stepsCount }, (_, i) => i).map((i) => {
               const y = extOriginY + (extProtrusionPx * i) / stepsCount;
-              return <line key={i} x1={extOriginX} y1={y} x2={extOriginX + extAlongWallPx} y2={y} stroke={DRAW} strokeWidth="0.3" />;
+              return <line key={i} x1={extOriginX} y1={y} x2={extOriginX + extStairsWidthPx} y2={y} stroke={DRAW} strokeWidth="0.3" />;
             })}
-            {/* Ample cota (extStairsWidth, along the wall) — horizontal,
-                below the block's own corona. offset/gap reuse the same
-                "clear the corona, short centered crossing" recipe
-                stairsLengthExtOffset/stairsLengthExtGap already use for the
-                banc/tot_ample external llarg cota elsewhere on this page
-                (CORONA + a few mm, not the tiny in-block offset the interior
-                escala's own Ample/plataforma/banc cotas use — those sit
-                INSIDE the water area against a wall, this one sits OUTSIDE
-                the ext-stairs block's own corona, needing real clearance
-                past it). The Llarg cota (extStairsLength) moved out of this
-                block entirely — it now shares the vas's own Width cota's
-                line (same objPos/offset), see further down. */}
-            <Dimension
-              orientation="horizontal"
-              objPos={extOriginY + extProtrusionPx}
-              outward={1}
-              from={extOriginX}
-              to={extOriginX + extAlongWallPx}
-              label={`${fmtM(data.extStairsWidth)} m`}
-              fontSize={2.6}
-              offset={stairsLengthExtOffset}
-              gap={stairsLengthExtGap}
-              overshoot={mainDimOvershoot}
-              tick={0.3}
-              labelGap={1.3}
-              color={DIM_INTERIOR}
-            />
+            {/* Platform's own open-water edge — same root cause as the
+                escala's i=0 riser above: in the carved-in block, the
+                platform's front edge is covered "for free" because the
+                combined outline rect (see that block's own comment) spans
+                escala+platform together, so its single right-edge stroke
+                doubles as both the escala's last riser AND the platform's
+                front edge in one line. Here there's no combined outline
+                rect at all, so each portion needs its own explicit line —
+                the escala's portion got one (the i=0 riser above, x up to
+                extStairsWidthPx only), but the platform's portion
+                (extStairsWidthPx..extAlongWallPx, same y=extOriginY) was
+                left uncovered. Continues the same y as the i=0 riser and
+                reuses its exact stroke so the two read as one unbroken
+                line across the full block width. */}
+            {isExtPlataforma && extPlatformWidthPx > 0 && (
+              <line
+                x1={extOriginX + extStairsWidthPx}
+                y1={extOriginY}
+                x2={extOriginX + extAlongWallPx}
+                y2={extOriginY}
+                stroke={DRAW}
+                strokeWidth="0.3"
+              />
+            )}
+            {/* Escala/plataforma boundary — vertical divider at
+                x=extOriginX+extStairsWidthPx, axis-swapped version of the
+                carved-in block's own boundaryGapX1/X2 gap: open over step
+                2's own y-span (extBoundaryGapY1/Y2 above) so that stretch
+                reads as walkable between escala and plataforma with no
+                level change, solid everywhere else. Falls back to one solid
+                line when there's no real step 2 (stepsCount<2), same
+                fallback the carved-in block's own boundary uses. */}
+            {isExtPlataforma && extPlatformWidthPx > 0 && (
+              <g stroke={DRAW} strokeWidth="0.4">
+                {extBoundaryGapY1 !== null && extBoundaryGapY2 !== null ? (
+                  <>
+                    <line
+                      x1={extOriginX + extStairsWidthPx}
+                      y1={extOriginY + extProtrusionPx}
+                      x2={extOriginX + extStairsWidthPx}
+                      y2={extBoundaryGapY1}
+                    />
+                    <line x1={extOriginX + extStairsWidthPx} y1={extBoundaryGapY2} x2={extOriginX + extStairsWidthPx} y2={extOriginY} />
+                  </>
+                ) : (
+                  <line
+                    x1={extOriginX + extStairsWidthPx}
+                    y1={extOriginY}
+                    x2={extOriginX + extStairsWidthPx}
+                    y2={extOriginY + extProtrusionPx}
+                  />
+                )}
+              </g>
+            )}
+            {/* Ample cota(s), along the wall — horizontal, below the block's
+                own corona. offset/gap reuse the same "clear the corona,
+                short centered crossing" recipe stairsLengthExtOffset/
+                stairsLengthExtGap already use for the banc/tot_ample
+                external llarg cota elsewhere on this page (CORONA + a few
+                mm, not the tiny in-block offset the interior escala's own
+                Ample/plataforma/banc cotas use — those sit INSIDE the water
+                area against a wall, these sit OUTSIDE the ext-stairs
+                block's own corona, needing real clearance past it). Split
+                into two adjacent spans on the SAME line when isExtPlataforma
+                (escala then platform, chained end to end, same "one line,
+                two spans" pattern the carved-in plataforma's own Ample
+                cotas use — see showPlatform's Dimension pair above, just
+                horizontal here instead of vertical) — a single combined cota
+                otherwise. The Llarg cota (extStairsLength, shared by escala
+                AND platform since platformLength===stairsLength by
+                construction) moved out of this block entirely — it now
+                shares the vas's own Width cota's line (same objPos/offset),
+                see further down. */}
+            {isExtPlataforma && extPlatformWidthPx > 0 ? (
+              <>
+                <Dimension
+                  orientation="horizontal"
+                  objPos={extOriginY + extProtrusionPx}
+                  outward={1}
+                  from={extOriginX}
+                  to={extOriginX + extStairsWidthPx}
+                  label={`${fmtM(stairsWidthM)} m`}
+                  fontSize={2.6}
+                  offset={stairsLengthExtOffset}
+                  gap={stairsLengthExtGap}
+                  overshoot={mainDimOvershoot}
+                  tick={0.3}
+                  labelGap={1.3}
+                  color={DIM_INTERIOR}
+                />
+                <Dimension
+                  orientation="horizontal"
+                  objPos={extOriginY + extProtrusionPx}
+                  outward={1}
+                  from={extOriginX + extStairsWidthPx}
+                  to={extOriginX + extAlongWallPx}
+                  label={`${fmtM(platformWidthM)} m`}
+                  fontSize={2.6}
+                  offset={stairsLengthExtOffset}
+                  gap={stairsLengthExtGap}
+                  overshoot={mainDimOvershoot}
+                  tick={0.3}
+                  labelGap={1.3}
+                  color={DIM_INTERIOR}
+                />
+              </>
+            ) : (
+              <Dimension
+                orientation="horizontal"
+                objPos={extOriginY + extProtrusionPx}
+                outward={1}
+                from={extOriginX}
+                to={extOriginX + extAlongWallPx}
+                label={`${fmtM(data.extStairsWidth)} m`}
+                fontSize={2.6}
+                offset={stairsLengthExtOffset}
+                gap={stairsLengthExtGap}
+                overshoot={mainDimOvershoot}
+                tick={0.3}
+                labelGap={1.3}
+                color={DIM_INTERIOR}
+              />
+            )}
             {/* Tread width detail — see extFirstTreadY/showExtTreadDetailCota
                 above. Vertical orientation (span is along y here, the
-                block's own tread axis), positioned INSIDE the block near its
-                right edge (objPos=extAlongWallPx-1.5, outward=-1, pointing
-                left/into the block) rather than centered, so it stays clear
+                block's own tread axis), positioned INSIDE the escala's own
+                sub-block near its right edge (objPos=extStairsWidthPx-1.5,
+                NOT extAlongWallPx — when a platform is present that would
+                land inside the platform instead — outward=-1, pointing
+                left/into the escala) rather than centered, so it stays clear
                 of the risers (0.3 stroke, not a cota) and of the Ample cota
                 below (which sits OUTSIDE, south of the wall edge — this one
-                never leaves the block's own interior). Same small sizing as
+                never leaves the escala's own interior). Same small sizing as
                 the carved-in block's own tread-width detail cota
                 (fontSize/offset/gap/overshoot/tick/labelGap all copied from
                 there). horizontalLabel: same reasoning as ProfileView's own
@@ -1309,7 +1468,7 @@ function PlanView({ data }: { data: PdfData }) {
             {showExtTreadDetailCota && (
               <Dimension
                 orientation="vertical"
-                objPos={extOriginX + extAlongWallPx - 1.5}
+                objPos={extOriginX + extStairsWidthPx - 1.5}
                 outward={-1}
                 from={extFirstTreadY}
                 to={extOriginY + extProtrusionPx}
