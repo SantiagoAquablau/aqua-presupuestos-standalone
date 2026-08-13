@@ -966,7 +966,11 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   // Bomba (group autobomba) — equip sale + 12h MO
   const bombaSaleVal = (() => {
     const onoffInclos = !!draft.instalBombaOnoffId && !draft.instalBombaOnoffOpcional;
-    const variableInclos = !!draft.instalBombaVariableId && !draft.instalBombaVariableOpcional;
+    // Requires !onoffInclos, same as filtreInclosArt's cartutxInclos &&
+    // !sorraInclos guard — On/Off wins the tie when both flags are
+    // ambiguously "inclòs" (e.g. undefined _Opcional fields), so Variable
+    // never gets picked as included by default.
+    const variableInclos = !!draft.instalBombaVariableId && !draft.instalBombaVariableOpcional && !onoffInclos;
     const art = variableInclos ? a(draft.instalBombaVariableId) : onoffInclos ? a(draft.instalBombaOnoffId) : undefined;
     const qty = variableInclos ? Number(draft.instalBombaVariableQty ?? 1) : Number(draft.instalBombaOnoffQty ?? 1);
     const key = variableInclos ? "instal_bomba_variable" : onoffInclos ? "instal_bomba_onoff" : undefined;
@@ -1457,12 +1461,12 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     // flag. That was wrong: Especial gets auto-defaulted (Hayward) as
     // opcional=true on nearly every budget, so that fallback showed it as
     // the INCLUDED filter in the PDF even when the wizard itself displayed
-    // it tagged "Opcional". cartutx wins if both ended up marked inclòs
-    // (mirrors the bomba pair's convention below); default to "sorra" when
-    // neither is inclòs.
+    // it tagged "Opcional". sorra wins if both ended up marked inclòs
+    // (mirrors filtreInclosArt's price calc above and the bomba pair's
+    // convention below); default to "sorra" when neither is inclòs either.
     ...(function () {
       const sorraInclos = !!draft.instalFiltrePoliesId && !draft.instalFiltrePoliesOpcional;
-      const cartutxInclos = !!draft.instalFiltreEspecialId && !draft.instalFiltreEspecialOpcional;
+      const cartutxInclos = !!draft.instalFiltreEspecialId && !draft.instalFiltreEspecialOpcional && !sorraInclos;
       const tipus: "sorra" | "cartutx" = cartutxInclos ? "cartutx" : "sorra";
       const art = tipus === "cartutx" ? a(draft.instalFiltreEspecialId) : a(draft.instalFiltrePoliesId);
       return {
@@ -1515,7 +1519,8 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
       // feeds on Page 5) kept showing the old equip/price regardless.
       if (!bombaOn) return {};
       const onoffInclos = !!draft.instalBombaOnoffId && !draft.instalBombaOnoffOpcional;
-      const variableInclos = !!draft.instalBombaVariableId && !draft.instalBombaVariableOpcional;
+      // Requires !onoffInclos — see bombaSaleVal above for why.
+      const variableInclos = !!draft.instalBombaVariableId && !draft.instalBombaVariableOpcional && !onoffInclos;
       const tipus: "standard" | "inverter" | undefined = variableInclos
         ? "inverter"
         : onoffInclos

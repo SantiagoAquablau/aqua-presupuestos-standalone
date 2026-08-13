@@ -459,6 +459,28 @@ export function StepInstalacions() {
     find();
   }, [draft.instalFiltreEspecialId]);
 
+  // Pin Bomba On/Off + Velocitat Variable "_Opcional" flags to concrete
+  // values as soon as an id is assigned — by manual pick in either
+  // EquipmentSelector above, or by the "Aplicar totes les recomanacions"
+  // bulk apply (onApply below), which sets both instalBombaOnoffId and
+  // instalBombaVariableId in a single updateDraft call without ever
+  // touching the _Opcional flags. Left undefined, budgetSave.ts's raw
+  // `!draft.instalBombaXxxOpcional` reads treat BOTH pumps as "inclòs"
+  // simultaneously, and its tie-break used to favor Variable — showing the
+  // wrong pump as included in the PDF. On/Off wins the default here,
+  // mirroring its own `?? false` default in this component's UI. Same
+  // pattern as the Filtre especial auto-default effect above.
+  useEffect(() => {
+    const updates: Record<string, boolean> = {};
+    if (draft.instalBombaOnoffId && draft.instalBombaOnoffOpcional === undefined) {
+      updates.instalBombaOnoffOpcional = false;
+    }
+    if (draft.instalBombaVariableId && draft.instalBombaVariableOpcional === undefined) {
+      updates.instalBombaVariableOpcional = true;
+    }
+    if (Object.keys(updates).length > 0) updateDraft(updates);
+  }, [draft.instalBombaOnoffId, draft.instalBombaVariableId]);
+
   // Auto-find fontaneria base article
   const [fontaneriaArticle, setFontaneriaArticle] = useState<{ id: string; name: string; sale_price: number } | null>(
     null,
