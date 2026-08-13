@@ -40,6 +40,7 @@ export function PageAcabats({ data }: { data: PdfData }) {
     data.revestimentBeuradaColor && data.revestimentBeuradaColor.trim()
       ? data.revestimentBeuradaColor
       : "a determinar segons model";
+  const revBeuradaIsEpoxi = (data.revestimentBeuradaLabel || "").toLowerCase().includes("epoxi");
 
   return (
     <section style={pdfPageStyle}>
@@ -234,9 +235,9 @@ export function PageAcabats({ data }: { data: PdfData }) {
               </ul>
             </div>
 
-            {/* Two-column block: Tipus de revestiment + Model */}
-            <div style={{ display: "flex", gap: "8mm", marginBottom: "4mm" }}>
-              <div style={{ flex: 1 }}>
+            {/* Two/three-column block: Tipus de revestiment + Model (+ Epoxi advantages) */}
+            <div style={{ display: "flex", gap: "8mm", marginBottom: "4mm", alignItems: "flex-start" }}>
+              <div style={{ flex: revBeuradaIsEpoxi ? 0.8 : 1 }}>
                 <div
                   style={{
                     fontFamily: '"Tenor Sans", serif',
@@ -257,7 +258,7 @@ export function PageAcabats({ data }: { data: PdfData }) {
                   </div>
                 )}
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: revBeuradaIsEpoxi ? 0.8 : 1, marginLeft: revBeuradaIsEpoxi ? "4mm" : 0 }}>
                 <div
                   style={{
                     fontFamily: '"Tenor Sans", serif',
@@ -294,6 +295,11 @@ export function PageAcabats({ data }: { data: PdfData }) {
                   <div style={{ fontSize: "11pt", fontStyle: "italic", color: PDF_COLORS.textMuted }}>A determinar</div>
                 )}
               </div>
+              {revBeuradaIsEpoxi && (
+                <div style={{ flex: "0 0 52mm" }}>
+                  <EpoxiAdvantagesCard />
+                </div>
+              )}
             </div>
           </>
         )}
@@ -340,6 +346,62 @@ export function PageAcabats({ data }: { data: PdfData }) {
         }}
       />
     </section>
+  );
+}
+
+const EPOXI_BULLETS = [
+  "Antiàcida i bactericida, pensada per a piscines.",
+  "Elimina el risc de carbonatació de les juntes.",
+  "Molt resistent, requereix menys manteniment.",
+  "10 anys de garantia des de l'aplicació.",
+];
+
+function EpoxiAdvantagesCard() {
+  return (
+    <div
+      style={{
+        position: "relative",
+        background: "#ffffff",
+        borderRadius: 14,
+        padding: "9px 10px 8px 10px",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+        border: "1px solid #f0e7df",
+      }}
+    >
+      <img
+        src="/pdf/check-double.png"
+        alt=""
+        crossOrigin="anonymous"
+        style={{
+          position: "absolute",
+          top: -10,
+          left: -14,
+          width: 26,
+          height: 26,
+          zIndex: 3,
+        }}
+      />
+      <div
+        style={{
+          color: "#ff751f",
+          fontWeight: 700,
+          fontSize: "8.5pt",
+          lineHeight: 1.2,
+          marginLeft: 6,
+          marginBottom: 5,
+        }}
+      >
+        Avantatges Beurada Epoxi
+      </div>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: "6.8pt", lineHeight: 1.25 }}>
+        {EPOXI_BULLETS.map((b) => (
+          <li key={b} style={{ display: "flex", alignItems: "flex-start", gap: 3, marginBottom: 2 }}>
+            <span style={{ color: "#1a1a1a", lineHeight: 1.2 }}>•</span>
+            <span style={{ flex: 1 }}>{b}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
