@@ -26,6 +26,57 @@ function computeHasAccessStair(draft: BudgetDraft): boolean {
   return disposition === "semi_enterrada" && !!draft.hasAccessStair;
 }
 
+// Resolve the comercial (sales rep) name/email for the PDF contact page.
+// Falls back to the current session user when the draft hasn't been
+// persisted/reloaded yet (e.g. PDF generated for a brand-new budget before
+// its first save round-trips comercial_id back into the draft), then to the
+// SECURITY DEFINER RPC when RLS hides the `profiles` row directly (e.g. an
+// admin generating the PDF for a budget assigned to a different comercial).
+async function resolveComercialInfo(
+  draft: BudgetDraft,
+): Promise<{ comercialName?: string; comercialEmail?: string }> {
+  let comercialName: string | undefined;
+  let comercialEmail: string | undefined;
+  let comercialId = draft.comercialId;
+  if (!comercialId) {
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      comercialId = auth?.user?.id;
+    } catch { /* ignore */ }
+  }
+  if (comercialId) {
+    try {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", comercialId)
+        .maybeSingle();
+      if (prof) {
+        comercialName = (prof as any).full_name || undefined;
+        comercialEmail = (prof as any).email || undefined;
+      }
+    } catch {
+      /* ignore */
+    }
+    // Fallback: if RLS hid the profile (e.g. current user is not the
+    // comercial and not an admin), use the SECURITY DEFINER RPC that
+    // safely lists comercials.
+    if (!comercialName && !comercialEmail) {
+      try {
+        const { data: list } = await supabase.rpc("list_comercials");
+        const match = (list || []).find((r: any) => r.id === comercialId);
+        if (match) {
+          comercialName = (match as any).full_name || undefined;
+          comercialEmail = (match as any).email || undefined;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return { comercialName, comercialEmail };
+}
+
 export function draftToRow(draft: BudgetDraft, userId: string) {
   const depthAvgForSurface =
     draft.poolDepthMin && draft.poolDepthMax ? (draft.poolDepthMin + draft.poolDepthMax) / 2 : 0;
@@ -741,39 +792,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   const priceOf = (n: string) => byName[normalizeArticleName(n)] || 0;
 
   // Resolve the comercial (sales rep) profile for the contact page.
-  let comercialName: string | undefined;
-  let comercialEmail: string | undefined;
-  const comercialId = draft.comercialId;
-  if (comercialId) {
-    try {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .eq("id", comercialId)
-        .maybeSingle();
-      if (prof) {
-        comercialName = (prof as any).full_name || undefined;
-        comercialEmail = (prof as any).email || undefined;
-      }
-    } catch {
-      /* ignore */
-    }
-    // Fallback: if RLS hid the profile (e.g. current user is not the
-    // comercial and not an admin), use the SECURITY DEFINER RPC that
-    // safely lists comercials.
-    if (!comercialName && !comercialEmail) {
-      try {
-        const { data: list } = await supabase.rpc("list_comercials");
-        const match = (list || []).find((r: any) => r.id === comercialId);
-        if (match) {
-          comercialName = (match as any).full_name || undefined;
-          comercialEmail = (match as any).email || undefined;
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-  }
+  const { comercialName, comercialEmail } = await resolveComercialInfo(draft);
 
   // Pool stats
   const depthAvg = draft.poolDepthMin && draft.poolDepthMax ? (draft.poolDepthMin + draft.poolDepthMax) / 2 : 0;
@@ -2512,38 +2531,7 @@ async function buildMaintenancePdf(draft: BudgetDraft): Promise<{ blob: Blob; fi
   const totalMensual = totalAnual / 12;
 
   // Comercial info (best-effort).
-  let comercialName: string | undefined;
-  let comercialEmail: string | undefined;
-  let comercialId = draft.comercialId;
-  if (!comercialId) {
-    try {
-      const { data: auth } = await supabase.auth.getUser();
-      comercialId = auth?.user?.id;
-    } catch { /* ignore */ }
-  }
-  if (comercialId) {
-    try {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .eq("id", comercialId)
-        .maybeSingle();
-      if (prof) {
-        comercialName = (prof as any).full_name || undefined;
-        comercialEmail = (prof as any).email || undefined;
-      }
-    } catch { /* ignore */ }
-    if (!comercialName && !comercialEmail) {
-      try {
-        const { data: list } = await supabase.rpc("list_comercials");
-        const match = (list || []).find((r: any) => r.id === comercialId);
-        if (match) {
-          comercialName = (match as any).full_name || undefined;
-          comercialEmail = (match as any).email || undefined;
-        }
-      } catch { /* ignore */ }
-    }
-  }
+  const { comercialName, comercialEmail } = await resolveComercialInfo(draft);
 
   const depthAvg = Number(draft.poolDepthAvg || 0);
   const volume =
@@ -2706,28 +2694,7 @@ async function buildAutoportantPdf(draft: BudgetDraft): Promise<{ blob: Blob; fi
   })();
 
   // Comercial info (best-effort).
-  let comercialName: string | undefined;
-  let comercialEmail: string | undefined;
-  let comercialId = draft.comercialId;
-  if (!comercialId) {
-    try {
-      const { data: auth } = await supabase.auth.getUser();
-      comercialId = auth?.user?.id;
-    } catch { /* ignore */ }
-  }
-  if (comercialId) {
-    try {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .eq("id", comercialId)
-        .maybeSingle();
-      if (prof) {
-        comercialName = (prof as any).full_name || undefined;
-        comercialEmail = (prof as any).email || undefined;
-      }
-    } catch { /* ignore */ }
-  }
+  const { comercialName, comercialEmail } = await resolveComercialInfo(draft);
 
   void findAutoportantPrice; // referenced indirectly via buildAutoportantPhases
 
