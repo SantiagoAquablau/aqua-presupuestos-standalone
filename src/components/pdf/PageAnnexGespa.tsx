@@ -18,7 +18,7 @@ type ModelInfo = {
   color: string;
   fibra: string;
   polimer: string;
-  densitat: string;
+  densitat?: string;
   composicio?: string;
   base: string;
   lastrat: string;
@@ -27,7 +27,7 @@ type ModelInfo = {
   destacats: string[];
 };
 
-const MODELS: Record<35 | 38 | 45, ModelInfo> = {
+const MODELS: Record<35 | 38 | 45 | "45b", ModelInfo> = {
   38: {
     fullName: "ECOGESPA ARTIFICIAL IC-MAGIC38",
     altura: "38 mm",
@@ -63,6 +63,23 @@ const MODELS: Record<35 | 38 | 45, ModelInfo> = {
       "Bona densitat i resistència",
       "Relació qualitat/preu equilibrada",
       "Aspecte natural de 4 tons",
+    ],
+  },
+  "45b": {
+    fullName: "ECOGESPA ARTIFICIAL MULTIDIRECCIONAL 45MM",
+    altura: "45 mm",
+    color: "Fil multicolor (acabat multidireccional)",
+    fibra: "78% PE & 22% PP",
+    polimer: "TENCATE d'alta qualitat + fibra arrissada",
+    composicio: "Galga 5/8\", ± 1,4 puntades/cm, Pes total 3.138 g/m²",
+    base: "LATEX TENCATE THIOBAC",
+    lastrat: "Sorra de sílice 6 kg/m²",
+    propietats: "Ignífug i imputrescible",
+    garantia: "10 anys contra degradació per raigs UV i gelades",
+    destacats: [
+      "Fil multicolor per a un acabat més natural",
+      "Fibra arrissada (millor recuperació de petjada)",
+      "Lliure de plom i cadmi",
     ],
   },
   45: {
@@ -110,8 +127,8 @@ export function PageAnnexGespa({
   const prefix = "";
   const enumPx = isOpcional ? "" : annexEnumPrefix(annexIndex, annexTotalCount);
 
-  // Force model 35 for "opcional" (per spec); use selected mm otherwise.
-  const mm = (isOpcional ? 35 : data.annexGespaModelMm || 35) as 35 | 38 | 45;
+  // Force new "45b" (Multidireccional 45mm) model for "opcional" (per spec); use selected mm otherwise.
+  const mm = (isOpcional ? "45b" : data.annexGespaModelMm || 35) as 35 | 38 | 45 | "45b";
   const model = MODELS[mm];
 
   const amount = data.annexGespaAmount ?? 0;
@@ -281,7 +298,7 @@ export function PageAnnexGespa({
                   fontWeight: 600,
                 }}
               >
-                Acabat superior — {mm} mm
+                Acabat superior — {model.altura}
               </div>
             </div>
           </div>
