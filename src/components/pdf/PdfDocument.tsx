@@ -162,7 +162,15 @@ export function PdfDocument({ data }: { data: PdfData }) {
     <PageCover key="cover" data={data} />,
     ...(data.poolShape === 'regular' ? [<PagePlanol key="planol" data={data} />] : []),
     <PageEstructura key="estructura" data={data} />,
-    <PageElementsEstructurals key="elements" data={data} />,
+    // PageElementsEstructurals is dedicated solely to the interior stairs/
+    // bench/platform and the exterior access stairs (see its own header
+    // comment) — with neither present it has nothing of its own to show
+    // (elementsEstructuralsTotal is 0, its bullets/title all resolve to
+    // null), so gate the whole page on either condition, same as
+    // PageDepuracio2 above.
+    ...(data.hasInteriorStairs || data.hasAccessStair
+      ? [<PageElementsEstructurals key="elements" data={data} />]
+      : []),
     ...(showAcabats ? [<PageAcabats key="acabats" data={data} />] : []),
     // PageDepuracio1 hosts two independently-toggleable sections (DEPURACIÓ /
     // GRUP MOTOBOMBA) — gated above (showDepuracio1) on EITHER having
