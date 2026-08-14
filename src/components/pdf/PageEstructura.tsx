@@ -9,6 +9,14 @@ import { PdfLogo } from "./PdfShared";
 
 export function PageEstructura({ data }: { data: PdfData }) {
   const sectionAmount = typeof data.vasTotal === "number" ? data.vasTotal : data.phaseStructuralTotal;
+  // PageElementsEstructurals owns the "TOTAL ESTRUCTURA" badge — but that
+  // whole page is skipped in PdfDocument.tsx when there's neither interior
+  // nor exterior access stairs, since it has nothing else to show. In that
+  // case elementsEstructuralsTotal is 0 (phaseStructuralTotal === vasTotal),
+  // so this page shows the badge instead, to avoid losing the Estructura
+  // phase total from the PDF entirely. Never show it in both places.
+  const showTotalBadge = !data.hasInteriorStairs && !data.hasAccessStair;
+  const totalEstructura = Math.round(data.phaseStructuralTotal);
   const showImpertot = data.waterproofingSystem === "impertot";
   const showLaminaProof = data.waterproofingSystem === "lamina_proof";
   const isBloc = data.constructionSystem === "bloc_encofrat";
@@ -296,6 +304,30 @@ export function PageEstructura({ data }: { data: PdfData }) {
           )}
         </div>
       </div>
+
+      {showTotalBadge && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            right: "14mm",
+            transform: "translateY(-50%)",
+            zIndex: 2,
+            backgroundColor: PDF_COLORS.badgePill,
+            color: "#2f4494",
+            borderRadius: 999,
+            padding: "10px 36px",
+            textAlign: "center",
+            border: "3px solid #FFFFFF",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+            fontFamily: '"Tenor Sans", serif',
+          }}
+        >
+          <div style={{ fontSize: "20pt", letterSpacing: 3, lineHeight: 1, marginTop: "-12px" }}>TOTAL</div>
+          <div style={{ fontSize: "11pt", letterSpacing: 2, marginTop: 2, fontWeight: 600 }}>ESTRUCTURA</div>
+          <div style={{ fontSize: "16pt", marginTop: -4, fontWeight: 900 }}>{formatEuro(totalEstructura)}</div>
+        </div>
+      )}
 
       {/* Decorative pool photo - bottom (vas.png) */}
       <img
