@@ -14,8 +14,16 @@ const ORANGE = "#ff751f";
 const ORANGE_PILL = "#ff751f99";
 
 export function PageAnnexOpcionalsInstal({ data }: { data: PdfData }) {
-  const showFiltre = !!data.filtreOpcionalTipus;
-  const showBomba = !!data.bombaOpcionalTipus;
+  // This page is a "substitutive" upsell for whichever base section it
+  // mirrors (see the disclaimer below: "imports substitutius dels equips
+  // d'instal·lacions inclosos al pressupost") — an *Opcional article left
+  // over on the draft with the corresponding base section OFF has nothing
+  // to substitute, so each block also requires its base toggle to be on
+  // (mirrors PdfDocument.tsx's own showOpcionalsInstal/depuracioOn/bombaOn).
+  const depuracioOn = data.depuracioEnabled !== false;
+  const bombaOn = data.bombaEnabled !== false;
+  const showFiltre = depuracioOn && !!data.filtreOpcionalTipus;
+  const showBomba = bombaOn && !!data.bombaOpcionalTipus;
   let n = 0;
 
   return (

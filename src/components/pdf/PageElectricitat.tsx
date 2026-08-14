@@ -113,19 +113,29 @@ export function PageElectricitat({ data }: { data: PdfData }) {
       />
 
       <div style={{ padding: "0 14mm", position: "relative", zIndex: 1 }}>
-        {/* 4 — Instal·lació elèctrica */}
-        <SectionPillTenor number="4" title="INSTAL·LACIÓ ELÈCTRICA" amount={electricaSubtotal} />
-        <div style={{ padding: "0 4mm", fontSize: "10pt", lineHeight: 1.45, marginBottom: "8mm" }}>
-          {quadreOn && (
-            <Row left={smartCase(data.quadreText || "Quadre elèctric de maniobra")} right={formatEuro(quadreSale)} />
-          )}
-          {electricaOn && (
-            <Row
-              left={"Presa de terra cable CU nu 35mm toma terra + piqueta coure + brida coure"}
-              right={formatEuro(electricaSale)}
-            />
-          )}
-        </div>
+        {/* 4 — Instal·lació elèctrica — whole pill gated on either row having
+            content, same pattern as Fontaneria's pill just below: with both
+            quadreOn and electricaOn off, this used to still render an empty
+            pill (0,00 €) with no rows underneath. */}
+        {(quadreOn || electricaOn) && (
+          <>
+            <SectionPillTenor number="4" title="INSTAL·LACIÓ ELÈCTRICA" amount={electricaSubtotal} />
+            <div style={{ padding: "0 4mm", fontSize: "10pt", lineHeight: 1.45, marginBottom: "8mm" }}>
+              {quadreOn && (
+                <Row
+                  left={smartCase(data.quadreText || "Quadre elèctric de maniobra")}
+                  right={formatEuro(quadreSale)}
+                />
+              )}
+              {electricaOn && (
+                <Row
+                  left={"Presa de terra cable CU nu 35mm toma terra + piqueta coure + brida coure"}
+                  right={formatEuro(electricaSale)}
+                />
+              )}
+            </div>
+          </>
+        )}
 
         {/* 5 — Instal·lació fontaneria */}
         {fontaneriaOn && (

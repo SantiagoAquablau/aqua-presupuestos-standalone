@@ -104,7 +104,23 @@ export function PdfDocument({ data }: { data: PdfData }) {
   const gespaEstat = data.annexGespaEstat;
   const opcRevestimentEstat = data.annexOpcionalRevestimentEstat;
   const pavimentEstat = data.annexPavimentEstat;
-  const showOpcionalsInstal = !!data.filtreOpcionalTipus || !!data.bombaOpcionalTipus;
+  // "Incloure aquesta secció" toggles for DEPURACIÓ / BOMBA — same fields
+  // PageDepuracio1 reads internally (see its own depuracioOn). Needed here
+  // too so PageDepuracio1's inclusion in the array, and the OPCIONALS
+  // "substitutive" blocks below, can both be gated on real content instead
+  // of always rendering.
+  const depuracioOn = data.depuracioEnabled !== false;
+  const bombaOn = data.bombaEnabled !== false;
+  // PageDepuracio1 hosts two independent blocks (DEPURACIÓ pill + GRUP
+  // MOTOBOMBA pill) — only skip the whole page when NEITHER has content,
+  // same reasoning as dosificacioEnabled gating PageDepuracio2 below.
+  const showDepuracio1 = depuracioOn || !!data.bombaInclosTipus;
+  // OPCIONALS (filtre/bomba) is a substitutive upsell for whichever of
+  // those sections is actually included in the budget — an orphaned
+  // *Opcional article (filtreOpcionalTipus/bombaOpcionalTipus) with the
+  // corresponding base section OFF has nothing to substitute, so it must
+  // not show on its own (see PageAnnexOpcionalsInstal's own mirrored guard).
+  const showOpcionalsInstal = (depuracioOn && !!data.filtreOpcionalTipus) || (bombaOn && !!data.bombaOpcionalTipus);
   const coronamentOn = data.coronamentInclos !== false;
   const revestimentOn = data.revestimentInclos !== false;
   const showAcabats = coronamentOn || revestimentOn;
@@ -148,16 +164,19 @@ export function PdfDocument({ data }: { data: PdfData }) {
     <PageEstructura key="estructura" data={data} />,
     <PageElementsEstructurals key="elements" data={data} />,
     ...(showAcabats ? [<PageAcabats key="acabats" data={data} />] : []),
-    // PageDepuracio1/PageElectricitat stay unconditional even though they
-    // each host one toggleable section (DEPURACIÓ / QUADRE ELÈCTRIC
-    // respectively) — both pages also always show other, independent
-    // content (bomba, or Fontaneria/Escomesa) unrelated to that toggle, so
-    // hiding the whole page would wrongly hide that too. Those two pages
-    // gate their own toggleable section internally instead (see
-    // data.depuracioEnabled / data.quadreEnabled). PageDepuracio2 is
-    // dedicated solely to Dosificació/Cloració Salina, so it's safe to gate
-    // as a whole page here.
-    <PageDepuracio1 key="dep1" data={data} />,
+    // PageDepuracio1 hosts two independently-toggleable sections (DEPURACIÓ /
+    // GRUP MOTOBOMBA) — gated above (showDepuracio1) on EITHER having
+    // content, not on always rendering: with both depuracioOn and
+    // bombaInclosTipus off, the page had nothing to show but its own
+    // header/background (see this const's own comment above).
+    // PageElectricitat stays unconditional: it also always shows
+    // independent content (Electricitat's own "Presa de terra" row, plus
+    // Fontaneria/Escomesa) unrelated to its QUADRE ELÈCTRIC toggle, so
+    // hiding the whole page would wrongly hide that too — it gates its
+    // toggleable rows/sections internally instead (see data.quadreEnabled).
+    // PageDepuracio2 is dedicated solely to Dosificació/Cloració Salina, so
+    // it's safe to gate as a whole page here.
+    ...(showDepuracio1 ? [<PageDepuracio1 key="dep1" data={data} />] : []),
     ...(data.dosificacioEnabled !== false ? [<PageDepuracio2 key="dep2" data={data} />] : []),
     <PageElectricitat key="elec" data={data} />,
     <PageAccessoris key="accessoris" data={data} showTotalBadge={!data.accCascadaEnabled} />,

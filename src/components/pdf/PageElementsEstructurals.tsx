@@ -15,7 +15,15 @@ const TYPE_LABEL: Record<string, string> = {
 export function PageElementsEstructurals({ data }: { data: PdfData }) {
   const fmt = (n?: number) => (typeof n === "number" ? n.toLocaleString("ca-ES", { minimumFractionDigits: 2 }) : "");
   const sectionAmount = typeof data.elementsEstructuralsTotal === "number" ? data.elementsEstructuralsTotal : 0;
-  const t = data.interiorStairsType;
+  // 'sense' is a real, explicit choice in the wizard ("no interior stairs"),
+  // not just an unset field — mirrors budgetSave.ts's own hasInteriorStairs
+  // (!!interiorStairsType && interiorStairsType !== 'sense'). Treating it as
+  // falsy here (instead of raw data.interiorStairsType truthiness) avoids
+  // falling through to the generic "${interiorLabel}:".toUpperCase() case
+  // below, which rendered the literal heading "SENSE:" plus a "Formació
+  // d'escala d'obra" bullet — claiming stairs are being built when the
+  // client explicitly said there are none.
+  const t = data.interiorStairsType && data.interiorStairsType !== "sense" ? data.interiorStairsType : undefined;
   const isPlatformOrBench = t === "plataforma" || t === "banc";
   const hasAccess = !!data.hasAccessStair;
   const interiorLabel = t ? (TYPE_LABEL[t] ?? t) : null;
