@@ -91,6 +91,21 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    if (action === 'reset_password') {
+      const { user_id, password } = body;
+
+      if (!password || typeof password !== 'string' || password.length < 6) {
+        return new Response(JSON.stringify({ error: 'La contrasenya ha de tenir com a mínim 6 caràcters' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const { error: resetError } = await supabaseAdmin.auth.admin.updateUserById(user_id, { password });
+      if (resetError) {
+        return new Response(JSON.stringify({ error: resetError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     if (action === 'delete_permanent') {
       const { user_id } = body;
       const { error: delError } = await supabaseAdmin.auth.admin.deleteUser(user_id);

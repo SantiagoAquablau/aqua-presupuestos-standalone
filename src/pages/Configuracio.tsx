@@ -290,6 +290,7 @@ function UserManagement() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteAction, setDeleteAction] = useState<'deactivate' | 'activate' | 'delete'>('deactivate');
   const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'comercial' as 'admin' | 'comercial' | 'administrativa' });
+  const [newPassword, setNewPassword] = useState('');
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users-list'],
@@ -328,6 +329,19 @@ function UserManagement() {
     onError: () => toast.error("Error actualitzant"),
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: async () => {
+      const res = await supabase.functions.invoke('manage-users', {
+        body: { action: 'reset_password', user_id: editUser.id, password: newPassword },
+      });
+      if (res.error) throw res.error;
+      const data = res.data as any;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => { setNewPassword(''); toast.success('Contrasenya actualitzada correctament'); },
+    onError: (err: any) => toast.error(err.message || 'Error actualitzant la contrasenya'),
+  });
+
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
       const res = await supabase.functions.invoke('manage-users', { body: { action: 'update', user_id: id, active } });
@@ -348,9 +362,10 @@ function UserManagement() {
     onError: (err: any) => toast.error(err.message || "Error eliminant"),
   });
 
-  const openCreate = () => { setForm({ full_name: '', email: '', password: '', role: 'comercial' }); setEditUser(null); setModalOpen(true); };
-  const openEdit = (u: any) => { setForm({ full_name: u.full_name, email: u.email, password: '', role: u.role }); setEditUser(u); setModalOpen(true); };
-  const closeModal = () => { setModalOpen(false); setEditUser(null); };
+  const openCreate = () => { setForm({ full_name: '', email: '', password: '', role: 'comercial' }); setEditUser(null); setNewPassword(''); setModalOpen(true); };
+  const openEdit = (u: any) => { setForm({ full_name: u.full_name, email: u.email, password: '', role: u.role }); setEditUser(u); setNewPassword(''); setModalOpen(true); };
+  const closeModal = () => { setModalOpen(false); setEditUser(null); setNewPassword(''); };
+  const newPasswordValid = !newPassword || newPassword.length >= 6;
 
   const inputClass = 'w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20';
   const labelClass = 'block text-sm font-medium text-foreground mb-1.5';
@@ -443,6 +458,13 @@ function UserManagement() {
                 <div><label className={labelClass}>Contrasenya inicial * (mínim 8 caràcters)</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputClass} /></div>
               </>
             )}
+            {editUser && (
+              <div>
+                <label className={labelClass}>Nova contrasenya</label>
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Deixa en blanc per no canviar-la" className={inputClass} />
+                {!newPasswordValid && <p className="text-xs text-destructive mt-1">La contrasenya ha de tenir com a mínim 6 caràcters</p>}
+              </div>
+            )}
             <div>
               <label className={labelClass}>Rol</label>
               <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as any })} className={inputClass}>
@@ -452,10 +474,17 @@ function UserManagement() {
               </select>
             </div>
             <button
-              onClick={() => editUser ? updateMutation.mutate() : createMutation.mutate()}
-              disabled={!form.full_name || (!editUser && (!form.email || form.password.length < 8)) || createMutation.isPending || updateMutation.isPending}
+              onClick={() => {
+                if (editUser) {
+                  updateMutation.mutate();
+                  if (newPassword) resetPasswordMutation.mutate();
+                } else {
+                  createMutation.mutate();
+                }
+              }}
+              disabled={!form.full_name || (!editUser && (!form.email || form.password.length < 8)) || (!!editUser && !newPasswordValid) || createMutation.isPending || updateMutation.isPending || resetPasswordMutation.isPending}
               className="w-full gradient-primary text-primary-foreground py-2.5 rounded-lg text-sm font-medium hover:opacity-90 shadow-md flex items-center justify-center gap-2 disabled:opacity-60">
-              {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}
+              {(createMutation.isPending || updateMutation.isPending || resetPasswordMutation.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}
               {editUser ? 'Guardar canvis' : 'Crear usuari'}
             </button>
           </div>
