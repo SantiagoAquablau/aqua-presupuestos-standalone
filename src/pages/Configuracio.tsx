@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Users, Building2, Image, Loader2, Plus, Pencil, Trash2, Shield, User, Check, Tag, X, Calculator, FileText, Umbrella, Euro } from 'lucide-react';
+import { Settings, Users, Building2, Image, Loader2, Plus, Pencil, Trash2, Shield, User, UserX, Check, Tag, X, Calculator, FileText, Umbrella, Euro } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -362,6 +362,18 @@ function UserManagement() {
     onError: (err: any) => toast.error(err.message || "Error eliminant"),
   });
 
+  const deleteImpactQuery = useQuery({
+    queryKey: ['delete-user-impact', deleteId],
+    queryFn: async () => {
+      const [{ count: budgets }, { count: obras }] = await Promise.all([
+        supabase.from('budgets').select('id', { count: 'exact', head: true }).eq('comercial_id', deleteId as string),
+        supabase.from('obras').select('id', { count: 'exact', head: true }).eq('comercial_id', deleteId as string),
+      ]);
+      return { budgets: budgets || 0, obras: obras || 0 };
+    },
+    enabled: deleteAction === 'delete' && !!deleteId,
+  });
+
   const openCreate = () => { setForm({ full_name: '', email: '', password: '', role: 'comercial' }); setEditUser(null); setNewPassword(''); setModalOpen(true); };
   const openEdit = (u: any) => { setForm({ full_name: u.full_name, email: u.email, password: '', role: u.role }); setEditUser(u); setNewPassword(''); setModalOpen(true); };
   const closeModal = () => { setModalOpen(false); setEditUser(null); setNewPassword(''); };
@@ -417,10 +429,16 @@ function UserManagement() {
                     <div className="flex items-center justify-end gap-1">
                       <button className="p-1.5 rounded-md hover:bg-muted" onClick={() => openEdit(u)}><Pencil className="w-4 h-4 text-muted-foreground" /></button>
                       {u.active ? (
-                        <button className="p-1.5 rounded-md hover:bg-destructive/10" title="Desactivar"
-                          onClick={() => { setDeleteAction('deactivate'); setDeleteId(u.id); }}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </button>
+                        <>
+                          <button className="p-1.5 rounded-md hover:bg-destructive/10" title="Desactivar"
+                            onClick={() => { setDeleteAction('deactivate'); setDeleteId(u.id); }}>
+                            <UserX className="w-4 h-4 text-destructive" />
+                          </button>
+                          <button className="p-1.5 rounded-md hover:bg-destructive/10" title="Eliminar permanentment"
+                            onClick={() => { setDeleteAction('delete'); setDeleteId(u.id); }}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </button>
+                        </>
                       ) : (
                         <>
                           <button className="p-1.5 rounded-md hover:bg-success/10" title="Activar"
@@ -501,18 +519,24 @@ function UserManagement() {
               {deleteAction === 'activate'
                 ? "L'usuari podrà tornar a accedir a l'aplicació."
                 : deleteAction === 'delete'
-                ? "Aquesta acció no es pot desfer. L'usuari serà eliminat completament del sistema."
+                ? (deleteImpactQuery.isLoading
+                    ? "Comprovant pressupostos i obres assignades…"
+                    : deleteImpactQuery.data && (deleteImpactQuery.data.budgets > 0 || deleteImpactQuery.data.obras > 0)
+                    ? `Aquest usuari té ${deleteImpactQuery.data.budgets} pressupost${deleteImpactQuery.data.budgets === 1 ? '' : 's'} i ${deleteImpactQuery.data.obras} obra${deleteImpactQuery.data.obras === 1 ? '' : 's'} assignades. Si l'elimines permanentment, quedaran sense comercial assignat i aquesta acció no es pot desfer. Vols continuar?`
+                    : "Aquesta acció no es pot desfer. L'usuari serà eliminat completament del sistema.")
                 : "L'usuari ja no podrà accedir a l'aplicació. Podràs reactivar-lo posteriorment."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel·lar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (!deleteId) return;
-              if (deleteAction === 'activate') toggleActiveMutation.mutate({ id: deleteId, active: true });
-              else if (deleteAction === 'deactivate') toggleActiveMutation.mutate({ id: deleteId, active: false });
-              else deleteMutation.mutate(deleteId);
-            }}>
+            <AlertDialogAction
+              disabled={deleteAction === 'delete' && deleteImpactQuery.isLoading}
+              onClick={() => {
+                if (!deleteId) return;
+                if (deleteAction === 'activate') toggleActiveMutation.mutate({ id: deleteId, active: true });
+                else if (deleteAction === 'deactivate') toggleActiveMutation.mutate({ id: deleteId, active: false });
+                else deleteMutation.mutate(deleteId);
+              }}>
               {deleteAction === 'activate' ? 'Activar' : deleteAction === 'delete' ? 'Eliminar' : 'Desactivar'}
             </AlertDialogAction>
           </AlertDialogFooter>
