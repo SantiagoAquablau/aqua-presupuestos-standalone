@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Filter, Fan, Zap, ChevronDown, Sparkles, AlertTriangle, Check, X, Droplets } from "lucide-react";
+import { Filter, Fan, Zap, ChevronDown, Sparkles, AlertTriangle, Check, X, Droplets, Cable } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getRecommendedPipeDiameter } from "@/lib/pipeDiameter";
@@ -387,12 +387,19 @@ export function EquipmentRecommendations({
                     )}
                   </div>
                   {calc.pipeDiameterMm != null && (
-                    <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded p-1.5 leading-snug">
-                      Diàmetre de canonada recomanat: <strong>Ø{calc.pipeDiameterMm}mm</strong>
-                      <br />
-                      Canonada d'instal·lació segons el cabal de la bomba ({onoffShown.caudal} m³/h). Diferent de la
-                      connexió de fàbrica de la bomba (Ø{num(onoffShown.article.technical_specs?.conexion_mm)}mm).
-                    </p>
+                    <div className="flex items-start gap-2 rounded-lg bg-slate-800 p-2">
+                      <Cable className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <p className="text-xs text-slate-100">
+                          Diàmetre de canonada recomanat:{" "}
+                          <span className="font-bold text-white">Ø{calc.pipeDiameterMm}mm</span>
+                        </p>
+                        <p className="text-[10px] text-slate-400 leading-snug">
+                          Canonada d'instal·lació segons el cabal de la bomba ({onoffShown.caudal} m³/h) — diferent de
+                          la connexió de fàbrica (Ø{num(onoffShown.article.technical_specs?.conexion_mm)}mm).
+                        </p>
+                      </div>
+                    </div>
                   )}
                   {!onoff && (
                     <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5">
