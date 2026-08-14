@@ -11,7 +11,6 @@ import NewBudget from "./pages/NewBudget";
 import Cataleg from "./pages/Cataleg";
 import Proveidors from "./pages/Proveidors";
 import Configuracio from "./pages/Configuracio";
-import PdfPreview from "./pages/PdfPreview";
 import ObresList from "./pages/ObresList";
 import ObraDetail from "./pages/ObraDetail";
 import AnnexList from "./pages/AnnexList";
@@ -82,7 +81,6 @@ const AppRoutes = () => {
         <Route path="/control-obres" element={<ObresRoute><ObresList /></ObresRoute>} />
         <Route path="/control-obres/:id" element={<ObresRoute><ObraDetail /></ObresRoute>} />
         <Route path="/configuracio" element={<AdminRoute><Configuracio /></AdminRoute>} />
-        <Route path="/configuracio/pdf-preview" element={<AdminRoute><PdfPreview /></AdminRoute>} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

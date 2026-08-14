@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Settings, Users, Building2, Image, Loader2, Plus, Pencil, Trash2, Shield, User, UserX, Check, Tag, X, Calculator, FileText, Umbrella, Euro } from 'lucide-react';
+import { Settings, Users, Building2, Image, Loader2, Plus, Pencil, Trash2, Shield, User, UserX, Check, Tag, X, Calculator, Umbrella, Euro } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,18 +47,6 @@ export default function Configuracio() {
               </div>
             </button>
           ))}
-          {isAdmin && (
-            <Link to="/configuracio/pdf-preview"
-              className="w-full bg-card rounded-xl border border-border p-5 shadow-card flex items-start gap-4 hover:shadow-elevated transition-shadow text-left">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <FileText className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Previsualització PDF</h3>
-                <p className="text-sm text-muted-foreground mt-0.5">Veure el disseny de la plantilla amb dades de mostra abans d'enviar-la a clients</p>
-              </div>
-            </Link>
-          )}
         </div>
       ) : (
         <div>
