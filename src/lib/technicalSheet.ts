@@ -3,6 +3,7 @@ import { loadBudgetAsDraft } from '@/lib/budgetMapper';
 import { evaluateFormulaRules, type FormulaRule } from '@/lib/formulaEngine';
 import { mergeFormulaResultsIntoPhases, filterAcabatsInclusion } from '@/lib/formulaPhases';
 import { buildWizardLinesByPhase } from '@/lib/wizardLines';
+import { getRecommendedPipeDiameter } from '@/lib/pipeDiameter';
 
 /**
  * Generates a Technical Sheet (Fitxa Tècnica) PDF for an accepted budget.
@@ -138,11 +139,20 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
   ].filter(Boolean) as string[];
 
   const articleNames: Record<string, string> = {};
+  const articleSpecs: Record<string, Record<string, any>> = {};
   if (articleIds.length) {
-    const { data: arts } = await supabase.from('articles').select('id, name').in('id', articleIds);
-    (arts || []).forEach((a: any) => { articleNames[a.id] = a.name; });
+    const { data: arts } = await supabase.from('articles').select('id, name, technical_specs').in('id', articleIds);
+    (arts || []).forEach((a: any) => {
+      articleNames[a.id] = a.name;
+      if (a.technical_specs) articleSpecs[a.id] = a.technical_specs;
+    });
   }
   const an = (id?: string | null) => (id && articleNames[id]) || null;
+
+  // Diàmetre de canonada recomanat, a partir del cabal de la bomba On/Off
+  // seleccionada al pressupost (mateix càlcul que EquipmentRecommendations.tsx).
+  const onoffCaudal = Number(articleSpecs[b.instal_bomba_onoff_id]?.caudal_m3h) || 0;
+  const pipeDiameterMm = onoffCaudal > 0 ? getRecommendedPipeDiameter(onoffCaudal) : null;
 
   let coverModel: string | null = null;
   let coverColor: string | null = null;
@@ -237,6 +247,9 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
     row('Sistema construcció', escapeHtml(b.construction_system)),
     row('Impermeabilització', escapeHtml(b.waterproofing_system)),
     row('Distància gunite', num(b.gunite_distancia_km, ' km')),
+    pipeDiameterMm != null
+      ? row('Diàmetre canonada recomanat', `Ø${pipeDiameterMm}mm (segons cabal bomba: ${num(onoffCaudal, ' m³/h')})`)
+      : null,
   ]);
 
   const stairsBody = grid([

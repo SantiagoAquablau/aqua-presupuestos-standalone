@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Filter, Fan, Zap, ChevronDown, Sparkles, AlertTriangle, Check, X, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { getRecommendedPipeDiameter } from "@/lib/pipeDiameter";
 
 interface ArticleWithSpecs {
   id: string;
@@ -175,6 +176,12 @@ export function EquipmentRecommendations({
       onoffEvals.find((p) => p.cond_filt && p.vf_in_range) || onoffEvals.find((p) => p.cond_filt) || null;
     const fallbackOnoff = !recommendedOnoff ? onoffEvals[onoffEvals.length - 1] || null : null;
 
+    // Diàmetre de canonada recomanat, a partir del cabal real de la bomba
+    // On/Off finalment mostrada (preferida o fallback), no del caudal_necesario
+    // teòric. Norma 3×3 de l'empresa: taula de lookup ja calculada a 2 m/s.
+    const onoffFlowForPipe = recommendedOnoff?.caudal ?? fallbackOnoff?.caudal ?? null;
+    const pipeDiameterMm = onoffFlowForPipe != null ? getRecommendedPipeDiameter(onoffFlowForPipe) : null;
+
     // Variable pump
     const varSorted = [...variablePumps].sort(
       (a, b) => num(a.technical_specs?.qmax_m3h) - num(b.technical_specs?.qmax_m3h),
@@ -216,6 +223,7 @@ export function EquipmentRecommendations({
       cloro_dia,
       gr_per_hora,
       recommendedChlorinator,
+      pipeDiameterMm,
       noFilterCovers: validFilters.length === 0 && filterEvals.length > 0,
     };
   }, [filters, onoffPumps, variablePumps, chlorinators, poolVolumeLiters, useAfm, bathers, quadreLinia]);
@@ -378,6 +386,14 @@ export function EquipmentRecommendations({
                       </p>
                     )}
                   </div>
+                  {calc.pipeDiameterMm != null && (
+                    <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded p-1.5 leading-snug">
+                      Diàmetre de canonada recomanat: <strong>Ø{calc.pipeDiameterMm}mm</strong>
+                      <br />
+                      Canonada d'instal·lació segons el cabal de la bomba ({onoffShown.caudal} m³/h). Diferent de la
+                      connexió de fàbrica de la bomba (Ø{num(onoffShown.article.technical_specs?.conexion_mm)}mm).
+                    </p>
+                  )}
                   {!onoff && (
                     <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5">
                       ⚠️ Bomba insuficient per a la filtració.
@@ -517,6 +533,13 @@ export function EquipmentRecommendations({
                       Caudal: {onoffShown.caudal} m³/h · VF amb caudal màx: {onoffShown.vf_pump.toFixed(2)} (òptim
                       34-42: {onoffShown.vf_in_range ? "sí" : "no"}) · Filtra: {onoffShown.cond_filt ? "sí" : "no"} ·
                       Renta: {onoffShown.cond_lav ? "sí" : "no"}
+                      {calc.pipeDiameterMm != null && (
+                        <>
+                          <br />
+                          Diàmetre canonada recomanat: Ø{calc.pipeDiameterMm}mm (lookup taula 2 m/s, cabal{" "}
+                          {onoffShown.caudal} m³/h, mínim 63mm)
+                        </>
+                      )}
                     </div>
                   )}
                   {variable && (
