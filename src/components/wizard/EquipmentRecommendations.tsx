@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Filter, Fan, Zap, ChevronDown, Sparkles, AlertTriangle, Check, X, Droplets, Cable } from "lucide-react";
+import { Filter, Fan, Zap, ChevronDown, Sparkles, AlertTriangle, Check, X, Droplets, Cable, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getRecommendedPipeDiameter } from "@/lib/pipeDiameter";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ArticleWithSpecs {
   id: string;
@@ -74,6 +75,11 @@ export function EquipmentRecommendations({
   const { isAdmin } = useAuth();
   const [expanded, setExpanded] = useState(true);
   const [showDetail, setShowDetail] = useState(false);
+  // Previsualització visual del material filtrant: no toca el draft real.
+  // null = sense override, s'usa l'ajust real (prop useAfm).
+  const [previewAfm, setPreviewAfm] = useState<boolean | null>(null);
+  const effectiveUseAfm = previewAfm ?? useAfm;
+  const isPreviewing = previewAfm !== null && previewAfm !== useAfm;
   const [filters, setFilters] = useState<ArticleWithSpecs[]>([]);
   const [onoffPumps, setOnoffPumps] = useState<ArticleWithSpecs[]>([]);
   const [variablePumps, setVariablePumps] = useState<ArticleWithSpecs[]>([]);
@@ -147,7 +153,7 @@ export function EquipmentRecommendations({
     const recommendedFilter = validFilters.find((f) => f.vf <= 30) || validFilters[0] || null;
 
     // Multiplicador segons material filtrant: 40 vidre AFM, 60 arena silícia
-    const washMultiplier = useAfm ? 40 : 60;
+    const washMultiplier = effectiveUseAfm ? 40 : 60;
     const lavado_requerit = recommendedFilter ? recommendedFilter.area_m2 * washMultiplier : 0;
 
     // On/Off pump
@@ -226,7 +232,7 @@ export function EquipmentRecommendations({
       pipeDiameterMm,
       noFilterCovers: validFilters.length === 0 && filterEvals.length > 0,
     };
-  }, [filters, onoffPumps, variablePumps, chlorinators, poolVolumeLiters, useAfm, bathers, quadreLinia]);
+  }, [filters, onoffPumps, variablePumps, chlorinators, poolVolumeLiters, effectiveUseAfm, bathers, quadreLinia]);
 
   if (!poolDimensionsReady) {
     return (
@@ -271,8 +277,8 @@ export function EquipmentRecommendations({
             <h3 className="font-semibold text-foreground text-base">Recomanació d'equips per a aquesta piscina</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               Basat en {calc.volumen_m3.toFixed(1)} m³ · Caudal necessari: {calc.caudal_necesario.toFixed(1)} m³/h ·{" "}
-              <span className={cn("font-medium", useAfm ? "text-emerald-700" : "text-foreground")}>
-                {useAfm ? "Vidre AFM (×40)" : "Arena silícia (×60)"}
+              <span className={cn("font-medium", effectiveUseAfm ? "text-emerald-700" : "text-foreground")}>
+                {effectiveUseAfm ? "Vidre AFM (×40)" : "Arena silícia (×60)"}
               </span>
             </p>
           </div>
@@ -284,6 +290,62 @@ export function EquipmentRecommendations({
 
       {expanded && (
         <div className="px-4 pb-5 md:px-5 space-y-4 border-t border-border pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-medium text-muted-foreground">Previsualitzar material filtrant:</span>
+            <div className="inline-flex rounded-full border border-border bg-muted/40 p-0.5">
+              <button
+                type="button"
+                onClick={() => setPreviewAfm(false)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors",
+                  !effectiveUseAfm ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Arena sílice
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewAfm(true)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors",
+                  effectiveUseAfm ? "bg-emerald-100 text-emerald-800 shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Vidre AFM
+              </button>
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground">
+                  <Info className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[260px] text-xs">
+                El vidre AFM redueix el cabal de rentat necessari (×40 en lloc de ×60), permetent que bombes més
+                petites cobreixin el rentat del filtre.
+              </TooltipContent>
+            </Tooltip>
+            {previewAfm !== null && (
+              <button
+                type="button"
+                onClick={() => setPreviewAfm(null)}
+                className="text-[11px] text-muted-foreground underline hover:text-foreground"
+              >
+                Restablir a l'ajust real
+              </button>
+            )}
+          </div>
+
+          {isPreviewing && (
+            <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>
+                Previsualització — l'ajust real del pressupost és {useAfm ? "Vidre AFM" : "Arena sílice"}. Aquest
+                canvi és només visual i no modifica el pressupost.
+              </span>
+            </div>
+          )}
+
           {calc.noFilterCovers && (
             <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
               <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -354,8 +416,7 @@ export function EquipmentRecommendations({
                 <>
                   <p className="text-sm font-semibold text-foreground leading-tight">{onoffShown.article.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {onoffShown.caudal} m³/h · {num(onoffShown.article.technical_specs?.cv)} CV · Ø
-                    {num(onoffShown.article.technical_specs?.conexion_mm)}mm
+                    {onoffShown.caudal} m³/h · {num(onoffShown.article.technical_specs?.cv)} CV
                   </p>
                   <div className="space-y-1 pt-1">
                     <ConditionRow ok={onoffShown.cond_filt}>
@@ -393,10 +454,6 @@ export function EquipmentRecommendations({
                         <p className="text-xs text-slate-100">
                           Diàmetre de canonada recomanat:{" "}
                           <span className="font-bold text-white">Ø{calc.pipeDiameterMm}mm</span>
-                        </p>
-                        <p className="text-[10px] text-slate-400 leading-snug">
-                          Canonada d'instal·lació segons el cabal de la bomba ({onoffShown.caudal} m³/h) — diferent de
-                          la connexió de fàbrica (Ø{num(onoffShown.article.technical_specs?.conexion_mm)}mm).
                         </p>
                       </div>
                     </div>
@@ -524,7 +581,8 @@ export function EquipmentRecommendations({
                     <br />
                     <strong>Caudal necessari (V/4):</strong> {calc.caudal_necesario.toFixed(2)} m³/h
                     <br />
-                    <strong>Material filtrant:</strong> {useAfm ? "Vidre AFM (×40)" : "Arena silícia (×60)"}
+                    <strong>Material filtrant:</strong> {effectiveUseAfm ? "Vidre AFM (×40)" : "Arena silícia (×60)"}
+                    {isPreviewing && " (previsualització)"}
                   </div>
                   {f && (
                     <div>
