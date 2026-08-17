@@ -1783,6 +1783,7 @@ export function StepInstalacions() {
       <EquipmentRecommendations
         useAfm={Boolean(draft.instalAfmEnabled)}
         quadreLinia={draft.instalQuadreLinia ?? "monofasica"}
+        poolType={draft.poolType ?? "particular"}
         poolVolumeLiters={(() => {
           const isIrregular = draft.poolShape === "irregular";
           const l = Number(draft.poolLength) || 0;
