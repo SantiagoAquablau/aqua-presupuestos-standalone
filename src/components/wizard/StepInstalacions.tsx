@@ -18,7 +18,7 @@ import {
   Filter,
   Loader2,
 } from "lucide-react";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { EquipmentSelector, type SelectedArticle } from "./EquipmentSelector";
 import { EquipmentRecommendations, type AppliedRecommendations } from "./EquipmentRecommendations";
@@ -199,6 +199,14 @@ export function StepInstalacions() {
 
   const [filtrePolies, setFiltrePolies] = useState<SelectedArticle | null>(null);
   const [filtreEspecial, setFiltreEspecial] = useState<SelectedArticle | null>(null);
+  // Diàmetre (mm) del filtre de fibra/sorra Ideal recomanat per
+  // EquipmentRecommendations — condiciona el default del "Filtre especial"
+  // (pack de 2 quan el filtre Ideal és de 900mm).
+  const [idealFilterDiametroMm, setIdealFilterDiametroMm] = useState<number | null>(null);
+  // Marca que l'usuari ha netejat manualment el "Filtre especial" (botó
+  // "Canviar" a EquipmentSelector) perquè l'efecte d'auto-default de sota
+  // no el torni a sobreescriure mentre tria un altre article.
+  const userClearedFiltreEspecialRef = useRef(false);
   const [canviMediArticle, setCanviMediArticle] = useState<SelectedArticle | null>(null);
   const [bombaOnoff, setBombaOnoff] = useState<SelectedArticle | null>(null);
   const [bombaVariable, setBombaVariable] = useState<SelectedArticle | null>(null);
@@ -430,14 +438,25 @@ export function StepInstalacions() {
   }, [prefiltreArticle]);
 
   // Auto-default "Filtre especial" to HAYWARD SWIMCLEAR C200SE (opcional, qty=1)
-  // unless the user has already chosen another article.
+  // unless the user has already chosen another article, or has manually
+  // cleared the selector (userClearedFiltreEspecialRef — see EquipmentSelector
+  // onChange below): without that guard, clearing the id to pick a different
+  // article re-triggers this effect, which re-writes the id before the user
+  // can choose, snapping the selector back to its "selected" card view and
+  // making the dropdown unusable. When the filtre de fibra/sorra Ideal
+  // recomanat (idealFilterDiametroMm, via EquipmentRecommendations) és de
+  // 900mm, es proposa el pack de 2 unitats en lloc del sencill.
   useEffect(() => {
-    if (draft.instalFiltreEspecialId) return;
+    if (draft.instalFiltreEspecialId || userClearedFiltreEspecialRef.current) return;
     const find = async () => {
+      const pattern =
+        idealFilterDiametroMm === 900
+          ? "name.ilike.%HAYWARD%SWIMCLEAR%C200SE%PACK%,name.ilike.%SWIMCLEAR%C200%PACK%"
+          : "name.ilike.%HAYWARD%SWIMCLEAR%C200SE%,name.ilike.%SWIMCLEAR%C200%,name.ilike.%HAYWARD%C200%";
       const { data } = await supabase
         .from("articles")
         .select("id, name, reference, image_url, supplier_id, suppliers:supplier_id(name)")
-        .or("name.ilike.%HAYWARD%SWIMCLEAR%C200SE%,name.ilike.%SWIMCLEAR%C200%,name.ilike.%HAYWARD%C200%")
+        .or(pattern)
         .limit(1);
       const art = data?.[0];
       if (!art) return;
@@ -457,7 +476,7 @@ export function StepInstalacions() {
       });
     };
     find();
-  }, [draft.instalFiltreEspecialId]);
+  }, [draft.instalFiltreEspecialId, idealFilterDiametroMm]);
 
   // Pin Bomba On/Off + Velocitat Variable "_Opcional" flags to concrete
   // values as soon as an id is assigned — by manual pick in either
@@ -894,6 +913,7 @@ export function StepInstalacions() {
                     subtipusFilter="Especial (diatomees/cartutx)"
                     value={filtreEspecial}
                     onChange={(a) => {
+                      if (!a) userClearedFiltreEspecialRef.current = true;
                       setFiltreEspecial(a);
                       updateDraft({ instalFiltreEspecialId: a?.id || undefined });
                     }}
@@ -1784,6 +1804,7 @@ export function StepInstalacions() {
         useAfm={Boolean(draft.instalAfmEnabled)}
         quadreLinia={draft.instalQuadreLinia ?? "monofasica"}
         poolType={draft.poolType ?? "particular"}
+        onIdealFilterDiametro={setIdealFilterDiametroMm}
         poolVolumeLiters={(() => {
           const isIrregular = draft.poolShape === "irregular";
           const l = Number(draft.poolLength) || 0;

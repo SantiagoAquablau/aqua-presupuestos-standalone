@@ -38,6 +38,12 @@ interface Props {
    *  "Ideal", una segona opció "Acceptable" (una talla per sota) per al filtre
    *  i la bomba On/Off. */
   poolType?: "particular" | "comunitaria";
+  /** Notifica el diàmetre (mm) del filtre Ideal recomanat (idealPair.filter)
+   *  cada cop que canviï, o null si encara no hi ha recomanació vàlida.
+   *  Permet a components pare (ex. l'auto-default del "Filtre especial" a
+   *  StepInstalacions) condicionar-se a la talla del filtre sense esperar
+   *  que l'usuari premi "Aplicar". */
+  onIdealFilterDiametro?: (diametro_mm: number | null) => void;
 }
 
 const num = (v: any): number => {
@@ -55,11 +61,60 @@ function ratingFromVF(vf: number) {
   return { label: "FORA RANG ❌", className: "bg-red-50 text-red-700 border-red-200" };
 }
 
-// Llindar de "no genuïnament fora de rang" per a les alternatives Acceptable:
-// coincideix amb les bandes ÒPTIM + ACCEPTABLE de ratingFromVF (30-45). Només
-// per sota de 30 o per sobre de 45 es considera FORA RANG i s'amaga la targeta.
-function vfIsAcceptable(vf: number) {
-  return vf >= 30 && vf <= 45;
+interface PairResult {
+  onoff: { article: ArticleWithSpecs; caudal: number };
+  filter: { article: ArticleWithSpecs; area_m2: number; vf: number };
+  lavado_requerit: number;
+  cond_filt: boolean;
+  cond_lav: boolean;
+  vf_pump: number;
+  vf_in_range: boolean;
+}
+
+// Norma 3×3 en 2 passos: primer la bomba On/Off (segons caudal_necesario =
+// volum/turnover), després el filtre segons el caudal REAL d'aquesta bomba
+// (no un caudal teòric aïllat). El filtre triat és el que minimitza la
+// distància al rang òptim 34-42 m³/h/m² (0 si ja hi cau dins).
+// allowFallback controla què passa quan cap bomba arriba al caudal_necesario:
+// true (Ideal) → s'usa la bomba més gran disponible igualment (cond_filt=false,
+// es mostra avís). false (Acceptable) → es retorna null i la targeta s'amaga.
+function selectPair(
+  caudalNecesario: number,
+  onoffBase: { article: ArticleWithSpecs; caudal: number }[],
+  filtersSorted: ArticleWithSpecs[],
+  washMultiplier: number,
+  allowFallback: boolean,
+): PairResult | null {
+  if (onoffBase.length === 0 || filtersSorted.length === 0) return null;
+
+  const candidatePumps = onoffBase.filter((p) => p.caudal >= caudalNecesario);
+  const onoffChosen = candidatePumps[0] ?? (allowFallback ? onoffBase[onoffBase.length - 1] : null);
+  if (!onoffChosen) return null;
+  const cond_filt = onoffChosen.caudal >= caudalNecesario;
+
+  const filterEvals = filtersSorted.map((art) => {
+    const area = num(art.technical_specs?.area_m2);
+    const vf = area > 0 ? onoffChosen.caudal / area : Infinity;
+    return { article: art, area_m2: area, vf };
+  });
+  const distanceToOptim = (vf: number) => (vf < 34 ? 34 - vf : vf > 42 ? vf - 42 : 0);
+  const filterChosen = filterEvals.reduce((best, cur) =>
+    distanceToOptim(cur.vf) < distanceToOptim(best.vf) ? cur : best,
+  );
+
+  const lavado_requerit = filterChosen.area_m2 * washMultiplier;
+  const cond_lav = onoffChosen.caudal >= lavado_requerit;
+  const vf_in_range = filterChosen.vf >= 34 && filterChosen.vf <= 42;
+
+  return {
+    onoff: onoffChosen,
+    filter: filterChosen,
+    lavado_requerit,
+    cond_filt,
+    cond_lav,
+    vf_pump: filterChosen.vf,
+    vf_in_range,
+  };
 }
 
 function ConditionRow({ ok, children }: { ok: boolean; children: React.ReactNode }) {
@@ -83,6 +138,7 @@ export function EquipmentRecommendations({
   bathers = 5,
   quadreLinia = "monofasica",
   poolType = "particular",
+  onIdealFilterDiametro,
 }: Props) {
   const { isAdmin } = useAuth();
   const isComunitaria = poolType === "comunitaria";
@@ -93,6 +149,10 @@ export function EquipmentRecommendations({
   const [previewAfm, setPreviewAfm] = useState<boolean | null>(null);
   const effectiveUseAfm = previewAfm ?? useAfm;
   const isPreviewing = previewAfm !== null && previewAfm !== useAfm;
+  // Flip 3D de les targetes Filtre / On/Off: mostra l'alternativa Acceptable
+  // al revers, en el mateix espai que ocupa la targeta Ideal.
+  const [filterFlipped, setFilterFlipped] = useState(false);
+  const [onoffFlipped, setOnoffFlipped] = useState(false);
   const [filters, setFilters] = useState<ArticleWithSpecs[]>([]);
   const [onoffPumps, setOnoffPumps] = useState<ArticleWithSpecs[]>([]);
   const [variablePumps, setVariablePumps] = useState<ArticleWithSpecs[]>([]);
@@ -150,92 +210,50 @@ export function EquipmentRecommendations({
 
   const calc = useMemo(() => {
     const volumen_m3 = poolVolumeLiters / 1000;
+    // Turnover 4h per al parell Ideal, 4,5h per al parell Acceptable.
     const caudal_necesario = volumen_m3 / 4;
-
-    // Filter selection
-    const filtersSorted = [...filters].sort(
-      (a, b) => num(a.technical_specs?.diametro_mm) - num(b.technical_specs?.diametro_mm),
-    );
-    const filterEvals = filtersSorted.map((art) => {
-      const area = num(art.technical_specs?.area_m2);
-      const vf = area > 0 ? caudal_necesario / area : Infinity;
-      return { article: art, area_m2: area, vf, valid: vf <= 42 };
-    });
-    const validFilters = filterEvals.filter((f) => f.valid);
-    // Prefer vf <= 30, otherwise first valid
-    const recommendedFilter = validFilters.find((f) => f.vf <= 30) || validFilters[0] || null;
-
-    // Alternativa "Acceptable" (només piscines comunitàries): la talla immediatament
-    // anterior a la Ideal dins l'array ordenat per diàmetre. Es proposa mentre el seu
-    // VF no caigui en la banda "FORA RANG" de ratingFromVF (és a dir, mentre segueixi
-    // dins ÒPTIM o ACCEPTABLE, 30-45) — només s'amaga si és genuïnament inadequat.
-    const filterIdealIndex = recommendedFilter ? filterEvals.indexOf(recommendedFilter) : -1;
-    const acceptableFilterCandidate = filterIdealIndex > 0 ? filterEvals[filterIdealIndex - 1] : null;
-    const acceptableFilter =
-      acceptableFilterCandidate && vfIsAcceptable(acceptableFilterCandidate.vf) ? acceptableFilterCandidate : null;
+    const caudal_necesario_acceptable = volumen_m3 / 4.5;
 
     // Multiplicador segons material filtrant: 40 vidre AFM, 60 arena silícia
     const washMultiplier = effectiveUseAfm ? 40 : 60;
-    const lavado_requerit = recommendedFilter ? recommendedFilter.area_m2 * washMultiplier : 0;
 
-    // On/Off pump
-    // Criteri primordial: filtració. Es busca una bomba el caudal màxim de la qual
-    // estigui per sobre del caudal necessari, i que combinada amb el filtre recomanat
-    // doni una velocitat de filtració (VF = caudal_bomba / àrea_filtre) entre 34 i 40.
-    // El rentat es mostra com a informació però no és condició eliminatòria.
-    // Només es consideren bombes marcades com "línia preferent" al catàleg
-    // (ex. DOLFI) i que coincideixin amb la fase elèctrica del Quadre elèctric.
+    const filtersSorted = [...filters].sort(
+      (a, b) => num(a.technical_specs?.diametro_mm) - num(b.technical_specs?.diametro_mm),
+    );
+
+    // Bombes On/Off candidates: només línia preferent (ex. DOLFI) i que
+    // coincideixin amb la fase elèctrica del Quadre elèctric. Base independent
+    // del filtre amb què acabin emparellades.
     const expectedFase = quadreLinia === "trifasica" ? "Trifàsic" : "Monofàsic";
     const onoffCandidates = onoffPumps.filter((p) => p.linia_preferent === true && p.fase === expectedFase);
     const onoffSorted = [...onoffCandidates].sort(
       (a, b) => num(a.technical_specs?.caudal_m3h) - num(b.technical_specs?.caudal_m3h),
     );
-    // Dades base (caudal + cond_filt) independents del filtre amb què s'emparellin.
-    const onoffBase = onoffSorted.map((art) => {
-      const caudal = num(art.technical_specs?.caudal_m3h);
-      const cond_filt = caudal >= caudal_necesario;
-      return { article: art, caudal, cond_filt };
-    });
-    // Emparella la llista base amb un filtre concret (Ideal o Acceptable) per calcular
-    // vf_pump/vf_in_range/cond_lav propis d'aquell parell — evita creuar dades entre
-    // el parell Ideal↔Ideal i el parell Acceptable↔Acceptable.
-    const pairOnoffWithFilter = (filterAreaM2: number, laveReq: number) =>
-      onoffBase.map((b) => {
-        const vf_pump = filterAreaM2 > 0 ? b.caudal / filterAreaM2 : 0;
-        const vf_in_range = vf_pump >= 34 && vf_pump <= 42;
-        const cond_lav = b.caudal >= laveReq;
-        return { ...b, cond_lav, vf_pump, vf_in_range, valid: b.cond_filt };
-      });
+    const onoffBase = onoffSorted.map((art) => ({ article: art, caudal: num(art.technical_specs?.caudal_m3h) }));
 
-    const filterAreaIdeal = recommendedFilter?.area_m2 || 0;
-    const onoffEvals = pairOnoffWithFilter(filterAreaIdeal, lavado_requerit);
-    // Preferida: cobreix filtració I VF dins de 34-42
-    const recommendedOnoff =
-      onoffEvals.find((p) => p.cond_filt && p.vf_in_range) || onoffEvals.find((p) => p.cond_filt) || null;
-    const fallbackOnoff = !recommendedOnoff ? onoffEvals[onoffEvals.length - 1] || null : null;
+    // Norma 3×3 en 2 passos: bomba primer (segons caudal_necesario), filtre
+    // després (segons el caudal real de la bomba ja triada). Ideal i Acceptable
+    // són parells totalment independents, no un derivat de l'altre.
+    const idealPair = selectPair(caudal_necesario, onoffBase, filtersSorted, washMultiplier, true);
+    const acceptablePairRaw = isComunitaria
+      ? selectPair(caudal_necesario_acceptable, onoffBase, filtersSorted, washMultiplier, false)
+      : null;
+    // Si el parell Acceptable acaba coincidint exactament (mateixa bomba i
+    // mateix filtre) amb el parell Ideal, no és una alternativa real — s'amaga.
+    const acceptablePair =
+      acceptablePairRaw &&
+      idealPair &&
+      acceptablePairRaw.onoff.article.id === idealPair.onoff.article.id &&
+      acceptablePairRaw.filter.article.id === idealPair.filter.article.id
+        ? null
+        : acceptablePairRaw;
 
-    // Alternativa "Acceptable" (només piscines comunitàries): la bomba immediatament
-    // anterior a la Ideal dins l'array ordenat per cabal, però emparellada amb el
-    // filtre Acceptable (no el Ideal) perquè VF/rentat reflecteixin el parell real
-    // que s'oferiria a l'usuari. cond_filt és eliminatori estricte i inamovible (si
-    // no arriba al caudal necessari, és insuficient, no una alternativa vàlida).
-    // El seu propi VF admet la mateixa laxitud que el filtre: s'amaga només si cau
-    // en la banda "FORA RANG" (fora de 30-45), no si simplement no arriba al 34-42
-    // estricte de "ÒPTIM".
-    const onoffIdealIndex = recommendedOnoff ? onoffEvals.indexOf(recommendedOnoff) : -1;
-    const lavado_requerit_acceptable = acceptableFilter ? acceptableFilter.area_m2 * washMultiplier : 0;
-    const onoffEvalsForAcceptable = pairOnoffWithFilter(acceptableFilter?.area_m2 || 0, lavado_requerit_acceptable);
-    const acceptableOnoffCandidate = onoffIdealIndex > 0 ? onoffEvalsForAcceptable[onoffIdealIndex - 1] : null;
-    const acceptableOnoff =
-      acceptableOnoffCandidate && acceptableOnoffCandidate.cond_filt && vfIsAcceptable(acceptableOnoffCandidate.vf_pump)
-        ? acceptableOnoffCandidate
-        : null;
+    const lavado_requerit = idealPair?.lavado_requerit ?? 0;
+    const lavado_requerit_acceptable = acceptablePair?.lavado_requerit ?? 0;
 
     // Diàmetre de canonada recomanat, a partir del cabal real de la bomba
-    // On/Off finalment mostrada (preferida o fallback), no del caudal_necesario
-    // teòric. Norma 3×3 de l'empresa: taula de lookup ja calculada a 2 m/s.
-    const onoffFlowForPipe = recommendedOnoff?.caudal ?? fallbackOnoff?.caudal ?? null;
-    const pipeDiameterMm = onoffFlowForPipe != null ? getRecommendedPipeDiameter(onoffFlowForPipe) : null;
+    // On/Off Ideal. Norma 3×3 de l'empresa: taula de lookup ja calculada a 2 m/s.
+    const pipeDiameterMm = idealPair ? getRecommendedPipeDiameter(idealPair.onoff.caudal) : null;
 
     // Variable pump
     const varSorted = [...variablePumps].sort(
@@ -244,8 +262,7 @@ export function EquipmentRecommendations({
     const varEvals = varSorted.map((art) => {
       const qmax = num(art.technical_specs?.qmax_m3h);
       const valid = qmax >= lavado_requerit;
-      const vf_optim =
-        recommendedFilter && recommendedFilter.area_m2 > 0 ? (qmax * 0.35) / recommendedFilter.area_m2 : 0;
+      const vf_optim = idealPair && idealPair.filter.area_m2 > 0 ? (qmax * 0.35) / idealPair.filter.area_m2 : 0;
       return { article: art, qmax, valid, vf_optim };
     });
     const recommendedVar = varEvals.find((p) => p.valid) || null;
@@ -270,31 +287,43 @@ export function EquipmentRecommendations({
     return {
       volumen_m3,
       caudal_necesario,
+      caudal_necesario_acceptable,
       lavado_requerit,
-      recommendedFilter,
-      acceptableFilter,
-      // Diagnòstic temporal (Bug 2): index del filtre Ideal dins filterEvals i el
-      // candidat predecessor encara que no sigui vàlid, per poder inspeccionar per
-      // què "Acceptable" desapareix en certs escenaris.
-      filterIdealIndex,
-      acceptableFilterCandidate,
-      recommendedOnoff,
-      fallbackOnoff,
-      acceptableOnoff,
       lavado_requerit_acceptable,
-      // Diagnòstic temporal (bug bomba Acceptable): index de la bomba Ideal dins
-      // onoffEvals i el candidat predecessor (emparellat amb el filtre Acceptable),
-      // encara que no sigui vàlid, per inspeccionar per què "Acceptable" s'amaga.
-      onoffIdealIndex,
-      acceptableOnoffCandidate,
+      idealPair,
+      acceptablePair,
       recommendedVar,
       cloro_dia,
       gr_per_hora,
       recommendedChlorinator,
       pipeDiameterMm,
-      noFilterCovers: validFilters.length === 0 && filterEvals.length > 0,
+      // Cap filtre disponible s'acosta al rang òptim amb el caudal de la bomba
+      // Ideal triada (el millor filtre disponible encara excedeix vf=42).
+      noFilterCovers: idealPair !== null && idealPair.vf_pump > 42,
     };
-  }, [filters, onoffPumps, variablePumps, chlorinators, poolVolumeLiters, effectiveUseAfm, bathers, quadreLinia]);
+  }, [filters, onoffPumps, variablePumps, chlorinators, poolVolumeLiters, effectiveUseAfm, bathers, quadreLinia, isComunitaria]);
+
+  // Si l'alternativa Acceptable desapareix (canvi de previsualització, de
+  // dimensions, etc.) mentre una targeta estava girada, torna-la a Ideal per
+  // no deixar el revers en blanc.
+  useEffect(() => {
+    if (!calc.acceptablePair) {
+      setFilterFlipped(false);
+      setOnoffFlipped(false);
+    }
+  }, [calc.acceptablePair]);
+
+  // Notifica el diàmetre del filtre Ideal al component pare (vàlid només
+  // quan les dimensions de la piscina ja estan definides — calc es computa
+  // sempre, fins i tot abans que poolDimensionsReady sigui true, però amb
+  // un volum de 0 el resultat no és significatiu).
+  const idealFilterDiametroMm =
+    poolDimensionsReady && calc.idealPair
+      ? num(calc.idealPair.filter.article.technical_specs?.diametro_mm)
+      : null;
+  useEffect(() => {
+    onIdealFilterDiametro?.(idealFilterDiametroMm);
+  }, [idealFilterDiametroMm, onIdealFilterDiametro]);
 
   if (!poolDimensionsReady) {
     return (
@@ -308,16 +337,17 @@ export function EquipmentRecommendations({
     );
   }
 
-  const f = calc.recommendedFilter;
-  const onoff = calc.recommendedOnoff;
-  const onoffShown = onoff || calc.fallbackOnoff;
+  const idealPair = calc.idealPair;
+  const acceptablePair = calc.acceptablePair;
+  const f = idealPair?.filter ?? null;
+  const onoffShown = idealPair?.onoff ?? null;
   const variable = calc.recommendedVar;
   const chlor = calc.recommendedChlorinator;
 
   const applyAll = () => {
     onApply({
       filterId: f?.article.id,
-      onoffId: onoff?.article.id,
+      onoffId: onoffShown?.article.id,
       variableId: variable?.article.id,
       dosifStdId: chlor?.article.id,
     });
@@ -421,73 +451,40 @@ export function EquipmentRecommendations({
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3">
             {/* Filter card */}
             <div className="rounded-lg border border-border bg-background/60 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-blue-700">
-                <Filter className="w-4 h-4" /> Filtre recomanat
-              </div>
-              {f ? (
-                <>
-                  <p className="text-sm font-semibold text-foreground leading-tight">{f.article.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Ø{num(f.article.technical_specs?.diametro_mm)}mm · Àrea: {f.area_m2} m²
-                  </p>
-                  {(() => {
-                    // VF calculada amb el caudal màxim de la bomba On/Off recomanada
-                    // (mateixa fórmula que mostra la targeta de la bomba). Si no hi ha
-                    // bomba recomanada, fallback al caudal necessari.
-                    const pumpFlow = onoffShown?.caudal ?? calc.caudal_necesario;
-                    const vfShown = f.area_m2 > 0 ? pumpFlow / f.area_m2 : 0;
-                    const rating = ratingFromVF(vfShown);
-                    return (
-                      <div className="flex items-center justify-between gap-2 pt-1">
-                        <span className="text-xs">
-                          VF: <strong>{vfShown.toFixed(1)} m³/h/m²</strong>
-                        </span>
-                        <span
-                          className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold", rating.className)}
-                        >
-                          {rating.label}
-                        </span>
-                      </div>
-                    );
-                  })()}
-                  <p className="text-[11px] text-muted-foreground">
-                    Caudal mínim per rentar: {calc.lavado_requerit.toFixed(1)} m³/h
-                  </p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-blue-700">
+                  <Filter className="w-4 h-4" /> Filtre recomanat
+                </div>
+                {isComunitaria && acceptablePair && (
                   <button
                     type="button"
-                    onClick={() => {
-                      onApply({ filterId: f.article.id });
-                      toast.success("Filtre aplicat");
-                    }}
-                    className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
+                    onClick={() => setFilterFlipped((v) => !v)}
+                    className="text-[10px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
                   >
-                    Aplicar recomanació →
+                    ↻ {filterFlipped ? "Veure ideal" : "Veure alternativa"}
                   </button>
-                  {isComunitaria && calc.acceptableFilter && (
-                    <div className="mt-2 pt-2 border-t border-dashed border-border space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                          Alternativa acceptable
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-slate-100 text-slate-600 border-slate-300">
-                          ACCEPTABLE
-                        </span>
-                      </div>
-                      <p className="text-xs font-medium text-foreground leading-tight">
-                        {calc.acceptableFilter.article.name}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Ø{num(calc.acceptableFilter.article.technical_specs?.diametro_mm)}mm · Àrea:{" "}
-                        {calc.acceptableFilter.area_m2} m²
+                )}
+              </div>
+              {f && idealPair ? (
+                <div className="[perspective:1200px]">
+                  <div
+                    className={cn(
+                      "relative transition-transform duration-500 [transform-style:preserve-3d]",
+                      filterFlipped && "[transform:rotateY(180deg)]",
+                    )}
+                  >
+                    {/* Front: Ideal */}
+                    <div className="[backface-visibility:hidden] space-y-2">
+                      <p className="text-sm font-semibold text-foreground leading-tight">{f.article.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Ø{num(f.article.technical_specs?.diametro_mm)}mm · Àrea: {f.area_m2} m²
                       </p>
                       {(() => {
-                        const pumpFlow = calc.acceptableOnoff?.caudal ?? calc.caudal_necesario;
-                        const vfShown = calc.acceptableFilter.area_m2 > 0 ? pumpFlow / calc.acceptableFilter.area_m2 : 0;
-                        const rating = ratingFromVF(vfShown);
+                        const rating = ratingFromVF(idealPair.vf_pump);
                         return (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px]">
-                              VF: <strong>{vfShown.toFixed(1)} m³/h/m²</strong>
+                          <div className="flex items-center justify-between gap-2 pt-1">
+                            <span className="text-xs">
+                              VF: <strong>{idealPair.vf_pump.toFixed(1)} m³/h/m²</strong>
                             </span>
                             <span
                               className={cn(
@@ -501,21 +498,75 @@ export function EquipmentRecommendations({
                         );
                       })()}
                       <p className="text-[11px] text-muted-foreground">
-                        Caudal mínim per rentar: {calc.lavado_requerit_acceptable.toFixed(1)} m³/h
+                        Caudal mínim per rentar: {calc.lavado_requerit.toFixed(1)} m³/h
                       </p>
                       <button
                         type="button"
                         onClick={() => {
-                          onApply({ filterId: calc.acceptableFilter!.article.id });
+                          onApply({ filterId: f.article.id });
                           toast.success("Filtre aplicat");
                         }}
-                        className="w-full text-[11px] font-medium text-muted-foreground hover:bg-muted/60 border border-border rounded-md py-1 transition-colors"
+                        className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
                       >
-                        Aplicar alternativa →
+                        Aplicar recomanació →
                       </button>
                     </div>
-                  )}
-                </>
+                    {/* Back: Acceptable */}
+                    {acceptablePair && (
+                      <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                            Alternativa acceptable
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-slate-100 text-slate-600 border-slate-300">
+                            ACCEPTABLE
+                          </span>
+                        </div>
+                        <p className="text-xs font-medium text-foreground leading-tight">
+                          {acceptablePair.filter.article.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Ø{num(acceptablePair.filter.article.technical_specs?.diametro_mm)}mm · Àrea:{" "}
+                          {acceptablePair.filter.area_m2} m²
+                        </p>
+                        {(() => {
+                          const rating = ratingFromVF(acceptablePair.vf_pump);
+                          return (
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px]">
+                                VF: <strong>{acceptablePair.vf_pump.toFixed(1)} m³/h/m²</strong>
+                              </span>
+                              <span
+                                className={cn(
+                                  "text-[10px] px-2 py-0.5 rounded-full border font-semibold",
+                                  rating.className,
+                                )}
+                              >
+                                {rating.label}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                        <p className="text-[11px] text-muted-foreground">
+                          Caudal mínim per rentar: {calc.lavado_requerit_acceptable.toFixed(1)} m³/h
+                        </p>
+                        <p className="text-[11px] text-muted-foreground italic">
+                          Basat en un cicle de renovació de 4,5h (en lloc de 4h)
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onApply({ filterId: acceptablePair.filter.article.id });
+                            toast.success("Filtre aplicat");
+                          }}
+                          className="w-full text-[11px] font-medium text-muted-foreground hover:bg-muted/60 border border-border rounded-md py-1 transition-colors"
+                        >
+                          Aplicar alternativa →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <p className="text-xs text-muted-foreground">Sense filtres al catàleg.</p>
               )}
@@ -523,129 +574,156 @@ export function EquipmentRecommendations({
 
             {/* On/Off pump card */}
             <div className="rounded-lg border border-border bg-background/60 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-                <Fan className="w-4 h-4" /> Bomba On/Off recomanada
-              </div>
-              {onoffShown ? (
-                <>
-                  <p className="text-sm font-semibold text-foreground leading-tight">{onoffShown.article.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {onoffShown.caudal} m³/h · {num(onoffShown.article.technical_specs?.cv)} CV
-                  </p>
-                  <div className="space-y-1 pt-1">
-                    <ConditionRow ok={onoffShown.cond_filt}>
-                      Filtració: {onoffShown.caudal} ≥ {calc.caudal_necesario.toFixed(1)} m³/h
-                    </ConditionRow>
-                    <div className="flex items-center justify-between gap-2 text-xs">
-                      <span>
-                        VF amb caudal màx: <strong>{onoffShown.vf_pump.toFixed(1)} m³/h/m²</strong>
-                      </span>
-                      <span
-                        className={cn(
-                          "text-[10px] px-2 py-0.5 rounded-full border font-semibold",
-                          onoffShown.vf_in_range
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200",
-                        )}
-                      >
-                        {onoffShown.vf_in_range ? "ÒPTIM 34-42 ✅" : "FORA RANG ⚠️"}
-                      </span>
-                    </div>
-                    <ConditionRow ok={onoffShown.cond_lav}>
-                      Rentat (info): {onoffShown.caudal} ≥ {calc.lavado_requerit.toFixed(1)} m³/h
-                    </ConditionRow>
-                    {!onoffShown.cond_lav && (
-                      <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded p-1.5 leading-snug">
-                        ℹ️ Aquest model no arriba al caudal òptim de rentat del filtre. És habitual amb bombes On/Off:
-                        caldrà allargar el temps de contrarentat per netejar bé el filtre.
-                      </p>
-                    )}
-                  </div>
-                  {calc.pipeDiameterMm != null && (
-                    <div className="flex items-start gap-2 rounded-lg bg-slate-800 p-2">
-                      <Cable className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
-                      <div className="space-y-0.5">
-                        <p className="text-xs text-slate-100">
-                          Diàmetre de canonada recomanat:{" "}
-                          <span className="font-bold text-white">Ø{calc.pipeDiameterMm}mm</span>
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {!onoff && (
-                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5">
-                      ⚠️ Bomba insuficient per a la filtració.
-                    </p>
-                  )}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-emerald-700">
+                  <Fan className="w-4 h-4" /> Bomba On/Off recomanada
+                </div>
+                {isComunitaria && acceptablePair && (
                   <button
                     type="button"
-                    onClick={() => {
-                      onApply({ onoffId: onoffShown.article.id });
-                      toast.success("Bomba On/Off aplicada");
-                    }}
-                    className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
+                    onClick={() => setOnoffFlipped((v) => !v)}
+                    className="text-[10px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
                   >
-                    Aplicar recomanació →
+                    ↻ {onoffFlipped ? "Veure ideal" : "Veure alternativa"}
                   </button>
-                  {isComunitaria && calc.acceptableOnoff && (
-                    <div className="mt-2 pt-2 border-t border-dashed border-border space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                          Alternativa acceptable
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-slate-100 text-slate-600 border-slate-300">
-                          ACCEPTABLE
-                        </span>
-                      </div>
-                      <p className="text-xs font-medium text-foreground leading-tight">
-                        {calc.acceptableOnoff.article.name}
+                )}
+              </div>
+              {onoffShown && idealPair ? (
+                <div className="[perspective:1200px]">
+                  <div
+                    className={cn(
+                      "relative transition-transform duration-500 [transform-style:preserve-3d]",
+                      onoffFlipped && "[transform:rotateY(180deg)]",
+                    )}
+                  >
+                    {/* Front: Ideal */}
+                    <div className="[backface-visibility:hidden] space-y-2">
+                      <p className="text-sm font-semibold text-foreground leading-tight">{onoffShown.article.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {onoffShown.caudal} m³/h · {num(onoffShown.article.technical_specs?.cv)} CV
                       </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {calc.acceptableOnoff.caudal} m³/h · {num(calc.acceptableOnoff.article.technical_specs?.cv)} CV
-                      </p>
-                      <ConditionRow ok={calc.acceptableOnoff.cond_filt}>
-                        Filtració: {calc.acceptableOnoff.caudal} ≥ {calc.caudal_necesario.toFixed(1)} m³/h
-                      </ConditionRow>
-                      <div className="flex items-center justify-between gap-2 text-[11px]">
-                        <span>
-                          VF amb caudal màx: <strong>{calc.acceptableOnoff.vf_pump.toFixed(1)} m³/h/m²</strong>
-                        </span>
-                        {(() => {
-                          const rating = ratingFromVF(calc.acceptableOnoff.vf_pump);
-                          return (
-                            <span
-                              className={cn(
-                                "text-[10px] px-2 py-0.5 rounded-full border font-semibold",
-                                rating.className,
-                              )}
-                            >
-                              {rating.label}
-                            </span>
-                          );
-                        })()}
+                      <div className="space-y-1 pt-1">
+                        <ConditionRow ok={idealPair.cond_filt}>
+                          Filtració: {onoffShown.caudal} ≥ {calc.caudal_necesario.toFixed(1)} m³/h
+                        </ConditionRow>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span>
+                            VF amb caudal màx: <strong>{idealPair.vf_pump.toFixed(1)} m³/h/m²</strong>
+                          </span>
+                          <span
+                            className={cn(
+                              "text-[10px] px-2 py-0.5 rounded-full border font-semibold",
+                              idealPair.vf_in_range
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200",
+                            )}
+                          >
+                            {idealPair.vf_in_range ? "ÒPTIM 34-42 ✅" : "FORA RANG ⚠️"}
+                          </span>
+                        </div>
+                        <ConditionRow ok={idealPair.cond_lav}>
+                          Rentat (info): {onoffShown.caudal} ≥ {calc.lavado_requerit.toFixed(1)} m³/h
+                        </ConditionRow>
+                        {!idealPair.cond_lav && (
+                          <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded p-1.5 leading-snug">
+                            ℹ️ Aquest model no arriba al caudal òptim de rentat del filtre. És habitual amb bombes
+                            On/Off: caldrà allargar el temps de contrarentat per netejar bé el filtre.
+                          </p>
+                        )}
                       </div>
-                      <ConditionRow ok={calc.acceptableOnoff.cond_lav}>
-                        Rentat (info): {calc.acceptableOnoff.caudal} ≥ {calc.lavado_requerit_acceptable.toFixed(1)} m³/h
-                      </ConditionRow>
-                      {!calc.acceptableOnoff.cond_lav && (
-                        <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded p-1.5 leading-snug">
-                          ℹ️ Aquest model no arriba al caudal òptim de rentat del filtre. És habitual amb bombes
-                          On/Off: caldrà allargar el temps de contrarentat per netejar bé el filtre.
+                      {calc.pipeDiameterMm != null && (
+                        <div className="flex items-start gap-2 rounded-lg bg-slate-800 p-2">
+                          <Cable className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <p className="text-xs text-slate-100">
+                              Diàmetre de canonada recomanat:{" "}
+                              <span className="font-bold text-white">Ø{calc.pipeDiameterMm}mm</span>
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {!idealPair.cond_filt && (
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5">
+                          ⚠️ Bomba insuficient per a la filtració.
                         </p>
                       )}
                       <button
                         type="button"
                         onClick={() => {
-                          onApply({ onoffId: calc.acceptableOnoff!.article.id });
+                          onApply({ onoffId: onoffShown.article.id });
                           toast.success("Bomba On/Off aplicada");
                         }}
-                        className="w-full text-[11px] font-medium text-muted-foreground hover:bg-muted/60 border border-border rounded-md py-1 transition-colors"
+                        className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
                       >
-                        Aplicar alternativa →
+                        Aplicar recomanació →
                       </button>
                     </div>
-                  )}
-                </>
+                    {/* Back: Acceptable */}
+                    {acceptablePair && (
+                      <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                            Alternativa acceptable
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-slate-100 text-slate-600 border-slate-300">
+                            ACCEPTABLE
+                          </span>
+                        </div>
+                        <p className="text-xs font-medium text-foreground leading-tight">
+                          {acceptablePair.onoff.article.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {acceptablePair.onoff.caudal} m³/h ·{" "}
+                          {num(acceptablePair.onoff.article.technical_specs?.cv)} CV
+                        </p>
+                        <ConditionRow ok={acceptablePair.cond_filt}>
+                          Filtració: {acceptablePair.onoff.caudal} ≥ {calc.caudal_necesario_acceptable.toFixed(1)} m³/h
+                        </ConditionRow>
+                        <div className="flex items-center justify-between gap-2 text-[11px]">
+                          <span>
+                            VF amb caudal màx: <strong>{acceptablePair.vf_pump.toFixed(1)} m³/h/m²</strong>
+                          </span>
+                          {(() => {
+                            const rating = ratingFromVF(acceptablePair.vf_pump);
+                            return (
+                              <span
+                                className={cn(
+                                  "text-[10px] px-2 py-0.5 rounded-full border font-semibold",
+                                  rating.className,
+                                )}
+                              >
+                                {rating.label}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        <ConditionRow ok={acceptablePair.cond_lav}>
+                          Rentat (info): {acceptablePair.onoff.caudal} ≥{" "}
+                          {calc.lavado_requerit_acceptable.toFixed(1)} m³/h
+                        </ConditionRow>
+                        {!acceptablePair.cond_lav && (
+                          <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded p-1.5 leading-snug">
+                            ℹ️ Aquest model no arriba al caudal òptim de rentat del filtre. És habitual amb bombes
+                            On/Off: caldrà allargar el temps de contrarentat per netejar bé el filtre.
+                          </p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground italic">
+                          Basat en un cicle de renovació de 4,5h (en lloc de 4h)
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onApply({ onoffId: acceptablePair.onoff.article.id });
+                            toast.success("Bomba On/Off aplicada");
+                          }}
+                          className="w-full text-[11px] font-medium text-muted-foreground hover:bg-muted/60 border border-border rounded-md py-1 transition-colors"
+                        >
+                          Aplicar alternativa →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <p className="text-xs text-muted-foreground">Sense bombes On/Off al catàleg.</p>
               )}
@@ -764,65 +842,47 @@ export function EquipmentRecommendations({
                     </div>
                   )}
                   <div className="text-amber-700">
-                    <strong>[DEBUG temporal] Diagnòstic "Acceptable" filtre:</strong>
-                    <br />
-                    filterIdealIndex: {calc.filterIdealIndex} {calc.filterIdealIndex === 0 && "(Ideal ja és el més petit — no hi pot haver predecessor)"}
+                    <strong>Parell Ideal (turnover 4h):</strong>
                     <br />
                     caudal_necesario: {calc.caudal_necesario.toFixed(2)} m³/h
                     <br />
-                    {calc.acceptableFilterCandidate ? (
+                    {idealPair ? (
                       <>
-                        Predecessor: {calc.acceptableFilterCandidate.article.name} · Àrea:{" "}
-                        {calc.acceptableFilterCandidate.area_m2} m² · VF teòric:{" "}
-                        {calc.acceptableFilterCandidate.vf.toFixed(2)} · Vàlid (≤42):{" "}
-                        {calc.acceptableFilterCandidate.valid ? "sí" : "NO"}
+                        Bomba: {idealPair.onoff.article.name} · Caudal: {idealPair.onoff.caudal} m³/h · cond_filt:{" "}
+                        {idealPair.cond_filt ? "sí" : "NO (fallback: bomba més gran disponible)"}
+                        <br />
+                        Filtre: {idealPair.filter.article.name} · Àrea: {idealPair.filter.area_m2} m² · vf_pump:{" "}
+                        {idealPair.vf_pump.toFixed(2)} (òptim 34-42: {idealPair.vf_in_range ? "sí" : "no"}) · cond_lav:{" "}
+                        {idealPair.cond_lav ? "sí" : "no"}
+                        {calc.pipeDiameterMm != null && (
+                          <>
+                            <br />
+                            Diàmetre canonada recomanat: Ø{calc.pipeDiameterMm}mm (lookup taula 2 m/s, cabal{" "}
+                            {idealPair.onoff.caudal} m³/h, mínim 63mm)
+                          </>
+                        )}
                       </>
                     ) : (
-                      "Predecessor: no existeix (Ideal és el primer element de filterEvals)"
+                      "null (sense bombes o filtres al catàleg)"
                     )}
-                    <br />
-                    acceptableFilter final: {calc.acceptableFilter ? calc.acceptableFilter.article.name : "null (amagat)"}
                   </div>
                   <div className="text-amber-700">
-                    <strong>[DEBUG temporal] Diagnòstic "Acceptable" bomba On/Off:</strong>
+                    <strong>Parell Acceptable (turnover 4,5h):</strong>
                     <br />
-                    onoffIdealIndex: {calc.onoffIdealIndex} {calc.onoffIdealIndex === 0 && "(Ideal ja és la més petita — no hi pot haver predecessor)"}
+                    caudal_necesario_acceptable: {calc.caudal_necesario_acceptable.toFixed(2)} m³/h
                     <br />
-                    {calc.acceptableOnoffCandidate ? (
+                    {acceptablePair ? (
                       <>
-                        Predecessor: {calc.acceptableOnoffCandidate.article.name} · Caudal:{" "}
-                        {calc.acceptableOnoffCandidate.caudal} m³/h · cond_filt (≥{calc.caudal_necesario.toFixed(2)}):{" "}
-                        {calc.acceptableOnoffCandidate.cond_filt ? "sí" : "NO"}
+                        Bomba: {acceptablePair.onoff.article.name} · Caudal: {acceptablePair.onoff.caudal} m³/h
                         <br />
-                        Emparellat amb filtre Acceptable ({calc.acceptableFilter?.article.name ?? "cap"}): vf_pump:{" "}
-                        {calc.acceptableOnoffCandidate.vf_pump.toFixed(2)} · dins 30-45 (vfIsAcceptable):{" "}
-                        {calc.acceptableOnoffCandidate.vf_pump >= 30 && calc.acceptableOnoffCandidate.vf_pump <= 45
-                          ? "sí"
-                          : "NO"}{" "}
-                        · cond_lav: {calc.acceptableOnoffCandidate.cond_lav ? "sí" : "no"}
+                        Filtre: {acceptablePair.filter.article.name} · Àrea: {acceptablePair.filter.area_m2} m² ·
+                        vf_pump: {acceptablePair.vf_pump.toFixed(2)} (òptim 34-42: {acceptablePair.vf_in_range ? "sí" : "no"}) ·
+                        cond_lav: {acceptablePair.cond_lav ? "sí" : "no"}
                       </>
                     ) : (
-                      "Predecessor: no existeix (Ideal és el primer element de onoffEvals)"
+                      "null (amagat — cap bomba arriba al caudal_necesario_acceptable, o no és piscina comunitària)"
                     )}
-                    <br />
-                    acceptableOnoff final: {calc.acceptableOnoff ? calc.acceptableOnoff.article.name : "null (amagat)"}
                   </div>
-                  {onoffShown && (
-                    <div>
-                      <strong>Bomba On/Off:</strong> {onoffShown.article.name}
-                      <br />
-                      Caudal: {onoffShown.caudal} m³/h · VF amb caudal màx: {onoffShown.vf_pump.toFixed(2)} (òptim
-                      34-42: {onoffShown.vf_in_range ? "sí" : "no"}) · Filtra: {onoffShown.cond_filt ? "sí" : "no"} ·
-                      Renta: {onoffShown.cond_lav ? "sí" : "no"}
-                      {calc.pipeDiameterMm != null && (
-                        <>
-                          <br />
-                          Diàmetre canonada recomanat: Ø{calc.pipeDiameterMm}mm (lookup taula 2 m/s, cabal{" "}
-                          {onoffShown.caudal} m³/h, mínim 63mm)
-                        </>
-                      )}
-                    </div>
-                  )}
                   {variable && (
                     <div>
                       <strong>Bomba Inverter:</strong> {variable.article.name}
