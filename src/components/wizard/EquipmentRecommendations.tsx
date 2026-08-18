@@ -19,6 +19,9 @@ export interface AppliedRecommendations {
   filterId?: string;
   onoffId?: string;
   variableId?: string;
+  /** Quantitat a aplicar per a la bomba de velocitat variable (combo de 2 o
+   *  3 unitats quan cap model individual cobreix el rentat). Absent = 1. */
+  variableQty?: number;
   dosifStdId?: string;
 }
 
@@ -149,10 +152,10 @@ export function EquipmentRecommendations({
   const [previewAfm, setPreviewAfm] = useState<boolean | null>(null);
   const effectiveUseAfm = previewAfm ?? useAfm;
   const isPreviewing = previewAfm !== null && previewAfm !== useAfm;
-  // Flip 3D de les targetes Filtre / On/Off: mostra l'alternativa Acceptable
-  // al revers, en el mateix espai que ocupa la targeta Ideal.
-  const [filterFlipped, setFilterFlipped] = useState(false);
-  const [onoffFlipped, setOnoffFlipped] = useState(false);
+  // Flip 3D de les targetes Filtre / On/Off: un únic control global gira
+  // totes dues simultàniament per mostrar l'alternativa Acceptable al
+  // revers, en el mateix espai que ocupa la targeta Ideal.
+  const [showAcceptable, setShowAcceptable] = useState(false);
   const [filters, setFilters] = useState<ArticleWithSpecs[]>([]);
   const [onoffPumps, setOnoffPumps] = useState<ArticleWithSpecs[]>([]);
   const [variablePumps, setVariablePumps] = useState<ArticleWithSpecs[]>([]);
@@ -267,6 +270,27 @@ export function EquipmentRecommendations({
     });
     const recommendedVar = varEvals.find((p) => p.valid) || null;
 
+    // Combo: cap bomba individual cobreix lavado_requerit. Prova 2 unitats
+    // del mateix model, començant pel més petit disponible (varSorted ja
+    // exclou IP20) i pujant de talla per minimitzar cost; si ni 2× el més
+    // gran arriba, prova 3× el més gran abans de rendir-se.
+    let recommendedVarCombo: { article: ArticleWithSpecs; qmax: number; qty: 2 | 3; totalQmax: number; vf_optim: number; valid: boolean } | null =
+      null;
+    if (!recommendedVar && varEvals.length > 0) {
+      const comboAt2 = varEvals.find((p) => p.qmax * 2 >= lavado_requerit);
+      const chosen = comboAt2 ? { ...comboAt2, qty: 2 as const } : { ...varEvals[varEvals.length - 1], qty: 3 as const };
+      const totalQmax = chosen.qmax * chosen.qty;
+      const vf_optim = idealPair && idealPair.filter.area_m2 > 0 ? (totalQmax * 0.35) / idealPair.filter.area_m2 : 0;
+      recommendedVarCombo = {
+        article: chosen.article,
+        qmax: chosen.qmax,
+        qty: chosen.qty,
+        totalQmax,
+        vf_optim,
+        valid: totalQmax >= lavado_requerit,
+      };
+    }
+
     // ===== Clorador salí estàndard =====
     // Fórmula: cloro_dia = volumen_m3 * 2 + bathers * 10
     // gr_per_hora_requerit = cloro_dia / 8 (hores filtració)
@@ -293,6 +317,7 @@ export function EquipmentRecommendations({
       idealPair,
       acceptablePair,
       recommendedVar,
+      recommendedVarCombo,
       cloro_dia,
       gr_per_hora,
       recommendedChlorinator,
@@ -308,8 +333,7 @@ export function EquipmentRecommendations({
   // no deixar el revers en blanc.
   useEffect(() => {
     if (!calc.acceptablePair) {
-      setFilterFlipped(false);
-      setOnoffFlipped(false);
+      setShowAcceptable(false);
     }
   }, [calc.acceptablePair]);
 
@@ -342,13 +366,15 @@ export function EquipmentRecommendations({
   const f = idealPair?.filter ?? null;
   const onoffShown = idealPair?.onoff ?? null;
   const variable = calc.recommendedVar;
+  const variableCombo = calc.recommendedVarCombo;
   const chlor = calc.recommendedChlorinator;
 
   const applyAll = () => {
     onApply({
       filterId: f?.article.id,
       onoffId: onoffShown?.article.id,
-      variableId: variable?.article.id,
+      variableId: variable?.article.id ?? variableCombo?.article.id,
+      variableQty: variable ? 1 : variableCombo?.qty,
       dosifStdId: chlor?.article.id,
     });
     toast.success("Equips recomanats aplicats. Pots modificar-los manualment si cal.");
@@ -428,6 +454,26 @@ export function EquipmentRecommendations({
             )}
           </div>
 
+          {isComunitaria && calc.acceptablePair && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Filtre i bomba On/Off:
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAcceptable((v) => !v)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors",
+                  showAcceptable
+                    ? "bg-slate-100 text-slate-700 border-slate-300"
+                    : "bg-background text-muted-foreground border-border hover:text-foreground",
+                )}
+              >
+                ↻ {showAcceptable ? "Veure Ideal" : "Veure alternativa Acceptable"}
+              </button>
+            </div>
+          )}
+
           {isPreviewing && (
             <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
               <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -451,26 +497,15 @@ export function EquipmentRecommendations({
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3">
             {/* Filter card */}
             <div className="rounded-lg border border-border bg-background/60 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-blue-700">
-                  <Filter className="w-4 h-4" /> Filtre recomanat
-                </div>
-                {isComunitaria && acceptablePair && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterFlipped((v) => !v)}
-                    className="text-[10px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
-                  >
-                    ↻ {filterFlipped ? "Veure ideal" : "Veure alternativa"}
-                  </button>
-                )}
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-blue-700">
+                <Filter className="w-4 h-4" /> Filtre recomanat
               </div>
               {f && idealPair ? (
                 <div className="[perspective:1200px]">
                   <div
                     className={cn(
                       "relative transition-transform duration-500 [transform-style:preserve-3d]",
-                      filterFlipped && "[transform:rotateY(180deg)]",
+                      showAcceptable && "[transform:rotateY(180deg)]",
                     )}
                   >
                     {/* Front: Ideal */}
@@ -574,26 +609,15 @@ export function EquipmentRecommendations({
 
             {/* On/Off pump card */}
             <div className="rounded-lg border border-border bg-background/60 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-                  <Fan className="w-4 h-4" /> Bomba On/Off recomanada
-                </div>
-                {isComunitaria && acceptablePair && (
-                  <button
-                    type="button"
-                    onClick={() => setOnoffFlipped((v) => !v)}
-                    className="text-[10px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
-                  >
-                    ↻ {onoffFlipped ? "Veure ideal" : "Veure alternativa"}
-                  </button>
-                )}
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-emerald-700">
+                <Fan className="w-4 h-4" /> Bomba On/Off recomanada
               </div>
               {onoffShown && idealPair ? (
                 <div className="[perspective:1200px]">
                   <div
                     className={cn(
                       "relative transition-transform duration-500 [transform-style:preserve-3d]",
-                      onoffFlipped && "[transform:rotateY(180deg)]",
+                      showAcceptable && "[transform:rotateY(180deg)]",
                     )}
                   >
                     {/* Front: Ideal */}
@@ -752,12 +776,61 @@ export function EquipmentRecommendations({
                   <button
                     type="button"
                     onClick={() => {
-                      onApply({ variableId: variable.article.id });
+                      onApply({ variableId: variable.article.id, variableQty: 1 });
                       toast.success("Bomba variable aplicada");
                     }}
                     className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
                   >
                     Aplicar recomanació →
+                  </button>
+                </>
+              ) : calc.recommendedVarCombo ? (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Combo</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-violet-50 text-violet-700 border-violet-200">
+                      {calc.recommendedVarCombo.qty} UNITATS
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground leading-tight">
+                    {calc.recommendedVarCombo.qty}× {calc.recommendedVarCombo.article.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Qmax unitari: {calc.recommendedVarCombo.qmax} m³/h · Hmax:{" "}
+                    {num(calc.recommendedVarCombo.article.technical_specs?.hmax_m)}m ·{" "}
+                    {num(calc.recommendedVarCombo.article.technical_specs?.p1_kw)} kW
+                  </p>
+                  <ConditionRow ok={calc.recommendedVarCombo.valid}>
+                    Cobreix rentat combinat: {calc.recommendedVarCombo.totalQmax} ≥ {calc.lavado_requerit.toFixed(1)} m³/h
+                  </ConditionRow>
+                  <p className="text-[11px] text-muted-foreground bg-muted/40 rounded p-1.5 leading-snug">
+                    Cap bomba individual del catàleg cobreix el caudal de rentat necessari. Es proposen{" "}
+                    {calc.recommendedVarCombo.qty} unitats del mateix model treballant en paral·lel per sumar el
+                    seu Qmax.
+                  </p>
+                  <p className="text-[11px] text-muted-foreground bg-muted/40 rounded p-1.5">
+                    En filtració treballarà al ~35% → <strong>{(calc.recommendedVarCombo.totalQmax * 0.35).toFixed(1)} m³/h</strong>{" "}
+                    · VF: {calc.recommendedVarCombo.vf_optim.toFixed(1)} m³/h/m²
+                    {calc.recommendedVarCombo.vf_optim >= 20 && calc.recommendedVarCombo.vf_optim <= 30 && " [òptim ✅]"}
+                  </p>
+                  {!calc.recommendedVarCombo.valid && (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5">
+                      ⚠️ Ni {calc.recommendedVarCombo.qty} unitats del model més gran del catàleg cobreixen el rentat
+                      necessari.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onApply({
+                        variableId: calc.recommendedVarCombo!.article.id,
+                        variableQty: calc.recommendedVarCombo!.qty,
+                      });
+                      toast.success(`Combo de ${calc.recommendedVarCombo!.qty} bombes variables aplicat`);
+                    }}
+                    className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
+                  >
+                    Aplicar recomanació ({calc.recommendedVarCombo.qty} unitats) →
                   </button>
                 </>
               ) : (

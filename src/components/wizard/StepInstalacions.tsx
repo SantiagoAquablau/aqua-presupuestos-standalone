@@ -1837,6 +1837,9 @@ export function StepInstalacions() {
             const art = await loadArticle(rec.variableId);
             if (art) setBombaVariable(art);
             updates.instalBombaVariableId = rec.variableId;
+            // Combo (2 o 3 unitats) quan EquipmentRecommendations el recomana
+            // perquè cap bomba individual cobreix el rentat necessari.
+            if (rec.variableQty) updates.instalBombaVariableQty = rec.variableQty;
           }
           if (rec.dosifStdId) {
             const art = await loadArticle(rec.dosifStdId);

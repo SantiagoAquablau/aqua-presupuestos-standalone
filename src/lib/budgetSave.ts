@@ -1572,11 +1572,17 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
         else if (name.includes("DOLFI 100M")) flow = "13,3m3/h";
         else if (name.includes("DOLFI 150M")) flow = "15m3/h";
       }
+      // Combo de bomba variable (2 o 3 unitats del mateix model treballant en
+      // paral·lel, recomanat per EquipmentRecommendations quan cap unitat
+      // individual cobreix el caudal de rentat necessari) — el nom i el text
+      // de cabal del PDF han de deixar clara la quantitat, no només el preu.
+      const isVariableCombo = tipus === "inverter" && qty > 1;
       return {
         bombaInclosTipus: tipus,
-        bombaInclosName: art?.name,
+        bombaInclosName: isVariableCombo && art ? `${qty}× ${art.name}` : art?.name,
         bombaInclosImageUrl: art?.image_url || undefined,
-        bombaInclosFlowText: flow,
+        bombaInclosFlowText:
+          isVariableCombo && flow ? `${flow} per unitat (${qty} unitats en paral·lel per cobrir el rentat)` : flow,
         bombaInclosTotal: total,
       };
     })(),
@@ -1629,10 +1635,15 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
           else if (name.includes("DOLFI 100M")) flow = "13,3m3/h";
           else if (name.includes("DOLFI 150M")) flow = "15m3/h";
         }
+        // Combo de bomba variable (2 o 3 unitats) — mateix criteri que el
+        // bloc "inclosa" de dalt: el nom i el cabal han de reflectir la
+        // quantitat.
+        const isVariableCombo = tipus === "inverter" && qty > 1;
         out.bombaOpcionalTipus = tipus;
-        out.bombaOpcionalName = art?.name;
+        out.bombaOpcionalName = isVariableCombo && art ? `${qty}× ${art.name}` : art?.name;
         out.bombaOpcionalImageUrl = art?.image_url || undefined;
-        out.bombaOpcionalFlowText = flow;
+        out.bombaOpcionalFlowText =
+          isVariableCombo && flow ? `${flow} per unitat (${qty} unitats en paral·lel per cobrir el rentat)` : flow;
         // Same total as if the pump were included: equip + 8h MO.
         const equipSale = art ? Math.ceil(Number(art.sale || 0) * qty) : 0;
         out.bombaOpcionalSale = equipSale + Math.ceil(8 * preuMo);
