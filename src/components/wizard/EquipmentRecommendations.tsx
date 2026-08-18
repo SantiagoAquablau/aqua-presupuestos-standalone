@@ -151,6 +151,65 @@ function selectPair(
   };
 }
 
+interface VariablePumpSingle {
+  article: ArticleWithSpecs;
+  qmax: number;
+  valid: boolean;
+  vf_optim: number;
+}
+interface VariablePumpCombo {
+  article: ArticleWithSpecs;
+  qmax: number;
+  qty: 2 | 3;
+  totalQmax: number;
+  vf_optim: number;
+  valid: boolean;
+}
+interface VariablePumpResult {
+  single: VariablePumpSingle | null;
+  combo: VariablePumpCombo | null;
+}
+
+// Bomba de velocitat variable per a un lavado_requerit/àrea de filtre
+// concrets — funció pura reutilitzable perquè Ideal i Acceptable calculen
+// cadascun el seu propi resultat (basat en el seu propi filtre), no un únic
+// càlcul fixat al filtre Ideal.
+function selectVariablePump(
+  lavado_requerit: number,
+  filterAreaM2: number,
+  varSorted: ArticleWithSpecs[],
+): VariablePumpResult {
+  const varEvals = varSorted.map((art) => {
+    const qmax = num(art.technical_specs?.qmax_m3h);
+    const valid = qmax >= lavado_requerit;
+    const vf_optim = filterAreaM2 > 0 ? (qmax * 0.35) / filterAreaM2 : 0;
+    return { article: art, qmax, valid, vf_optim };
+  });
+  const single = varEvals.find((p) => p.valid) || null;
+
+  // Combo: cap bomba individual cobreix lavado_requerit. Prova 2 unitats
+  // del mateix model, començant pel més petit disponible (varSorted ja
+  // exclou IP20) i pujant de talla per minimitzar cost; si ni 2× el més
+  // gran arriba, prova 3× el més gran abans de rendir-se.
+  let combo: VariablePumpCombo | null = null;
+  if (!single && varEvals.length > 0) {
+    const comboAt2 = varEvals.find((p) => p.qmax * 2 >= lavado_requerit);
+    const chosen = comboAt2 ? { ...comboAt2, qty: 2 as const } : { ...varEvals[varEvals.length - 1], qty: 3 as const };
+    const totalQmax = chosen.qmax * chosen.qty;
+    const vf_optim = filterAreaM2 > 0 ? (totalQmax * 0.35) / filterAreaM2 : 0;
+    combo = {
+      article: chosen.article,
+      qmax: chosen.qmax,
+      qty: chosen.qty,
+      totalQmax,
+      vf_optim,
+      valid: totalQmax >= lavado_requerit,
+    };
+  }
+
+  return { single, combo };
+}
+
 function ConditionRow({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 text-xs">
@@ -289,38 +348,17 @@ export function EquipmentRecommendations({
     // On/Off Ideal. Norma 3×3 de l'empresa: taula de lookup ja calculada a 2 m/s.
     const pipeDiameterMm = idealPair ? getRecommendedPipeDiameter(idealPair.onoff.caudal) : null;
 
-    // Variable pump
+    // Variable pump: calculada per a un filtre/lavado_requerit concrets
+    // (funció reutilitzable perquè Ideal i Acceptable necessiten cadascun el
+    // seu propi resultat, basat en el seu propi filtre — no un càlcul únic
+    // fixat al filtre Ideal).
     const varSorted = [...variablePumps].sort(
       (a, b) => num(a.technical_specs?.qmax_m3h) - num(b.technical_specs?.qmax_m3h),
     );
-    const varEvals = varSorted.map((art) => {
-      const qmax = num(art.technical_specs?.qmax_m3h);
-      const valid = qmax >= lavado_requerit;
-      const vf_optim = idealPair && idealPair.filter.area_m2 > 0 ? (qmax * 0.35) / idealPair.filter.area_m2 : 0;
-      return { article: art, qmax, valid, vf_optim };
-    });
-    const recommendedVar = varEvals.find((p) => p.valid) || null;
-
-    // Combo: cap bomba individual cobreix lavado_requerit. Prova 2 unitats
-    // del mateix model, començant pel més petit disponible (varSorted ja
-    // exclou IP20) i pujant de talla per minimitzar cost; si ni 2× el més
-    // gran arriba, prova 3× el més gran abans de rendir-se.
-    let recommendedVarCombo: { article: ArticleWithSpecs; qmax: number; qty: 2 | 3; totalQmax: number; vf_optim: number; valid: boolean } | null =
-      null;
-    if (!recommendedVar && varEvals.length > 0) {
-      const comboAt2 = varEvals.find((p) => p.qmax * 2 >= lavado_requerit);
-      const chosen = comboAt2 ? { ...comboAt2, qty: 2 as const } : { ...varEvals[varEvals.length - 1], qty: 3 as const };
-      const totalQmax = chosen.qmax * chosen.qty;
-      const vf_optim = idealPair && idealPair.filter.area_m2 > 0 ? (totalQmax * 0.35) / idealPair.filter.area_m2 : 0;
-      recommendedVarCombo = {
-        article: chosen.article,
-        qmax: chosen.qmax,
-        qty: chosen.qty,
-        totalQmax,
-        vf_optim,
-        valid: totalQmax >= lavado_requerit,
-      };
-    }
+    const idealVariablePump = selectVariablePump(lavado_requerit, idealPair?.filter.area_m2 ?? 0, varSorted);
+    const acceptableVariablePump = acceptablePair
+      ? selectVariablePump(lavado_requerit_acceptable, acceptablePair.filter.area_m2, varSorted)
+      : null;
 
     // ===== Clorador salí estàndard =====
     // Fórmula: cloro_dia = volumen_m3 * 2 + bathers * 10
@@ -347,8 +385,8 @@ export function EquipmentRecommendations({
       lavado_requerit_acceptable,
       idealPair,
       acceptablePair,
-      recommendedVar,
-      recommendedVarCombo,
+      idealVariablePump,
+      acceptableVariablePump,
       cloro_dia,
       gr_per_hora,
       recommendedChlorinator,
@@ -396,8 +434,8 @@ export function EquipmentRecommendations({
   const acceptablePair = calc.acceptablePair;
   const f = idealPair?.filter ?? null;
   const onoffShown = idealPair?.onoff ?? null;
-  const variable = calc.recommendedVar;
-  const variableCombo = calc.recommendedVarCombo;
+  const variable = calc.idealVariablePump.single;
+  const variableCombo = calc.idealVariablePump.combo;
   const chlor = calc.recommendedChlorinator;
 
   const applyAll = () => {
@@ -409,6 +447,90 @@ export function EquipmentRecommendations({
       dosifStdId: chlor?.article.id,
     });
     toast.success("Equips recomanats aplicats. Pots modificar-los manualment si cal.");
+  };
+
+  // Renderitza el cos de la targeta de bomba variable (individual, combo, o
+  // "sense catàleg") per a un resultat i lavado_requerit concrets — reutilitzat
+  // per al revers (Acceptable) de la mateixa targeta.
+  const renderVariablePumpBody = (result: VariablePumpResult, lavadoRequerit: number) => {
+    if (result.single) {
+      const v = result.single;
+      return (
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-foreground leading-tight">{v.article.name}</p>
+          <p className="text-xs text-muted-foreground">
+            Qmax: {v.qmax} m³/h · Hmax: {num(v.article.technical_specs?.hmax_m)}m ·{" "}
+            {num(v.article.technical_specs?.p1_kw)} kW
+          </p>
+          <ConditionRow ok={true}>
+            Cobreix rentat: {v.qmax} ≥ {lavadoRequerit.toFixed(1)} m³/h
+          </ConditionRow>
+          <p className="text-[11px] text-muted-foreground bg-muted/40 rounded p-1.5">
+            En filtració treballarà al ~35% → <strong>{(v.qmax * 0.35).toFixed(1)} m³/h</strong> · VF:{" "}
+            {v.vf_optim.toFixed(1)} m³/h/m²
+            {v.vf_optim >= 20 && v.vf_optim <= 30 && " [òptim ✅]"}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              onApply({ variableId: v.article.id, variableQty: 1 });
+              toast.success("Bomba variable aplicada");
+            }}
+            className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
+          >
+            Aplicar recomanació →
+          </button>
+        </div>
+      );
+    }
+    if (result.combo) {
+      const c = result.combo;
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Combo</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-violet-50 text-violet-700 border-violet-200">
+              {c.qty} UNITATS
+            </span>
+          </div>
+          <p className="text-sm font-semibold text-foreground leading-tight">
+            {c.qty}× {c.article.name}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Qmax unitari: {c.qmax} m³/h · Hmax: {num(c.article.technical_specs?.hmax_m)}m ·{" "}
+            {num(c.article.technical_specs?.p1_kw)} kW
+          </p>
+          <ConditionRow ok={c.valid}>
+            Cobreix rentat combinat: {c.totalQmax} ≥ {lavadoRequerit.toFixed(1)} m³/h
+          </ConditionRow>
+          <p className="text-[11px] text-muted-foreground bg-muted/40 rounded p-1.5 leading-snug">
+            Cap bomba individual del catàleg cobreix el caudal de rentat necessari. Es proposen {c.qty} unitats del
+            mateix model treballant en paral·lel per sumar el seu Qmax.
+          </p>
+          <p className="text-[11px] text-muted-foreground bg-muted/40 rounded p-1.5">
+            En filtració treballarà al ~35% → <strong>{(c.totalQmax * 0.35).toFixed(1)} m³/h</strong> · VF:{" "}
+            {c.vf_optim.toFixed(1)} m³/h/m²
+            {c.vf_optim >= 20 && c.vf_optim <= 30 && " [òptim ✅]"}
+          </p>
+          {!c.valid && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5">
+              ⚠️ Ni {c.qty} unitats del model més gran del catàleg cobreixen el rentat necessari.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              onApply({ variableId: c.article.id, variableQty: c.qty });
+              toast.success(`Combo de ${c.qty} bombes variables aplicat`);
+            }}
+            className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
+          >
+            Aplicar recomanació ({c.qty} unitats) →
+          </button>
+        </div>
+      );
+    }
+    return <p className="text-xs text-muted-foreground">Sense bombes variables vàlides al catàleg.</p>;
   };
 
   return (
@@ -789,83 +911,37 @@ export function EquipmentRecommendations({
               <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-violet-700">
                 <Zap className="w-4 h-4" /> Bomba velocitat variable
               </div>
-              {variable ? (
-                <>
-                  <p className="text-sm font-semibold text-foreground leading-tight">{variable.article.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Qmax: {variable.qmax} m³/h · Hmax: {num(variable.article.technical_specs?.hmax_m)}m ·{" "}
-                    {num(variable.article.technical_specs?.p1_kw)} kW
-                  </p>
-                  <ConditionRow ok={true}>
-                    Cobreix rentat: {variable.qmax} ≥ {calc.lavado_requerit.toFixed(1)} m³/h
-                  </ConditionRow>
-                  <p className="text-[11px] text-muted-foreground bg-muted/40 rounded p-1.5">
-                    En filtració treballarà al ~35% → <strong>{(variable.qmax * 0.35).toFixed(1)} m³/h</strong> · VF:{" "}
-                    {variable.vf_optim.toFixed(1)} m³/h/m²
-                    {variable.vf_optim >= 20 && variable.vf_optim <= 30 && " [òptim ✅]"}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onApply({ variableId: variable.article.id, variableQty: 1 });
-                      toast.success("Bomba variable aplicada");
-                    }}
-                    className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
+              {isComunitaria && acceptablePair && calc.acceptableVariablePump ? (
+                <div className="[perspective:1200px]">
+                  <div
+                    className={cn(
+                      "relative transition-transform duration-500 [transform-style:preserve-3d]",
+                      showAcceptable && "[transform:rotateY(180deg)]",
+                    )}
                   >
-                    Aplicar recomanació →
-                  </button>
-                </>
-              ) : calc.recommendedVarCombo ? (
-                <>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Combo</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-violet-50 text-violet-700 border-violet-200">
-                      {calc.recommendedVarCombo.qty} UNITATS
-                    </span>
+                    {/* Front: Ideal */}
+                    <div className="[backface-visibility:hidden]">
+                      {renderVariablePumpBody(calc.idealVariablePump, calc.lavado_requerit)}
+                    </div>
+                    {/* Back: Acceptable */}
+                    <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          Alternativa acceptable
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-slate-100 text-slate-600 border-slate-300">
+                          ACCEPTABLE
+                        </span>
+                      </div>
+                      {renderVariablePumpBody(calc.acceptableVariablePump, calc.lavado_requerit_acceptable)}
+                      <p className="text-[11px] text-muted-foreground italic">
+                        Basat en un cicle de renovació de 4,5h (en lloc de 4h)
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm font-semibold text-foreground leading-tight">
-                    {calc.recommendedVarCombo.qty}× {calc.recommendedVarCombo.article.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Qmax unitari: {calc.recommendedVarCombo.qmax} m³/h · Hmax:{" "}
-                    {num(calc.recommendedVarCombo.article.technical_specs?.hmax_m)}m ·{" "}
-                    {num(calc.recommendedVarCombo.article.technical_specs?.p1_kw)} kW
-                  </p>
-                  <ConditionRow ok={calc.recommendedVarCombo.valid}>
-                    Cobreix rentat combinat: {calc.recommendedVarCombo.totalQmax} ≥ {calc.lavado_requerit.toFixed(1)} m³/h
-                  </ConditionRow>
-                  <p className="text-[11px] text-muted-foreground bg-muted/40 rounded p-1.5 leading-snug">
-                    Cap bomba individual del catàleg cobreix el caudal de rentat necessari. Es proposen{" "}
-                    {calc.recommendedVarCombo.qty} unitats del mateix model treballant en paral·lel per sumar el
-                    seu Qmax.
-                  </p>
-                  <p className="text-[11px] text-muted-foreground bg-muted/40 rounded p-1.5">
-                    En filtració treballarà al ~35% → <strong>{(calc.recommendedVarCombo.totalQmax * 0.35).toFixed(1)} m³/h</strong>{" "}
-                    · VF: {calc.recommendedVarCombo.vf_optim.toFixed(1)} m³/h/m²
-                    {calc.recommendedVarCombo.vf_optim >= 20 && calc.recommendedVarCombo.vf_optim <= 30 && " [òptim ✅]"}
-                  </p>
-                  {!calc.recommendedVarCombo.valid && (
-                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5">
-                      ⚠️ Ni {calc.recommendedVarCombo.qty} unitats del model més gran del catàleg cobreixen el rentat
-                      necessari.
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onApply({
-                        variableId: calc.recommendedVarCombo!.article.id,
-                        variableQty: calc.recommendedVarCombo!.qty,
-                      });
-                      toast.success(`Combo de ${calc.recommendedVarCombo!.qty} bombes variables aplicat`);
-                    }}
-                    className="w-full text-xs font-medium text-primary hover:bg-primary/10 border border-primary/30 rounded-md py-1.5 transition-colors"
-                  >
-                    Aplicar recomanació ({calc.recommendedVarCombo.qty} unitats) →
-                  </button>
-                </>
+                </div>
               ) : (
-                <p className="text-xs text-muted-foreground">Sense bombes variables vàlides al catàleg.</p>
+                renderVariablePumpBody(calc.idealVariablePump, calc.lavado_requerit)
               )}
             </div>
 
