@@ -74,6 +74,8 @@ interface PairResult {
   vf_in_range: boolean;
 }
 
+const distanceToOptim = (vf: number) => (vf < 34 ? 34 - vf : vf > 42 ? vf - 42 : 0);
+
 // Norma 3×3 en 2 passos: primer la bomba On/Off (segons caudal_necesario =
 // volum/turnover), després el filtre segons el caudal REAL d'aquesta bomba
 // (no un caudal teòric aïllat). El filtre triat és el que minimitza la
@@ -81,30 +83,59 @@ interface PairResult {
 // allowFallback controla què passa quan cap bomba arriba al caudal_necesario:
 // true (Ideal) → s'usa la bomba més gran disponible igualment (cond_filt=false,
 // es mostra avís). false (Acceptable) → es retorna null i la targeta s'amaga.
+// optimizeVfRange (només Ideal): en lloc de quedar-se amb la primera bomba
+// que cobreix caudalNecesario, prova bombes cada cop més grans (començant
+// per aquesta) fins trobar la primera combinació bomba+filtre amb VF dins
+// 34-42 exacte — evitar un "Ideal" que tècnicament funciona però queda per
+// sota de l'òptim (ex. 50M + filtre 600 → VF=31,8). Si cap combinació hi
+// entra, es queda amb la de mínima distància al rang (mateix criteri que el
+// filtre). Acceptable no usa aquest mode: accepta la banda més àmplia
+// 30-45 vista a ratingFromVF, ja que el seu propòsit és ser una alternativa
+// més laxa, no la més ajustada a l'òptim.
 function selectPair(
   caudalNecesario: number,
   onoffBase: { article: ArticleWithSpecs; caudal: number }[],
   filtersSorted: ArticleWithSpecs[],
   washMultiplier: number,
   allowFallback: boolean,
+  optimizeVfRange: boolean,
 ): PairResult | null {
   if (onoffBase.length === 0 || filtersSorted.length === 0) return null;
 
+  const bestFilterFor = (caudal: number) => {
+    const filterEvals = filtersSorted.map((art) => {
+      const area = num(art.technical_specs?.area_m2);
+      const vf = area > 0 ? caudal / area : Infinity;
+      return { article: art, area_m2: area, vf };
+    });
+    return filterEvals.reduce((best, cur) => (distanceToOptim(cur.vf) < distanceToOptim(best.vf) ? cur : best));
+  };
+
   const candidatePumps = onoffBase.filter((p) => p.caudal >= caudalNecesario);
-  const onoffChosen = candidatePumps[0] ?? (allowFallback ? onoffBase[onoffBase.length - 1] : null);
-  if (!onoffChosen) return null;
+  const searchPool =
+    candidatePumps.length > 0 ? candidatePumps : allowFallback ? [onoffBase[onoffBase.length - 1]] : [];
+  if (searchPool.length === 0) return null;
+
+  let onoffChosen = searchPool[0];
+  let filterChosen = bestFilterFor(onoffChosen.caudal);
+
+  if (optimizeVfRange && candidatePumps.length > 0) {
+    let bestSoFar = { onoff: onoffChosen, filter: filterChosen };
+    for (const pump of candidatePumps) {
+      const filt = bestFilterFor(pump.caudal);
+      if (filt.vf >= 34 && filt.vf <= 42) {
+        bestSoFar = { onoff: pump, filter: filt };
+        break;
+      }
+      if (distanceToOptim(filt.vf) < distanceToOptim(bestSoFar.filter.vf)) {
+        bestSoFar = { onoff: pump, filter: filt };
+      }
+    }
+    onoffChosen = bestSoFar.onoff;
+    filterChosen = bestSoFar.filter;
+  }
+
   const cond_filt = onoffChosen.caudal >= caudalNecesario;
-
-  const filterEvals = filtersSorted.map((art) => {
-    const area = num(art.technical_specs?.area_m2);
-    const vf = area > 0 ? onoffChosen.caudal / area : Infinity;
-    return { article: art, area_m2: area, vf };
-  });
-  const distanceToOptim = (vf: number) => (vf < 34 ? 34 - vf : vf > 42 ? vf - 42 : 0);
-  const filterChosen = filterEvals.reduce((best, cur) =>
-    distanceToOptim(cur.vf) < distanceToOptim(best.vf) ? cur : best,
-  );
-
   const lavado_requerit = filterChosen.area_m2 * washMultiplier;
   const cond_lav = onoffChosen.caudal >= lavado_requerit;
   const vf_in_range = filterChosen.vf >= 34 && filterChosen.vf <= 42;
@@ -237,9 +268,9 @@ export function EquipmentRecommendations({
     // Norma 3×3 en 2 passos: bomba primer (segons caudal_necesario), filtre
     // després (segons el caudal real de la bomba ja triada). Ideal i Acceptable
     // són parells totalment independents, no un derivat de l'altre.
-    const idealPair = selectPair(caudal_necesario, onoffBase, filtersSorted, washMultiplier, true);
+    const idealPair = selectPair(caudal_necesario, onoffBase, filtersSorted, washMultiplier, true, true);
     const acceptablePairRaw = isComunitaria
-      ? selectPair(caudal_necesario_acceptable, onoffBase, filtersSorted, washMultiplier, false)
+      ? selectPair(caudal_necesario_acceptable, onoffBase, filtersSorted, washMultiplier, false, false)
       : null;
     // Si el parell Acceptable acaba coincidint exactament (mateixa bomba i
     // mateix filtre) amb el parell Ideal, no és una alternativa real — s'amaga.
