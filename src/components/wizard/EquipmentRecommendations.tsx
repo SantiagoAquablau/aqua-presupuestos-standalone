@@ -934,9 +934,6 @@ export function EquipmentRecommendations({
                         </span>
                       </div>
                       {renderVariablePumpBody(calc.acceptableVariablePump, calc.lavado_requerit_acceptable)}
-                      <p className="text-[11px] text-muted-foreground italic">
-                        Basat en un cicle de renovació de 4,5h (en lloc de 4h)
-                      </p>
                     </div>
                   </div>
                 </div>
