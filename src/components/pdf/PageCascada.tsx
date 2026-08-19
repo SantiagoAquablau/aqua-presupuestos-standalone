@@ -15,6 +15,8 @@
 import type { PdfData } from "./pdfTypes";
 import { PDF_COLORS, PDF_FONTS, formatEuro, pdfPageStyle } from "./pdfStyles";
 import { PdfLogo } from "./PdfShared";
+import cascadaEncastadaBg from "@/assets/cascada_encastada.webp";
+import cascadaNoEncastadaBg from "@/assets/cascada_no_encastada.webp";
 
 const NAVY = "#2f4494";
 
@@ -24,6 +26,7 @@ export function PageCascada({ data, pillNumber }: { data: PdfData; pillNumber: n
   const bombaName = data.cascadaBombaName || "A determinar";
   const total = data.cascadaTotal || 0;
   const diametreMm = data.cascadaDiametreMm || 50;
+  const backgroundSrc = encastada ? cascadaEncastadaBg : cascadaNoEncastadaBg;
   const totalInstal = data.instalacionsTotal || 0;
 
   const bullets: { pre: string; strong?: string }[] = [
@@ -39,18 +42,23 @@ export function PageCascada({ data, pillNumber }: { data: PdfData; pillNumber: n
 
   return (
     <section style={pdfPageStyle}>
-      {/* Full-height background image — same as Depuracio/Electricitat */}
+      {/* Background image — cascada_encastada.webp / cascada_no_encastada.webp
+          are real photos with their own subject/framing, not full-bleed
+          textures. Confine them to the lower portion of the page with
+          objectFit: "contain" so they always render whole (never cropped)
+          and sit below the header/bullets text, with empty space above. */}
       <img
-        src="/pdf/fondo_instalacion.webp"
+        src={backgroundSrc}
         crossOrigin="anonymous"
         alt=""
         style={{
           position: "absolute",
           left: 0,
-          top: 0,
+          top: "42%",
           width: "210mm",
-          height: "297mm",
-          objectFit: "cover",
+          height: "60%",
+          objectFit: "contain",
+          objectPosition: "center bottom",
           zIndex: 0,
         }}
       />
