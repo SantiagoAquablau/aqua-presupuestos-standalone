@@ -565,6 +565,73 @@ export function StepAccessoris() {
     updateDraft({ accCascadaPulsadorQty: Math.max(1, Math.min(10, qty)) });
   };
 
+  // Auto-select default bomba + polsador piezoelèctric when the user enables
+  // Cascada and picks a model, without overriding any manual selection the
+  // user may already have made (same "only if empty" pattern as the RGB
+  // control auto-selection above).
+  useEffect(() => {
+    if (!draft.accCascadaEnabled || !draft.accCascadaModelId) return;
+    if (draft.accCascadaBombaArticleId && draft.accCascadaPulsadorArticleId) return;
+
+    let cancelled = false;
+    (async () => {
+      const updates: Record<string, any> = {};
+      const newCache: Record<string, SelectedArticle> = {};
+
+      if (!draft.accCascadaBombaArticleId) {
+        const { data } = await supabase
+          .from('articles')
+          .select('id, name, reference, image_url, suppliers:supplier_id(name)')
+          .eq('category', 'Bomba')
+          .eq('subtipus', 'On/Off')
+          .ilike('name', '%DOLFI 150M%')
+          .limit(1);
+        const match = data?.[0];
+        if (match) {
+          const article: SelectedArticle = {
+            id: match.id,
+            name: match.name,
+            reference: match.reference,
+            image_url: match.image_url,
+            supplierName: (match as any).suppliers?.name,
+          };
+          updates.accCascadaBombaArticleId = article.id;
+          newCache[article.id] = article;
+        }
+      }
+
+      if (!draft.accCascadaPulsadorArticleId) {
+        const { data } = await supabase
+          .from('articles')
+          .select('id, name, reference, image_url, suppliers:supplier_id(name)')
+          .eq('category', 'Accessoris')
+          .eq('subtipus', 'Pulsador piezoelèctric')
+          .limit(1);
+        const match = data?.[0];
+        if (match) {
+          const article: SelectedArticle = {
+            id: match.id,
+            name: match.name,
+            reference: match.reference,
+            image_url: match.image_url,
+            supplierName: (match as any).suppliers?.name,
+          };
+          updates.accCascadaPulsadorArticleId = article.id;
+          updates.accCascadaPulsadorQty = draft.accCascadaPulsadorQty ?? 1;
+          newCache[article.id] = article;
+        }
+      }
+
+      if (cancelled || Object.keys(updates).length === 0) return;
+      setArticleCache((prev) => ({ ...prev, ...newCache }));
+      updateDraft(updates);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.accCascadaEnabled, draft.accCascadaModelId, draft.accCascadaBombaArticleId, draft.accCascadaPulsadorArticleId]);
+
   const hasDimensions = poolLength > 0 && poolWidth > 0;
   const isCompact = isMobile || isTablet;
 

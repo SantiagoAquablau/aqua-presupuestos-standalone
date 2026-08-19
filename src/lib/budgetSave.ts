@@ -1194,6 +1194,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   const cascadaArt = a(draft.accCascadaModelId || undefined);
   const cascadaBombaArt = a(draft.accCascadaBombaArticleId || undefined);
   const cascadaEncastada = cascadaArt?.technical_specs?.encastada === true;
+  const cascadaDiametreMm = Number(cascadaArt?.technical_specs?.diametre_mm) || 50;
 
   const accOptionalLines = [
     buildOptLine(draft.accEscalaEnabled, "Escala inox", draft.accEscalaQty, draft.accEscalaModelId),
@@ -1670,6 +1671,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     cascadaModelName: cascadaArt?.name,
     cascadaModelImageUrl: cascadaArt?.image_url || undefined,
     cascadaEncastada,
+    cascadaDiametreMm,
     cascadaBombaName: cascadaBombaArt?.name,
     // Drives whether Page 6 (PageDepuracio2) is included at all, in
     // PdfDocument.tsx. hidrolisiName/hidrolisiTotal below already correctly

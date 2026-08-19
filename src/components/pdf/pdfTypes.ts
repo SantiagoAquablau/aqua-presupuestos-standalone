@@ -168,6 +168,7 @@ export interface PdfData {
   cascadaModelName?: string;
   cascadaModelImageUrl?: string;
   cascadaEncastada?: boolean;
+  cascadaDiametreMm?: number;
   cascadaBombaName?: string;
   // Sum of every Instal·lacions section (4+5+6+7+8) — shown on Page 8 badge
   instalacionsTotal?: number;

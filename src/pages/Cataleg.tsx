@@ -118,6 +118,9 @@ function getTechSpecConfig(category: string, subtipus: string): TechSpecConfig |
         // Exposat al Motor de Càlcul com a condició acc_cascada_encastada,
         // per poder condicionar-hi partides (p.ex. "MANO DE OBRA PALETERIA").
         { key: 'encastada', label: 'Cascada encastada', step: '', type: 'boolean' },
+        // Diàmetre d'aspiració de la cascada — determina el text de canonada
+        // i accessoris PVC mostrat a la pàgina de Cascada del PDF.
+        { key: 'diametre_mm', label: "Diàmetre d'aspiració (mm)", step: '1', integer: true, placeholder: '50' },
       ],
     };
   }

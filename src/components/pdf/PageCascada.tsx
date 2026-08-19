@@ -23,6 +23,7 @@ export function PageCascada({ data, pillNumber }: { data: PdfData; pillNumber: n
   const modelName = data.cascadaModelName || "A determinar";
   const bombaName = data.cascadaBombaName || "A determinar";
   const total = data.cascadaTotal || 0;
+  const diametreMm = data.cascadaDiametreMm || 50;
   const totalInstal = data.instalacionsTotal || 0;
 
   const bullets: { pre: string; strong?: string }[] = [
@@ -32,7 +33,7 @@ export function PageCascada({ data, pillNumber }: { data: PdfData; pillNumber: n
     },
     { pre: "Polsador piezoelèctric en acer inoxidable, protecció i maniobra." },
     { pre: "Bomba ", strong: bombaName },
-    { pre: "Canonada i accessoris PVC D.50 per a connexió aspiració i retorn." },
+    { pre: `Canonada i accessoris PVC D.${diametreMm} per a connexió aspiració i retorn.` },
     ...(encastada ? [{ pre: "Mà d'obra paleteria per a col·locació." }] : []),
   ];
 
@@ -199,7 +200,7 @@ function SectionPillTenor({ number, title, amount }: { number: number; title: st
       <span style={{ display: "block", lineHeight: 1, marginBottom: "12px" }}>
         {number}.- {title}
       </span>
-      <span style={{ display: "block", lineHeight: 1, marginBottom: "12px", fontWeight: 700 }}>
+      <span style={{ display: "block", lineHeight: 1, marginBottom: "12px" }}>
         {formatEuro(amount)}
       </span>
     </div>
