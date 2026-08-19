@@ -1698,7 +1698,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     // (PageElectricitat) — NOT that whole page's inclusion, since it also
     // always shows unrelated Electricitat/Fontaneria/Escomesa content.
     quadreEnabled: quadreOn,
-    quadreText: quadre?.name,
+    quadreText: draft.instalQuadreDisplayText || quadre?.name,
     quadreTotal: undefined,
     // Row amount (Quadre elèctric) = equip sale + 4h MO.
     quadreSale: typeof draft.instalQuadreFinalSale === "number" || quadre ? quadreRowAmount : undefined,

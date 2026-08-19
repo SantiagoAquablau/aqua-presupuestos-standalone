@@ -1,7 +1,7 @@
 import { useBudgetStore } from "@/stores/budgetStore";
 import { EquipmentSelector, SelectedArticle } from "@/components/wizard/EquipmentSelector";
 import { ArrowLeft, ArrowRight, Info, Minus, Plus, X } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -537,6 +537,13 @@ export function StepAccessoris() {
   };
 
   // --- Cascada extras: bomba + pulsador piezoelèctric + mà d'obra ---
+  // Refs to remember the user explicitly cleared a selector via "Canviar" →
+  // "Sense ..." — without this, the auto-default effect below re-triggers
+  // as soon as the id goes empty and rewrites it before the user can pick a
+  // different article, making the EquipmentSelector dropdown unusable. Same
+  // pattern as userClearedFiltreEspecialRef in StepInstalacions.tsx.
+  const userClearedCascadaBombaRef = useRef(false);
+  const userClearedCascadaPulsadorRef = useRef(false);
   const cascadaBombaModel: SelectedArticle | null = draft.accCascadaBombaArticleId
     ? articleCache[draft.accCascadaBombaArticleId] || null
     : null;
@@ -545,6 +552,7 @@ export function StepAccessoris() {
       setArticleCache((prev) => ({ ...prev, [article.id]: article }));
       updateDraft({ accCascadaBombaArticleId: article.id });
     } else {
+      userClearedCascadaBombaRef.current = true;
       updateDraft({ accCascadaBombaArticleId: undefined });
     }
   };
@@ -558,6 +566,7 @@ export function StepAccessoris() {
       setArticleCache((prev) => ({ ...prev, [article.id]: article }));
       updateDraft({ accCascadaPulsadorArticleId: article.id });
     } else {
+      userClearedCascadaPulsadorRef.current = true;
       updateDraft({ accCascadaPulsadorArticleId: undefined });
     }
   };
@@ -571,14 +580,16 @@ export function StepAccessoris() {
   // control auto-selection above).
   useEffect(() => {
     if (!draft.accCascadaEnabled || !draft.accCascadaModelId) return;
-    if (draft.accCascadaBombaArticleId && draft.accCascadaPulsadorArticleId) return;
+    const bombaDone = draft.accCascadaBombaArticleId || userClearedCascadaBombaRef.current;
+    const pulsadorDone = draft.accCascadaPulsadorArticleId || userClearedCascadaPulsadorRef.current;
+    if (bombaDone && pulsadorDone) return;
 
     let cancelled = false;
     (async () => {
       const updates: Record<string, any> = {};
       const newCache: Record<string, SelectedArticle> = {};
 
-      if (!draft.accCascadaBombaArticleId) {
+      if (!draft.accCascadaBombaArticleId && !userClearedCascadaBombaRef.current) {
         const { data } = await supabase
           .from('articles')
           .select('id, name, reference, image_url, suppliers:supplier_id(name)')
@@ -600,7 +611,7 @@ export function StepAccessoris() {
         }
       }
 
-      if (!draft.accCascadaPulsadorArticleId) {
+      if (!draft.accCascadaPulsadorArticleId && !userClearedCascadaPulsadorRef.current) {
         const { data } = await supabase
           .from('articles')
           .select('id, name, reference, image_url, suppliers:supplier_id(name)')

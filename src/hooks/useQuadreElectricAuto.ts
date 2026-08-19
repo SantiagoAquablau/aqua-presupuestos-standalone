@@ -163,6 +163,21 @@ export function useQuadreElectricAuto() {
           addonBcSale = 180;
         }
 
+        if (draft.accCascadaEnabled && draft.accCascadaBombaArticleId) {
+          const { data: cascadaBombaArt } = await supabase
+            .from('articles')
+            .select('technical_specs')
+            .eq('id', draft.accCascadaBombaArticleId)
+            .maybeSingle();
+          const cv = (cascadaBombaArt?.technical_specs as any)?.cv;
+          let cvCascada: string | null = null;
+          if (typeof cv === 'number') cvCascada = String(cv).replace('.', ',');
+          else if (typeof cv === 'string' && !isNaN(parseFloat(cv))) cvCascada = cv.replace('.', ',');
+          if (cvCascada) {
+            displayText += ` + PROTECCIÓ I MANIOBRA BOMBA CASCADA ${cvCascada} CV`;
+          }
+        }
+
         const finalCost = baseCost + addonNfCost + addonBcCost;
         const finalSale = baseSale + addonNfSale + addonBcSale;
 
@@ -219,6 +234,8 @@ export function useQuadreElectricAuto() {
     draft.instalFontaneriaDistancia,
     draft.annexBombaCalorArticleId,
     draft.annexBombaCalorEstat,
+    draft.accCascadaEnabled,
+    draft.accCascadaBombaArticleId,
     draft.instalQuadreManualOverride,
   ]);
 }
