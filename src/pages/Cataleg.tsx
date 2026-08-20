@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const units = ['ud', 'm²', 'm³', 'ml', 'l', 'kg'];
@@ -136,6 +136,7 @@ export default function Cataleg() {
   const [form, setForm] = useState<ArticleForm>(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: articles = [], isLoading } = useQuery({
@@ -346,7 +347,9 @@ export default function Cataleg() {
                     <tr key={a.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-2 py-2">
                         {a.image_url ? (
-                          <img src={a.image_url} alt="" className="w-8 h-8 rounded object-cover" />
+                          <button type="button" onClick={() => setLightboxUrl(a.image_url)} className="block rounded focus:outline-none focus:ring-2 focus:ring-ring/40">
+                            <img src={a.image_url} alt="" className="w-8 h-8 rounded object-cover cursor-zoom-in hover:opacity-80 transition-opacity" />
+                          </button>
                         ) : (
                           <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">{a.category?.[0]}</div>
                         )}
@@ -392,7 +395,9 @@ export default function Cataleg() {
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-3">
                       {a.image_url ? (
-                        <img src={a.image_url} alt="" className="w-8 h-8 rounded object-cover" />
+                        <button type="button" onClick={() => setLightboxUrl(a.image_url)} className="block rounded focus:outline-none focus:ring-2 focus:ring-ring/40">
+                          <img src={a.image_url} alt="" className="w-8 h-8 rounded object-cover cursor-zoom-in hover:opacity-80 transition-opacity" />
+                        </button>
                       ) : (
                         <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">{a.category?.[0]}</div>
                       )}
@@ -443,7 +448,9 @@ export default function Cataleg() {
               <div className="flex items-center gap-3">
                 {form.image_url ? (
                   <div className="relative">
-                    <img src={form.image_url} alt="" className="w-16 h-16 rounded-lg object-cover border border-border" />
+                    <button type="button" onClick={() => setLightboxUrl(form.image_url)} className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/40">
+                      <img src={form.image_url} alt="" className="w-16 h-16 rounded-lg object-cover border border-border cursor-zoom-in hover:opacity-80 transition-opacity" />
+                    </button>
                     <button onClick={() => setForm({ ...form, image_url: '' })} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
                       <X className="w-3 h-3" />
                     </button>
@@ -694,6 +701,20 @@ export default function Cataleg() {
               {editId ? 'Guardar canvis' : 'Crear article'}
             </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image lightbox */}
+      <Dialog open={!!lightboxUrl} onOpenChange={(open) => !open && setLightboxUrl(null)}>
+        <DialogContent hideCloseButton className="max-w-3xl w-fit bg-transparent border-none shadow-none p-0 flex items-center justify-center">
+          <DialogTitle className="sr-only">Imatge ampliada</DialogTitle>
+          <DialogClose className="absolute right-4 top-4 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white opacity-90 transition-opacity hover:opacity-100 hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-white/60">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Tancar</span>
+          </DialogClose>
+          {lightboxUrl && (
+            <img src={lightboxUrl} alt="" className="max-w-[90vw] max-h-[85vh] w-auto h-auto rounded-lg object-contain shadow-lg" />
+          )}
         </DialogContent>
       </Dialog>
 
