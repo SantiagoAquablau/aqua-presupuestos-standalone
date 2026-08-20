@@ -183,6 +183,56 @@ const OPTIONAL_ACCESSORIES: OptionalConfig[] = [
   },
 ];
 
+// Small self-contained numeric input (own text buffer so it can be freely
+// cleared/retyped without the controlled value snapping back mid-keystroke).
+function InlineNumberInput({
+  label,
+  value,
+  onChange,
+  suffix,
+  placeholder,
+}: {
+  label: string;
+  value: number | undefined;
+  onChange: (v: number | undefined) => void;
+  suffix?: string;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState(value != null ? String(value) : "");
+
+  useEffect(() => {
+    setText(value != null ? String(value) : "");
+  }, [value]);
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-muted-foreground mb-1">
+        {label}
+        {suffix ? ` (${suffix})` : ""}
+      </label>
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+        placeholder={placeholder}
+        value={text}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setText(raw);
+          if (raw === "") {
+            onChange(undefined);
+            return;
+          }
+          const parsed = parseFloat(raw);
+          if (!Number.isNaN(parsed)) onChange(parsed);
+        }}
+        onBlur={() => setText(value != null ? String(value) : "")}
+      />
+    </div>
+  );
+}
+
 // --- Store key maps ---
 const basicQtyKey = (k: string) => {
   const map: Record<string, string> = {
@@ -519,7 +569,21 @@ export function StepAccessoris() {
   };
 
   const handleOptToggle = (key: string) => {
-    updateDraft({ [optEnabledKey(key)]: !getOptEnabled(key) });
+    const next = !getOptEnabled(key);
+    const updates: Record<string, unknown> = { [optEnabledKey(key)]: next };
+
+    // Turning on "Dutxa exterior" defaults "Plat de dutxa" to on too, but only
+    // the first time — once the user has touched the plat_dutxa toggle
+    // manually, that choice is respected and never auto-forced again (same
+    // manual-override pattern as instalQuadreManualOverride).
+    if (key === "dutxa" && next && !draft.accPlatDutxaManualOverride) {
+      updates.accPlatDutxaEnabled = true;
+    }
+    if (key === "plat_dutxa") {
+      updates.accPlatDutxaManualOverride = true;
+    }
+
+    updateDraft(updates);
   };
   const handleOptQtyChange = (key: string, delta: number) => {
     const next = Math.max(1, Math.min(99, getOptQty(key) + delta));
@@ -1075,6 +1139,16 @@ export function StepAccessoris() {
                               noneLabel="A determinar"
                             />
                           </div>
+                        ) : acc.key === "plat_dutxa" ? (
+                          <div className="w-full">
+                            <InlineNumberInput
+                              label="Preu de venda"
+                              suffix="€"
+                              value={draft.accPlatDutxaSale ?? acc.fixedPrice}
+                              onChange={(v) => updateDraft({ accPlatDutxaSale: v })}
+                              placeholder={acc.fixedPrice != null ? acc.fixedPrice.toFixed(2) : undefined}
+                            />
+                          </div>
                         ) : acc.fixedPrice ? (
                           <p className="text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg">
                             Preu fix: {acc.fixedPrice.toFixed(2)} €
@@ -1137,6 +1211,16 @@ export function StepAccessoris() {
                           onChange={(a) => handleOptModelChange(acc.key, a)}
                           noneLabel="A determinar"
                         />
+                      ) : acc.key === "plat_dutxa" ? (
+                        <div className="max-w-xs">
+                          <InlineNumberInput
+                            label="Preu de venda"
+                            suffix="€"
+                            value={draft.accPlatDutxaSale ?? acc.fixedPrice}
+                            onChange={(v) => updateDraft({ accPlatDutxaSale: v })}
+                            placeholder={acc.fixedPrice != null ? acc.fixedPrice.toFixed(2) : undefined}
+                          />
+                        </div>
                       ) : acc.fixedPrice ? (
                         <div className="pt-5">
                           <p className="text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg">
@@ -1184,6 +1268,31 @@ export function StepAccessoris() {
                         onQuantityChange={handleCascadaPulsadorQtyChange}
                       />
                     </div>
+                  </div>
+                )}
+
+                {/* Plat de dutxa: optional Llarg/Ample — purely informational,
+                    left blank they show nowhere; when filled they're stored
+                    for a future PDF use (not implemented yet). */}
+                {acc.key === "plat_dutxa" && enabled && (
+                  <div
+                    className={cn(
+                      "grid grid-cols-2 gap-3 pt-3 mt-3 border-t border-dashed border-border",
+                      !isCompact && "ml-[25%] max-w-xs",
+                    )}
+                  >
+                    <InlineNumberInput
+                      label="Llarg"
+                      suffix="m"
+                      value={draft.accPlatDutxaLlarg}
+                      onChange={(v) => updateDraft({ accPlatDutxaLlarg: v })}
+                    />
+                    <InlineNumberInput
+                      label="Ample"
+                      suffix="m"
+                      value={draft.accPlatDutxaAmple}
+                      onChange={(v) => updateDraft({ accPlatDutxaAmple: v })}
+                    />
                   </div>
                 )}
               </div>

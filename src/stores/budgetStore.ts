@@ -333,6 +333,10 @@ export interface BudgetDraft {
   accDutxaModelId?: string;
   accPlatDutxaEnabled?: boolean;
   accPlatDutxaQty?: number;
+  accPlatDutxaSale?: number;
+  accPlatDutxaLlarg?: number;
+  accPlatDutxaAmple?: number;
+  accPlatDutxaManualOverride?: boolean;
   accCascadaEnabled?: boolean;
   accCascadaQty?: number;
   accCascadaModelId?: string;

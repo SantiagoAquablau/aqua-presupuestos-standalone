@@ -321,7 +321,7 @@ export function getAccessorySelections(
       articleId: null,
       qty: Number(draft.accPlatDutxaQty ?? 1),
       unit: 'ud',
-      unitSale: 550,
+      unitSale: Number(draft.accPlatDutxaSale ?? 550),
       unitCost: 0,
       isOptional: true,
       enabled: !!draft.accPlatDutxaEnabled,
@@ -363,8 +363,8 @@ export function injectWizardSelectionsIntoContext(
     }
   }
 
-  // Fixed price for plat_dutxa
-  context['acc_plat_dutxa_price'] = 550;
+  // Editable sale price for plat_dutxa (defaults to the original 550€)
+  context['acc_plat_dutxa_price'] = Number(draft.accPlatDutxaSale ?? 550);
 
   // Section enables (non-id booleans)
   context.instal_depuracio_enabled = draft.instalDepuracioEnabled !== false;

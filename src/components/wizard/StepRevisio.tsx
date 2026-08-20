@@ -1221,7 +1221,7 @@ export function StepRevisio() {
                     enabled: draft.accPlatDutxaEnabled,
                     qty: draft.accPlatDutxaQty,
                     modelId: null,
-                    fixedPrice: 550,
+                    fixedPrice: Number(draft.accPlatDutxaSale ?? 550),
                   },
                   {
                     label: "Cascada",

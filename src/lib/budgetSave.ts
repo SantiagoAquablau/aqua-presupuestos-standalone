@@ -377,6 +377,10 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     acc_dutxa_model_id: draft.accDutxaModelId || null,
     acc_plat_dutxa_enabled: draft.accPlatDutxaEnabled ?? false,
     acc_plat_dutxa_qty: draft.accPlatDutxaQty ?? 1,
+    acc_plat_dutxa_sale: draft.accPlatDutxaSale ?? null,
+    acc_plat_dutxa_llarg: draft.accPlatDutxaLlarg ?? null,
+    acc_plat_dutxa_ample: draft.accPlatDutxaAmple ?? null,
+    acc_plat_dutxa_manual_override: draft.accPlatDutxaManualOverride ?? false,
     acc_cascada_enabled: draft.accCascadaEnabled ?? false,
     acc_cascada_qty: draft.accCascadaQty ?? 1,
     acc_cascada_model_id: draft.accCascadaModelId || null,
@@ -1199,7 +1203,13 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   const accOptionalLines = [
     buildOptLine(draft.accEscalaEnabled, "Escala inox", draft.accEscalaQty, draft.accEscalaModelId),
     buildOptLine(draft.accDutxaEnabled, "Dutxa exterior", draft.accDutxaQty, draft.accDutxaModelId),
-    buildOptLine(draft.accPlatDutxaEnabled, "Plat de dutxa", draft.accPlatDutxaQty, undefined, 550),
+    buildOptLine(
+      draft.accPlatDutxaEnabled,
+      "Plat de dutxa",
+      draft.accPlatDutxaQty,
+      undefined,
+      Number(draft.accPlatDutxaSale ?? 550),
+    ),
     buildOptLine(
       draft.accSalvavidesEnabled,
       "Salvavides + suport paret",
