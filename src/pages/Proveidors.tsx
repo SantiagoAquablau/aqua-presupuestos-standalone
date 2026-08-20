@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Eye, Loader2, Truck } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, Loader2, Truck, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,19 +22,33 @@ export default function Proveidors() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<SupplierForm>(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const { data: suppliers = [], isLoading } = useQuery({
     queryKey: ['suppliers-with-count'],
     queryFn: async () => {
       const { data: supps, error } = await supabase.from('suppliers').select('*').order('name');
       if (error) throw error;
-      // Get article counts
-      const { data: articles } = await supabase.from('articles').select('supplier_id');
-      const counts: Record<string, number> = {};
-      articles?.forEach((a: any) => { if (a.supplier_id) counts[a.supplier_id] = (counts[a.supplier_id] || 0) + 1; });
-      return supps?.map((s: any) => ({ ...s, articleCount: counts[s.id] || 0 })) || [];
+      const [counts, lastUpdates] = await Promise.all([
+        Promise.all(
+          (supps || []).map((s: any) =>
+            supabase.from('articles').select('*', { count: 'exact', head: true }).eq('supplier_id', s.id)
+              .then(({ count }) => count || 0)
+          )
+        ),
+        Promise.all(
+          (supps || []).map((s: any) =>
+            supabase.from('article_price_history').select('changed_at').eq('supplier_id', s.id)
+              .order('changed_at', { ascending: false }).limit(1).maybeSingle()
+              .then(({ data }) => data?.changed_at || null)
+          )
+        ),
+      ]);
+      return (supps || []).map((s: any, i: number) => ({ ...s, articleCount: counts[i], lastPriceChange: lastUpdates[i] }));
     },
   });
+
+  const filteredSuppliers = suppliers.filter((s: any) => !search || s.name?.toLowerCase().includes(search.toLowerCase()));
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -92,6 +106,12 @@ export default function Proveidors() {
         </button>
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input type="text" placeholder="Cercar proveïdor per nom..." value={search} onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : (
@@ -108,15 +128,15 @@ export default function Proveidors() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {suppliers.map((s: any) => (
-                  <tr key={s.id} className="hover:bg-muted/30 transition-colors">
+                {filteredSuppliers.map((s: any) => (
+                  <tr key={s.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/proveidors/${s.id}`)}>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{s.name}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{s.contact_email || '-'}</td>
                     <td className="px-4 py-3 text-sm text-right text-muted-foreground">{s.articleCount}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(s.updated_at).toLocaleDateString('ca-ES')}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{s.lastPriceChange ? new Date(s.lastPriceChange).toLocaleDateString('ca-ES') : 'Sense canvis de preu'}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button className="p-1.5 rounded-md hover:bg-muted transition-colors" title="Veure articles" onClick={() => navigate(`/cataleg?supplier=${s.id}`)}><Eye className="w-4 h-4 text-muted-foreground" /></button>
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button className="p-1.5 rounded-md hover:bg-muted transition-colors" title="Veure articles" onClick={() => navigate(`/proveidors/${s.id}`)}><Eye className="w-4 h-4 text-muted-foreground" /></button>
                         <button className="p-1.5 rounded-md hover:bg-muted transition-colors" onClick={() => openEdit(s)}><Pencil className="w-4 h-4 text-muted-foreground" /></button>
                         <button className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors" onClick={() => setDeleteId(s.id)}><Trash2 className="w-4 h-4 text-destructive" /></button>
                       </div>
@@ -128,11 +148,11 @@ export default function Proveidors() {
           </div>
 
           <div className="md:hidden space-y-3">
-            {suppliers.map((s: any) => (
-              <div key={s.id} className="bg-card rounded-xl border border-border p-4 shadow-card">
+            {filteredSuppliers.map((s: any) => (
+              <div key={s.id} className="bg-card rounded-xl border border-border p-4 shadow-card cursor-pointer" onClick={() => navigate(`/proveidors/${s.id}`)}>
                 <div className="flex items-center justify-between mb-2">
                   <p className="font-medium text-foreground">{s.name}</p>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                     <button className="p-1 rounded hover:bg-muted" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
                     <button className="p-1 rounded hover:bg-destructive/10" onClick={() => setDeleteId(s.id)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></button>
                   </div>
@@ -141,6 +161,12 @@ export default function Proveidors() {
               </div>
             ))}
           </div>
+
+          {filteredSuppliers.length === 0 && !isLoading && suppliers.length > 0 && (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground">Cap proveïdor coincideix amb la cerca</p>
+            </div>
+          )}
 
           {suppliers.length === 0 && !isLoading && (
             <div className="py-12 text-center">

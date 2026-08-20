@@ -10,6 +10,7 @@ import BudgetList from "./pages/BudgetList";
 import NewBudget from "./pages/NewBudget";
 import Cataleg from "./pages/Cataleg";
 import Proveidors from "./pages/Proveidors";
+import ProveidorDetail from "./pages/ProveidorDetail";
 import Configuracio from "./pages/Configuracio";
 import ObresList from "./pages/ObresList";
 import ObraDetail from "./pages/ObraDetail";
@@ -78,6 +79,7 @@ const AppRoutes = () => {
         <Route path="/pressupostos/:budgetId/annexos/:annexId" element={<NoAdministrativaRoute><AnnexDetail /></NoAdministrativaRoute>} />
         <Route path="/cataleg" element={<NoAdministrativaRoute><Cataleg /></NoAdministrativaRoute>} />
         <Route path="/proveidors" element={<AdminRoute><Proveidors /></AdminRoute>} />
+        <Route path="/proveidors/:id" element={<AdminRoute><ProveidorDetail /></AdminRoute>} />
         <Route path="/control-obres" element={<ObresRoute><ObresList /></ObresRoute>} />
         <Route path="/control-obres/:id" element={<ObresRoute><ObraDetail /></ObresRoute>} />
         <Route path="/configuracio" element={<AdminRoute><Configuracio /></AdminRoute>} />
