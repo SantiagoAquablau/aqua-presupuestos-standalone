@@ -14,7 +14,7 @@ import {
   Droplets,
   Package,
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { computeManoObraExcavacio } from "@/lib/excavacioCalc";
@@ -205,6 +205,12 @@ export function StepAnnex() {
   const [gespaArticle, setGespaArticle] = useState<SelectedArticle | null>(null);
   const [netejafonsArticle, setNetejafonsArticle] = useState<SelectedArticle | null>(null);
   const [netejafonsPrice, setNetejafonsPrice] = useState<number | null>(null);
+  // Marca que l'usuari ha netejat manualment el "Robot netejafons" (botó
+  // "Canviar" a EquipmentSelector) perquè l'efecte d'auto-default de sota
+  // no el torni a sobreescriure mentre tria un altre article. Mateix
+  // patró que userClearedFiltreEspecialRef a StepInstalacions.tsx i
+  // userClearedCascadaBombaRef/PulsadorRef a StepAccessoris.tsx.
+  const userClearedRobotNetejafonsRef = useRef(false);
 
   // Load existing articles on mount
   useEffect(() => {
@@ -365,9 +371,13 @@ export function StepAnnex() {
 
   // Auto-assign "BEATBOT Sora P3" robot when section is opcional/inclos and no article picked.
   // Also syncs the local `robotArticle` state so the selector shows it preselected.
+  // Guarded by userClearedRobotNetejafonsRef: without it, clearing the id via
+  // "Canviar" to pick a different article re-triggers this effect, which
+  // rewrites the id before the user can choose, making the selector unusable.
   useEffect(() => {
     if (!draft.annexRobotEstat || draft.annexRobotEstat === "no") return;
     if (draft.annexRobotArticleId && robotArticle) return;
+    if (!draft.annexRobotArticleId && userClearedRobotNetejafonsRef.current) return;
     const ensureRobot = async () => {
       if (draft.annexRobotArticleId && !robotArticle) {
         const art = await loadArticle(draft.annexRobotArticleId);
@@ -937,6 +947,7 @@ export function StepAnnex() {
                   subtipusFilter="Robots"
                   value={robotArticle}
                   onChange={(a) => {
+                    if (!a) userClearedRobotNetejafonsRef.current = true;
                     setRobotArticle(a);
                     updateDraft({ annexRobotArticleId: a?.id || undefined });
                   }}
