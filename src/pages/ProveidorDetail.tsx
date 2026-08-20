@@ -60,7 +60,7 @@ export default function ProveidorDetail() {
   const parsedPercent = parseFloat(percent.replace(',', '.'));
   const hasValidPercent = percent.trim() !== '' && !Number.isNaN(parsedPercent);
 
-  const computeNewPrice = (price: number) => Math.round(price * (1 + parsedPercent / 100));
+  const computeNewPrice = (price: number) => Math.ceil((price / 100) * (1 + parsedPercent / 100)) * 100;
 
   const toggleOne = (articleId: string) => {
     setSelectedIds((prev) => {
