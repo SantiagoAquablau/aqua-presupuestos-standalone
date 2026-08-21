@@ -509,7 +509,7 @@ export default function BudgetList() {
   );
 
   return (
-    <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Pressupostos</h1>
@@ -589,8 +589,8 @@ export default function BudgetList() {
               {isLoading ? <SkeletonRows /> : budgets.map((b: any) => (
                 <tr key={b.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 text-sm font-mono font-medium text-primary">{b.number || '-'}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-foreground">{b.client_name}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{b.client_town}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-foreground whitespace-nowrap">{b.client_name}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{b.client_town}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
                     {b.type === 'obra_nueva'
                       ? 'Obra Nova'
@@ -614,7 +614,7 @@ export default function BudgetList() {
                     />
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{b.budget_date ? new Date(b.budget_date).toLocaleDateString('ca-ES') : '-'}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1">
                       <button className="p-1.5 rounded-md hover:bg-muted transition-colors" title="Editar" onClick={() => handleEdit(b)}><Pencil className="w-4 h-4 text-muted-foreground" /></button>
                       <button className="p-1.5 rounded-md hover:bg-muted transition-colors" title="Duplicar" onClick={() => duplicateMutation.mutate(b.id)}><Copy className="w-4 h-4 text-muted-foreground" /></button>
