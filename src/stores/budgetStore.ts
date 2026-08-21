@@ -48,6 +48,9 @@ export interface MaintenancePlan {
 
 export interface BudgetDraft {
   id?: string;
+  /** Current persisted status, loaded when editing an existing budget.
+   *  Undefined for a brand-new draft (defaults to 'borrador' on save). */
+  status?: BudgetStatus;
   type?: BudgetType;
   clientName?: string;
   clientNif?: string;

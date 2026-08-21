@@ -350,7 +350,11 @@ export function StepRevisio() {
     }
     setSaving(true);
     const freshDraft = await recomputeDraftPhases(draft);
-    const { id, error } = await saveBudget(freshDraft, user.id, status);
+    // A budget that is already 'acceptat' must not regress to an earlier
+    // step of the flow just because the user re-saved/re-sent it from the
+    // wizard — the obra in Control d'Obres is already live on it.
+    const effectiveStatus = draft.status === "acceptat" ? "acceptat" : status;
+    const { id, error } = await saveBudget(freshDraft, user.id, effectiveStatus);
     setSaving(false);
     if (error) {
       console.error("[StepRevisio] Save error:", error);
@@ -366,7 +370,10 @@ export function StepRevisio() {
 
   const saveDraftForPdf = async (freshDraft: typeof draft) => {
     if (!user) throw new Error("No autenticat");
-    const { id, error } = await saveBudget(freshDraft, user.id, "borrador");
+    // Same rule as handleSave: don't demote an already-accepted budget just
+    // because the PDF is being regenerated.
+    const effectiveStatus = freshDraft.status === "acceptat" ? "acceptat" : "borrador";
+    const { id, error } = await saveBudget(freshDraft, user.id, effectiveStatus);
     if (error) throw new Error(error);
     if (id) updateDraft({ id, phases: freshDraft.phases });
     queryClient.invalidateQueries({ queryKey: ["budgets"] });

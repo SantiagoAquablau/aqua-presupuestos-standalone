@@ -58,7 +58,7 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
   }));
 
   const draft: BudgetDraft = {
-    id: data.id, type: data.type as any, clientName: data.client_name, clientNif: data.client_nif,
+    id: data.id, status: (data.status as any) || undefined, type: data.type as any, clientName: data.client_name, clientNif: data.client_nif,
     clientAddress: data.client_address, clientTown: data.client_town, clientPhone: data.client_phone,
     clientEmail: data.client_email, budgetDate: data.budget_date, budgetNumber: data.number,
     internalNotes: data.internal_notes, poolType: data.pool_type as any, poolShape: data.pool_shape as any,

@@ -190,7 +190,10 @@ export default function NewBudget() {
     }
 
     const timer = window.setTimeout(async () => {
-      const { id } = await saveBudget(draft, user.id, 'borrador');
+      // Don't demote an already-accepted budget back to 'borrador' just
+      // because the auto-save fired while it's being edited.
+      const autoSaveStatus = draft.status === 'acceptat' ? 'acceptat' : 'borrador';
+      const { id } = await saveBudget(draft, user.id, autoSaveStatus);
       if (id && !draft.id) {
         updateDraft({ id });
       }
