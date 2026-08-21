@@ -50,13 +50,24 @@ export async function populateObraFromBudget(budgetId: string): Promise<void> {
     }
   }
 
+  // "Ajust de preu (%)" — same rule as budgetSave.ts:574/2407 (single source
+  // of truth: budgetFinancials.ts). Positive % (increment) is propagated
+  // line by line, each line ceil'd BEFORE summing; negative % (descompte) or
+  // 0 never touches per-line/per-phase amounts, only the grand total below.
+  // Cost is never adjusted — the % only affects sale, by design.
+  const adjPct = Number((draft as any).marginPctAdjustment ?? 0) || 0;
+  const saleFactor = adjPct > 0 ? 1 + adjPct / 100 : 1;
+
   // Insert phases + items
   let sumCost = 0;
   let sumSale = 0;
   for (const phase of phases) {
     const includedItems = (phase.items || []).filter((it: any) => Number(it.quantity ?? 0) > 0);
     const costEst = includedItems.reduce((s: number, it: any) => s + Number(it.quantity || 0) * Number(it.unitCost || 0) * 100, 0);
-    const saleEst = includedItems.reduce((s: number, it: any) => s + Math.ceil(Number(it.quantity || 0) * Number(it.unitSale || 0)) * 100, 0);
+    const saleEst = includedItems.reduce(
+      (s: number, it: any) => s + Math.ceil(Number(it.quantity || 0) * Number(it.unitSale || 0) * saleFactor) * 100,
+      0,
+    );
     sumCost += costEst;
     sumSale += saleEst;
 
@@ -95,13 +106,18 @@ export async function populateObraFromBudget(budgetId: string): Promise<void> {
     if (itemsErr) console.error('[populateObraFromBudget] items insert error', itemsErr);
   }
 
+  // Descompte (adjPct < 0) is applied once to the grand total only — matching
+  // budgetSave.ts:582's aggregate-scale branch — never redistributed into the
+  // per-phase sale_estimated rows inserted above.
+  const sumSaleFinal = adjPct < 0 ? Math.ceil((sumSale * (1 + adjPct / 100)) / 100) * 100 : sumSale;
+
   // Sync obra estimated totals to the actual sum of phases (source of truth)
-  const marginEst = sumSale > 0 ? ((sumSale - sumCost) / sumSale) * 100 : 0;
+  const marginEst = sumSaleFinal > 0 ? ((sumSaleFinal - sumCost) / sumSaleFinal) * 100 : 0;
   await supabase
     .from('obras' as any)
     .update({
       total_cost_estimated: Math.round(sumCost),
-      total_sale_estimated: Math.round(sumSale),
+      total_sale_estimated: Math.round(sumSaleFinal),
       margin_estimated_pct: Math.round(marginEst * 100) / 100,
     })
     .eq('id', obraId);

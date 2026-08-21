@@ -143,7 +143,7 @@ export default function ObresList() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
-                {['OBRA','CLIENT','MUNICIPI','COMERCIAL','VENDA EST.','COST EST.','COST REAL','MARGE EST.','MARGE REAL','DESVIACIÓ','ESTAT','DATA','ACCIONS'].map((h) => (
+                {['OBRA','CLIENT','MUNICIPI','COMERCIAL','VENDA','COST EST.','COST REAL','MARGE EST.','MARGE REAL','DESVIACIÓ','ESTAT','DATA','ACCIONS'].map((h) => (
                   <th key={h} className="text-left px-3 py-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
