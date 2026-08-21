@@ -337,6 +337,7 @@ export interface BudgetDraft {
   accPlatDutxaLlarg?: number;
   accPlatDutxaAmple?: number;
   accPlatDutxaManualOverride?: boolean;
+  accPlatDutxaSaleManualOverride?: boolean;
   accCascadaEnabled?: boolean;
   accCascadaQty?: number;
   accCascadaModelId?: string;

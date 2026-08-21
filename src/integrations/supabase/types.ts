@@ -354,6 +354,7 @@ export type Database = {
           acc_plat_dutxa_manual_override: boolean | null
           acc_plat_dutxa_qty: number | null
           acc_plat_dutxa_sale: number | null
+          acc_plat_dutxa_sale_manual_override: boolean | null
           acc_projector_mini_led_model_id: string | null
           acc_projector_mini_led_qty: number | null
           acc_regulador_model_id: string | null
@@ -710,6 +711,7 @@ export type Database = {
           acc_plat_dutxa_manual_override?: boolean | null
           acc_plat_dutxa_qty?: number | null
           acc_plat_dutxa_sale?: number | null
+          acc_plat_dutxa_sale_manual_override?: boolean | null
           acc_projector_mini_led_model_id?: string | null
           acc_projector_mini_led_qty?: number | null
           acc_regulador_model_id?: string | null
@@ -1066,6 +1068,7 @@ export type Database = {
           acc_plat_dutxa_manual_override?: boolean | null
           acc_plat_dutxa_qty?: number | null
           acc_plat_dutxa_sale?: number | null
+          acc_plat_dutxa_sale_manual_override?: boolean | null
           acc_projector_mini_led_model_id?: string | null
           acc_projector_mini_led_qty?: number | null
           acc_regulador_model_id?: string | null

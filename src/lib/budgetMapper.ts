@@ -280,6 +280,7 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
     accPlatDutxaLlarg: data.acc_plat_dutxa_llarg ?? undefined,
     accPlatDutxaAmple: data.acc_plat_dutxa_ample ?? undefined,
     accPlatDutxaManualOverride: data.acc_plat_dutxa_manual_override ?? undefined,
+    accPlatDutxaSaleManualOverride: data.acc_plat_dutxa_sale_manual_override ?? undefined,
     accCascadaEnabled: data.acc_cascada_enabled ?? undefined,
     accCascadaQty: data.acc_cascada_qty ?? undefined,
     accCascadaModelId: data.acc_cascada_model_id || undefined,

@@ -3,7 +3,7 @@
  * Header / divider / pill style mirror Page 7. Vertically-centered TOTAL
  * INSTAL·LACIONS badge on the right (same look as TOTAL ACABATS).
  */
-import type { PdfData } from "./pdfTypes";
+import type { PdfData, PdfTextSegment } from "./pdfTypes";
 import { PDF_COLORS, PDF_FONTS, formatEuro } from "./pdfStyles";
 import { PdfLogo } from "./PdfShared";
 
@@ -98,9 +98,13 @@ export function PageAccessoris({ data, showTotalBadge = true }: { data: PdfData;
           <div style={{ marginTop: "8mm" }}>
             <SectionPillTenor number="8" title="ACCESSORIS ADDICIONALS" amount={optsTotal} />
             <div style={{ padding: "0 4mm", fontSize: "10pt", lineHeight: 1.45 }}>
-              {opts.map((line, i) => (
-                <Row key={i} left={`${line.qty} × ${line.label}`} right={formatEuro(line.total)} />
-              ))}
+              {opts.map((line, i) =>
+                line.bullets && line.bullets.length > 0 ? (
+                  <BulletRow key={i} bullets={line.bullets} right={formatEuro(line.total)} />
+                ) : (
+                  <Row key={i} left={`${line.qty} × ${line.label}`} right={formatEuro(line.total)} />
+                ),
+              )}
             </div>
           </div>
         )}
@@ -158,6 +162,28 @@ function Row({ left, right }: { left: string; right: string }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
       <div style={{ flex: 1 }}>- {left}</div>
+      <div style={{ flex: "0 0 32mm", textAlign: "right", fontWeight: 700, color: "#254061" }}>{right}</div>
+    </div>
+  );
+}
+
+function BulletRow({ bullets, right }: { bullets: Array<string | PdfTextSegment[]>; right: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
+      <div style={{ flex: 1 }}>
+        {bullets.map((b, i) => (
+          <div key={i}>
+            -{" "}
+            {typeof b === "string"
+              ? b
+              : b.map((seg, j) => (
+                  <span key={j} style={seg.bold ? { fontWeight: 700 } : undefined}>
+                    {seg.text}
+                  </span>
+                ))}
+          </div>
+        ))}
+      </div>
       <div style={{ flex: "0 0 32mm", textAlign: "right", fontWeight: 700, color: "#254061" }}>{right}</div>
     </div>
   );

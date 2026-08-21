@@ -1,8 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { BudgetDraft, BudgetPhase } from "@/stores/budgetStore";
 import { buildPdfHtml, type PdfPhase } from "@/lib/pdfTemplate";
-import type { PdfData as NewPdfData } from "@/components/pdf/pdfTypes";
+import type { PdfData as NewPdfData, PdfTextSegment } from "@/components/pdf/pdfTypes";
 import { AUTOPORTANT_PAYMENT_CONDITIONS } from "@/lib/paymentConditions";
+
+// Article names are stored ALL-CAPS in the catalog; this renders them in
+// normal sentence-style capitalization for PDF prose (e.g. "DUTXA JARDÍ" →
+// "Dutxa Jardí").
+function toDisplayCase(name: string): string {
+  return name
+    .toLowerCase()
+    .split(" ")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
 
 // Effective "visible wall" height: manual "altura vista" for semi-enterrada,
 // or pool_depth_max minus an optional "rebaix" for elevada (mirrors
@@ -381,6 +392,7 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     acc_plat_dutxa_llarg: draft.accPlatDutxaLlarg ?? null,
     acc_plat_dutxa_ample: draft.accPlatDutxaAmple ?? null,
     acc_plat_dutxa_manual_override: draft.accPlatDutxaManualOverride ?? false,
+    acc_plat_dutxa_sale_manual_override: draft.accPlatDutxaSaleManualOverride ?? false,
     acc_cascada_enabled: draft.accCascadaEnabled ?? false,
     acc_cascada_qty: draft.accCascadaQty ?? 1,
     acc_cascada_model_id: draft.accCascadaModelId || null,
@@ -752,17 +764,18 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     draft.accBaranaModelId,
   ].filter(Boolean) as string[];
 
-  const articlesMap: Record<string, { name: string; image_url?: string; sale?: number; technical_specs?: Record<string, unknown> }> = {};
+  const articlesMap: Record<string, { name: string; image_url?: string; sale?: number; reference?: string; technical_specs?: Record<string, unknown> }> = {};
   if (articleIds.length > 0) {
     const { data: arts } = await supabase
       .from("articles")
-      .select("id, name, image_url, sale_price, technical_specs")
+      .select("id, name, image_url, sale_price, reference, technical_specs")
       .in("id", articleIds);
     (arts || []).forEach((a: any) => {
       articlesMap[a.id] = {
         name: a.name,
         image_url: a.image_url,
         sale: Number(a.sale_price || 0) / 100,
+        reference: a.reference || undefined,
         technical_specs: (a.technical_specs && typeof a.technical_specs === "object") ? a.technical_specs : undefined,
       };
     });
@@ -1200,16 +1213,67 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   const cascadaEncastada = cascadaArt?.technical_specs?.encastada === true;
   const cascadaDiametreMm = Number(cascadaArt?.technical_specs?.diametre_mm) || 50;
 
+  // Dutxa exterior + Plat de dutxa: when both are enabled they're merged into
+  // a single PDF entry with two bullets and one combined amount (instead of
+  // two separate lines), since the plat is installed together with the
+  // dutxa. Each keeps its own separate line when only one of the two is on.
+  const dutxaQty = Number(draft.accDutxaQty ?? 1);
+  const platDutxaQty = Number(draft.accPlatDutxaQty ?? 1);
+  const dutxaArt = a(draft.accDutxaModelId || undefined);
+  const dutxaTotal = draft.accDutxaEnabled && dutxaQty > 0 ? Math.ceil(dutxaQty * (dutxaArt?.sale ?? 0)) : 0;
+  const platDutxaUnitSale = Number(draft.accPlatDutxaSale ?? 550);
+  const platDutxaTotal =
+    draft.accPlatDutxaEnabled && platDutxaQty > 0 ? Math.ceil(platDutxaQty * platDutxaUnitSale) : 0;
+
+  // Same bold-model + reference formatting used whether Dutxa stands alone
+  // or is merged with Plat de dutxa below.
+  const dutxaModelName = dutxaArt?.name ? toDisplayCase(dutxaArt.name) : "Dutxa exterior";
+  const dutxaBulletSegments = [
+    { text: "Subministrament i col·locació de dutxa exterior model " },
+    { text: dutxaModelName, bold: true },
+    ...(dutxaArt?.reference ? [{ text: ` — Ref. ${dutxaArt.reference}` }] : []),
+  ];
+
+  const dutxaPlatMerged =
+    draft.accDutxaEnabled && draft.accPlatDutxaEnabled && dutxaQty > 0 && platDutxaQty > 0
+      ? (() => {
+          const llarg = draft.accPlatDutxaLlarg;
+          const ample = draft.accPlatDutxaAmple;
+          const platBullet =
+            llarg && ample
+              ? `Construcció de plat de dutxa revestit amb porcellànic Rosa Gres de mides ${llarg}m x ${ample}m`
+              : "Construcció de plat de dutxa revestit amb porcellànic Rosa Gres";
+          return {
+            label: `${platBullet} + Subministrament i col·locació de dutxa exterior model ${dutxaModelName}`,
+            bullets: [platBullet, dutxaBulletSegments],
+            qty: 1,
+            total: dutxaTotal + platDutxaTotal,
+          };
+        })()
+      : null;
+
+  const dutxaOnlyLine =
+    !dutxaPlatMerged && draft.accDutxaEnabled && dutxaQty > 0
+      ? {
+          label: `Subministrament i col·locació de dutxa exterior model ${dutxaModelName}`,
+          bullets: [dutxaBulletSegments],
+          qty: 1,
+          total: dutxaTotal,
+        }
+      : null;
+
   const accOptionalLines = [
     buildOptLine(draft.accEscalaEnabled, "Escala inox", draft.accEscalaQty, draft.accEscalaModelId),
-    buildOptLine(draft.accDutxaEnabled, "Dutxa exterior", draft.accDutxaQty, draft.accDutxaModelId),
-    buildOptLine(
-      draft.accPlatDutxaEnabled,
-      "Plat de dutxa",
-      draft.accPlatDutxaQty,
-      undefined,
-      Number(draft.accPlatDutxaSale ?? 550),
-    ),
+    dutxaPlatMerged || dutxaOnlyLine,
+    dutxaPlatMerged
+      ? null
+      : buildOptLine(
+          draft.accPlatDutxaEnabled,
+          "Plat de dutxa",
+          draft.accPlatDutxaQty,
+          undefined,
+          Number(draft.accPlatDutxaSale ?? 550),
+        ),
     buildOptLine(
       draft.accSalvavidesEnabled,
       "Salvavides + suport paret",
@@ -1217,7 +1281,12 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
       draft.accSalvavidesModelId,
     ),
     buildOptLine(draft.accBaranaEnabled, "Barana ancorada exterior", draft.accBaranaQty, draft.accBaranaModelId),
-  ].filter(Boolean) as Array<{ label: string; qty: number; total: number }>;
+  ].filter(Boolean) as Array<{
+    label: string;
+    qty: number;
+    total: number;
+    bullets?: Array<string | PdfTextSegment[]>;
+  }>;
   const accOptionalTotal = accOptionalLines.reduce((s, l) => s + l.total, 0);
 
   // --- Annex OPCIONAL — Revestiment alternatiu ---

@@ -6,6 +6,11 @@
  * `src/lib/budgetSave.ts → generatePDF()`.
  */
 
+export interface PdfTextSegment {
+  text: string;
+  bold?: boolean;
+}
+
 export interface PdfArticleRow {
   description: string;
   quantity?: number;
@@ -158,7 +163,12 @@ export interface PdfData {
   accBasicsColor?: 'blanc' | 'color';
   accBasicLines?: Array<{ label: string; qty: number; total: number }>;
   accBasicTotal?: number;
-  accOptionalLines?: Array<{ label: string; qty: number; total: number }>;
+  accOptionalLines?: Array<{
+    label: string;
+    qty: number;
+    total: number;
+    bullets?: Array<string | PdfTextSegment[]>;
+  }>;
   accOptionalTotal?: number;
   // Cascada — dedicated page (PageCascada), out of the generic Accessoris
   // opcionals list/page.

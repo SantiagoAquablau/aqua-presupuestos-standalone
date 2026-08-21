@@ -581,10 +581,48 @@ export function StepAccessoris() {
     }
     if (key === "plat_dutxa") {
       updates.accPlatDutxaManualOverride = true;
+      // Disabling "Plat de dutxa" clears the price/measures state entirely,
+      // so re-enabling later starts fresh (550€ default, no measures, auto
+      // price calc active again) — same "clear on disable" pattern as
+      // StepEstructura::handleToggleJacuzzi.
+      if (!next) {
+        updates.accPlatDutxaSale = undefined;
+        updates.accPlatDutxaSaleManualOverride = false;
+        updates.accPlatDutxaLlarg = undefined;
+        updates.accPlatDutxaAmple = undefined;
+      }
     }
 
     updateDraft(updates);
   };
+  // Plat de dutxa: auto-calc the sale price from Llarg/Ample (550€ base for
+  // 1m×1m, +350€ per extra m², rounded up to whole m²) — unless the user has
+  // ever edited the price by hand, in which case that manual value is
+  // permanent and never recalculated again (same manual-override pattern as
+  // instalQuadreManualOverride / accPlatDutxaManualOverride above).
+  useEffect(() => {
+    if (!draft.accPlatDutxaEnabled) return;
+    if (draft.accPlatDutxaSaleManualOverride) return;
+    const l = Number(draft.accPlatDutxaLlarg ?? 0);
+    const w = Number(draft.accPlatDutxaAmple ?? 0);
+    if (!l || !w) return;
+    const m2 = Math.ceil(l * w);
+    const price = 550 + 350 * (m2 - 1);
+    if (draft.accPlatDutxaSale !== price) {
+      updateDraft({ accPlatDutxaSale: price });
+    }
+  }, [
+    draft.accPlatDutxaEnabled,
+    draft.accPlatDutxaLlarg,
+    draft.accPlatDutxaAmple,
+    draft.accPlatDutxaSaleManualOverride,
+    draft.accPlatDutxaSale,
+  ]);
+
+  const handlePlatDutxaSaleChange = (v: number | undefined) => {
+    updateDraft({ accPlatDutxaSale: v, accPlatDutxaSaleManualOverride: true });
+  };
+
   const handleOptQtyChange = (key: string, delta: number) => {
     const next = Math.max(1, Math.min(99, getOptQty(key) + delta));
     updateDraft({ [optQtyKey(key)]: next });
@@ -1145,7 +1183,7 @@ export function StepAccessoris() {
                               label="Preu de venda"
                               suffix="€"
                               value={draft.accPlatDutxaSale ?? acc.fixedPrice}
-                              onChange={(v) => updateDraft({ accPlatDutxaSale: v })}
+                              onChange={handlePlatDutxaSaleChange}
                               placeholder={acc.fixedPrice != null ? acc.fixedPrice.toFixed(2) : undefined}
                             />
                           </div>
@@ -1217,7 +1255,7 @@ export function StepAccessoris() {
                             label="Preu de venda"
                             suffix="€"
                             value={draft.accPlatDutxaSale ?? acc.fixedPrice}
-                            onChange={(v) => updateDraft({ accPlatDutxaSale: v })}
+                            onChange={handlePlatDutxaSaleChange}
                             placeholder={acc.fixedPrice != null ? acc.fixedPrice.toFixed(2) : undefined}
                           />
                         </div>
