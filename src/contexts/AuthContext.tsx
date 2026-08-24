@@ -4,6 +4,12 @@ import type { User, Session } from '@supabase/supabase-js';
 
 export type AppRole = 'admin' | 'comercial' | 'administrativa';
 
+export const ROLE_LABELS: Record<AppRole, string> = {
+  admin: 'Admin',
+  comercial: 'Comercial',
+  administrativa: 'Administrativa',
+};
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;

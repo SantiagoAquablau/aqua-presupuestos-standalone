@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, ROLE_LABELS } from "@/contexts/AuthContext";
 import iconoAquablau from "@/assets/iconoAquablau.png";
 
 type NavItem = {
@@ -78,7 +78,7 @@ export function AppSidebar() {
               )}
             >
               <Shield className="w-3 h-3" />
-              {isAdmin ? "Admin" : "Comercial"}
+              {ROLE_LABELS[role]}
             </div>
           </div>
         )}

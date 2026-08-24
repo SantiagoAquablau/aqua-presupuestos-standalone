@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Settings, Users, Building2, Image, Loader2, Plus, Pencil, Trash2, Shield, User, UserX, Check, Tag, X, Calculator, Umbrella, Euro } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, ROLE_LABELS } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -269,6 +269,24 @@ function PreferencesSection() {
   );
 }
 
+const ROLE_PERMISSIONS_INFO: Record<'admin' | 'comercial' | 'administrativa', string[]> = {
+  admin: [
+    'Accés complet a tots els mòduls: Pressupostos, Catàleg, Proveïdors i Configuració.',
+    "Pot gestionar usuaris i és l'únic rol que pot eliminar obres.",
+    "Control d'Obres: veu i imputa costos reals a totes les obres.",
+  ],
+  comercial: [
+    'Crea i gestiona Pressupostos, i té accés al Catàleg d\'Articles.',
+    "Control d'Obres: veu totes les obres, però només pot imputar costos reals i editar fases de les obres pròpies.",
+    'Sense accés a Proveïdors ni a Configuració.',
+  ],
+  administrativa: [
+    "Control d'Obres: veu i imputa costos reals a totes les obres, sense restricció de propietat.",
+    'Sense accés a Pressupostos, Catàleg ni Proveïdors.',
+    'Sense accés a Configuració ni a la gestió d\'usuaris, i no pot eliminar obres.',
+  ],
+};
+
 function UserManagement() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
@@ -402,7 +420,7 @@ function UserManagement() {
                       u.role === 'admin' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
                     )}>
                       {u.role === 'admin' ? <Shield className="w-3 h-3" /> : <User className="w-3 h-3" />}
-                      {u.role === 'admin' ? 'Admin' : 'Comercial'}
+                      {ROLE_LABELS[u.role as 'admin' | 'comercial' | 'administrativa']}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -477,6 +495,11 @@ function UserManagement() {
                 <option value="administrativa">Administrativa</option>
                 <option value="admin">Administrador</option>
               </select>
+              <ul className="mt-2 space-y-1 rounded-lg bg-muted/50 border border-border p-3 text-xs text-muted-foreground list-disc list-inside">
+                {ROLE_PERMISSIONS_INFO[form.role].map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
             </div>
             <button
               onClick={() => {
