@@ -89,7 +89,7 @@ export async function populateObraFromBudget(budgetId: string): Promise<void> {
 
     if (includedItems.length === 0) continue;
 
-    const itemRows = includedItems.map((it: any) => {
+    const itemRows = includedItems.map((it: any, index: number) => {
       const qty = Number(it.quantity || 0);
       const unit = Math.round(Number(it.unitCost || 0) * 100);
       return {
@@ -100,6 +100,7 @@ export async function populateObraFromBudget(budgetId: string): Promise<void> {
         estimated_unit_cost: unit,
         estimated_total_cost: Math.round(qty * unit),
         is_extra: false,
+        sort_order: index,
       };
     });
     const { error: itemsErr } = await supabase.from('obra_cost_items' as any).insert(itemRows as any);

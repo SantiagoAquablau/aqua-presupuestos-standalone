@@ -46,7 +46,9 @@ export default function ObraDetail() {
   const { data: items = [] } = useQuery({
     queryKey: ['obra-items', id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('obra_cost_items' as any).select('*').eq('obra_id', id).order('created_at');
+      const { data, error } = await supabase.from('obra_cost_items' as any).select('*').eq('obra_id', id)
+        .order('sort_order', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true });
       if (error) throw error;
       return (data || []) as unknown as ObraCostItem[];
     },
@@ -110,8 +112,33 @@ export default function ObraDetail() {
   const desviacioTotal = totalEst - totalReal;
 
   const exportExcel = () => {
+    const EUR_FMT = '#,##0.00" €"';
+    const PCT_FMT = '0.0"%"';
+    const thin = { style: 'thin', color: { rgb: 'D0D5DD' } } as const;
+    const allBorders = { top: thin, bottom: thin, left: thin, right: thin };
+    const headerStyle = {
+      font: { bold: true, color: { rgb: '1F3864' }, sz: 11 },
+      fill: { fgColor: { rgb: 'D9E2F3' } },
+      alignment: { horizontal: 'center' as const, vertical: 'center' as const, wrapText: true },
+      border: allBorders,
+    };
+    const labelStyle = { font: { bold: true }, border: allBorders, alignment: { vertical: 'center' as const } };
+    const cellStyle = { border: allBorders, alignment: { vertical: 'center' as const } };
+    const rightCellStyle = { ...cellStyle, alignment: { ...cellStyle.alignment, horizontal: 'right' as const } };
+    const moneyStyle = { ...rightCellStyle, numFmt: EUR_FMT };
+    const pctStyle = { ...rightCellStyle, numFmt: PCT_FMT };
+    // Desviació: positiva (real <= estimat) = favorable -> verd; negativa = desfavorable -> vermell.
+    const devStyle = (favorable: boolean) => ({
+      ...rightCellStyle,
+      font: { bold: true, color: { rgb: favorable ? '1B5E20' : 'B71C1C' } },
+      fill: { fgColor: { rgb: favorable ? 'E6F4EA' : 'FDEAEA' } },
+      numFmt: EUR_FMT,
+    });
+
     const wb = XLSX.utils.book_new();
-    const summary = [
+
+    // --- Resum ---
+    const summary: any[][] = [
       ['Obra', obra.budget_number],
       ['Client', obra.client_name],
       ['Municipi', obra.client_town],
@@ -125,13 +152,33 @@ export default function ObraDetail() {
       ['Marge real (€)', marginRealEur / 100],
       ['Desviació (€)', desviacioTotal / 100],
     ];
+    const moneyRows = new Set([5, 6, 7, 10]);
+    const pctRows = new Set([8, 9]);
+    const devRows = new Set([11]);
     const ws1 = XLSX.utils.aoa_to_sheet(summary);
+    summary.forEach((row, r) => {
+      if (row.length === 0) return;
+      const labelRef = XLSX.utils.encode_cell({ r, c: 0 });
+      if (ws1[labelRef]) ws1[labelRef].s = labelStyle;
+      const valueRef = XLSX.utils.encode_cell({ r, c: 1 });
+      const cell = ws1[valueRef];
+      if (!cell) return;
+      if (devRows.has(r)) cell.s = devStyle(desviacioTotal >= 0);
+      else if (moneyRows.has(r)) cell.s = moneyStyle;
+      else if (pctRows.has(r)) cell.s = pctStyle;
+      else cell.s = cellStyle;
+    });
+    ws1['!cols'] = [{ wch: 26 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(wb, ws1, 'Resum');
 
-    const detail: any[][] = [['Fase','Partida','Qty est.','€/u est.','Total est.','Qty real','€/u real','Total real','Desviació','Notes','Extra']];
+    // --- Detall per fase ---
+    const headers = ['Fase', 'Partida', 'Qty est.', '€/u est.', 'Total est.', 'Qty real', '€/u real', 'Total real', 'Desviació', 'Notes', 'Extra'];
+    const detail: any[][] = [headers];
+    const devFavorable: boolean[] = [];
     phases.forEach((ph) => {
       items.filter((it) => it.phase_id === ph.id).forEach((it) => {
         const dev = (it.estimated_total_cost ?? 0) - (it.real_total_cost ?? 0);
+        devFavorable.push(dev >= 0);
         detail.push([
           ph.phase_name, it.description,
           it.estimated_qty ?? '', (it.estimated_unit_cost ?? 0) / 100, (it.estimated_total_cost ?? 0) / 100,
@@ -141,7 +188,31 @@ export default function ObraDetail() {
       });
     });
     const ws2 = XLSX.utils.aoa_to_sheet(detail);
-    XLSX.utils.book_append_sheet(wb, ws2, 'Detall per fase');
+    const moneyCols = new Set([3, 4, 6, 7]);
+    const numCols = new Set([2, 5]);
+    headers.forEach((_, c) => {
+      const ref = XLSX.utils.encode_cell({ r: 0, c });
+      if (ws2[ref]) ws2[ref].s = headerStyle;
+    });
+    for (let r = 1; r < detail.length; r++) {
+      for (let c = 0; c < headers.length; c++) {
+        const ref = XLSX.utils.encode_cell({ r, c });
+        const cell = ws2[ref];
+        if (!cell) continue;
+        if (c === 8) cell.s = devStyle(devFavorable[r - 1]);
+        else if (moneyCols.has(c)) cell.s = moneyStyle;
+        else if (numCols.has(c)) cell.s = rightCellStyle;
+        else cell.s = cellStyle;
+      }
+    }
+    ws2['!cols'] = [
+      { wch: 18 }, { wch: 32 }, { wch: 9 }, { wch: 11 }, { wch: 12 },
+      { wch: 9 }, { wch: 11 }, { wch: 12 }, { wch: 12 }, { wch: 26 }, { wch: 7 },
+    ];
+    // Nota: la cabecera queda destacada visualmente (negrita + fondo), pero
+    // esta build de xlsx-js-style (sin JSZip/Pro) no escribe el XML de
+    // sheetView/pane, así que no se puede "congelar" la fila 1 de verdad.
+    ws2['!freeze'] = { xSplit: 0, ySplit: 1 };
 
     const datestr = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `Rentabilitat_${obra.budget_number}_${datestr}.xlsx`);
@@ -326,6 +397,7 @@ function PhaseSection({ obraId, phase, items, onChange, currentUser }: {
         <ExtraCostModal
           obraId={obraId}
           phaseId={phase.id}
+          nextSortOrder={items.reduce((max, it) => Math.max(max, it.sort_order ?? -1), -1) + 1}
           onClose={() => setShowExtra(false)}
           onCreated={() => { setShowExtra(false); onChange(); }}
           createdBy={currentUser.id}
@@ -463,8 +535,8 @@ function CostItemRow({ item, onChange }: { item: ObraCostItem; onChange: () => v
   );
 }
 
-function ExtraCostModal({ obraId, phaseId, onClose, onCreated, createdBy }: {
-  obraId: string; phaseId: string; onClose: () => void; onCreated: () => void; createdBy?: string;
+function ExtraCostModal({ obraId, phaseId, nextSortOrder, onClose, onCreated, createdBy }: {
+  obraId: string; phaseId: string; nextSortOrder: number; onClose: () => void; onCreated: () => void; createdBy?: string;
 }) {
   const [form, setForm] = useState({
     description: '', real_qty: '1', real_unit_cost: '', notes: '',
@@ -481,6 +553,7 @@ function ExtraCostModal({ obraId, phaseId, onClose, onCreated, createdBy }: {
       description: form.description,
       real_qty: qty, real_unit_cost: unit, real_total_cost: qty * unit,
       notes: form.notes || null, is_extra: true, created_by: createdBy,
+      sort_order: nextSortOrder,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
