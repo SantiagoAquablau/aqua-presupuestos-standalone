@@ -139,15 +139,22 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
   ].filter(Boolean) as string[];
 
   const articleNames: Record<string, string> = {};
+  const articleRefs: Record<string, string> = {};
   const articleSpecs: Record<string, Record<string, any>> = {};
   if (articleIds.length) {
-    const { data: arts } = await supabase.from('articles').select('id, name, technical_specs').in('id', articleIds);
+    const { data: arts } = await supabase.from('articles').select('id, name, reference, technical_specs').in('id', articleIds);
     (arts || []).forEach((a: any) => {
       articleNames[a.id] = a.name;
+      if (a.reference) articleRefs[a.id] = a.reference;
       if (a.technical_specs) articleSpecs[a.id] = a.technical_specs;
     });
   }
   const an = (id?: string | null) => (id && articleNames[id]) || null;
+  // Name + " — Ref. XXXX" suffix when the article has a reference, mirroring the client PDF.
+  const anRef = (id?: string | null) => {
+    if (!id || !articleNames[id]) return null;
+    return articleRefs[id] ? `${articleNames[id]} — Ref. ${articleRefs[id]}` : articleNames[id];
+  };
 
   // Diàmetre de canonada recomanat, a partir del cabal de la bomba On/Off
   // seleccionada al pressupost (mateix càlcul que EquipmentRecommendations.tsx).
@@ -253,11 +260,18 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
   ]);
 
   const stairsBody = grid([
-    b.has_exterior_stairs ? row('Escales exteriors', `Sí (${num(b.ext_stairs_length, ' m') || '—'} × ${num(b.ext_stairs_width, ' m') || '—'})`) : null,
+    b.has_exterior_stairs ? row('Escala exterior — Llarg', num(b.ext_stairs_length, ' m')) : null,
+    b.has_exterior_stairs ? row('Escala exterior — Ample', num(b.ext_stairs_width, ' m')) : null,
     row('Escala interior', escapeHtml(b.interior_stairs_type)),
-    b.stairs_length ? row('Mides escala', `${num(b.stairs_length, ' m')} × ${num(b.stairs_width, ' m')} × ${num(b.stairs_height, ' m')}`) : null,
-    b.platform_length ? row('Plataforma', `${num(b.platform_length, ' m')} × ${num(b.platform_width, ' m')} × ${num(b.platform_height, ' m')}`) : null,
-    b.bench_length ? row('Banc', `${num(b.bench_length, ' m')} × ${num(b.bench_width, ' m')} × ${num(b.bench_height, ' m')}`) : null,
+    b.stairs_length ? row('Escala interior — Llarg', num(b.stairs_length, ' m')) : null,
+    b.stairs_length ? row('Escala interior — Ample', num(b.stairs_width, ' m')) : null,
+    b.stairs_length ? row('Escala interior — Alt', num(b.stairs_height, ' m')) : null,
+    b.platform_length ? row('Plataforma — Llarg', num(b.platform_length, ' m')) : null,
+    b.platform_length ? row('Plataforma — Ample', num(b.platform_width, ' m')) : null,
+    b.platform_length ? row('Plataforma — Alt', num(b.platform_height, ' m')) : null,
+    b.bench_length ? row('Banc — Llarg', num(b.bench_length, ' m')) : null,
+    b.bench_length ? row('Banc — Ample', num(b.bench_width, ' m')) : null,
+    b.bench_length ? row('Banc — Alt', num(b.bench_height, ' m')) : null,
   ]);
 
   // Disposició (enterrada / semi-enterrada / elevada) — mirrors
@@ -436,17 +450,20 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
 
   // Accessoris opcionals — only the ones the user toggled ON
   const optionalAccRows = [
-    b.acc_escala_enabled ? row('Escala inox', `${num(b.acc_escala_qty, ' u') || '1 u'}${an(b.acc_escala_model_id) ? ` — ${escapeHtml(an(b.acc_escala_model_id))}` : ''}`) : null,
-    b.acc_dutxa_enabled ? row('Dutxa exterior', `${num(b.acc_dutxa_qty, ' u') || '1 u'}${an(b.acc_dutxa_model_id) ? ` — ${escapeHtml(an(b.acc_dutxa_model_id))}` : ''}`) : null,
+    b.acc_escala_enabled ? row('Escala inox', `${num(b.acc_escala_qty, ' u') || '1 u'}${anRef(b.acc_escala_model_id) ? ` — ${escapeHtml(anRef(b.acc_escala_model_id))}` : ''}`) : null,
+    b.acc_dutxa_enabled ? row('Dutxa exterior', `${num(b.acc_dutxa_qty, ' u') || '1 u'}${anRef(b.acc_dutxa_model_id) ? ` — ${escapeHtml(anRef(b.acc_dutxa_model_id))}` : ''}`) : null,
     b.acc_plat_dutxa_enabled ? row('Plat de dutxa', num(b.acc_plat_dutxa_qty, ' u') || '1 u') : null,
-    b.acc_cascada_enabled ? row('Cascada', `${num(b.acc_cascada_qty, ' u') || '1 u'}${an(b.acc_cascada_model_id) ? ` — ${escapeHtml(an(b.acc_cascada_model_id))}` : ''}`) : null,
-    b.acc_cascada_enabled && b.acc_cascada_bomba_article_id ? row('Bomba per a cascada', escapeHtml(an(b.acc_cascada_bomba_article_id) || '')) : null,
-    b.acc_cascada_enabled && b.acc_cascada_pulsador_article_id ? row('Pulsador piezoelèctric', `${num(b.acc_cascada_pulsador_qty, ' u') || '1 u'} — ${escapeHtml(an(b.acc_cascada_pulsador_article_id) || '')}`) : null,
+    (b.acc_plat_dutxa_enabled && b.acc_plat_dutxa_llarg && b.acc_plat_dutxa_ample)
+      ? row('Plat de dutxa — Mides', `${num(b.acc_plat_dutxa_llarg, ' m')} × ${num(b.acc_plat_dutxa_ample, ' m')}`)
+      : null,
+    b.acc_cascada_enabled ? row('Cascada', `${num(b.acc_cascada_qty, ' u') || '1 u'}${anRef(b.acc_cascada_model_id) ? ` — ${escapeHtml(anRef(b.acc_cascada_model_id))}` : ''}`) : null,
+    b.acc_cascada_enabled && b.acc_cascada_bomba_article_id ? row('Bomba per a cascada', escapeHtml(anRef(b.acc_cascada_bomba_article_id) || '')) : null,
+    b.acc_cascada_enabled && b.acc_cascada_pulsador_article_id ? row('Pulsador piezoelèctric', `${num(b.acc_cascada_pulsador_qty, ' u') || '1 u'} — ${escapeHtml(anRef(b.acc_cascada_pulsador_article_id) || '')}`) : null,
     // Mà d'obra d'instal·lació de cascada NO es tracka com a camp propi —
     // la genera una regla condicional del Motor de Càlcul i apareix a les
     // taules de sub-fase generades per buildWizardLinesByPhase() més avall.
-    b.acc_salvavides_enabled ? row('Salvavides + suport', `${num(b.acc_salvavides_qty, ' u') || '1 u'}${an(b.acc_salvavides_model_id) ? ` — ${escapeHtml(an(b.acc_salvavides_model_id))}` : ''}`) : null,
-    b.acc_barana_enabled ? row('Barana ancorada exterior', `${num(b.acc_barana_qty, ' u') || '1 u'}${an(b.acc_barana_model_id) ? ` — ${escapeHtml(an(b.acc_barana_model_id))}` : ''}`) : null,
+    b.acc_salvavides_enabled ? row('Salvavides + suport', `${num(b.acc_salvavides_qty, ' u') || '1 u'}${anRef(b.acc_salvavides_model_id) ? ` — ${escapeHtml(anRef(b.acc_salvavides_model_id))}` : ''}`) : null,
+    b.acc_barana_enabled ? row('Barana ancorada exterior', `${num(b.acc_barana_qty, ' u') || '1 u'}${anRef(b.acc_barana_model_id) ? ` — ${escapeHtml(anRef(b.acc_barana_model_id))}` : ''}`) : null,
   ];
   const optionalAccBody = optionalAccRows.some(Boolean)
     ? subsection('Accessoris opcionals', grid(optionalAccRows))
@@ -480,7 +497,13 @@ export async function generateTechnicalSheet(budgetId: string): Promise<void> {
     const items = (p.items || []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
     const rowsHtml = items.map((it: any) => {
       const sp = String(it.subPhase || '').toLowerCase();
-      const isOpt = sp.includes('opcional');
+      // Exact match against the real "not included / informational only" marker
+      // (wizardLines.ts `buildItem()`), NOT a loose substring check — the
+      // "Accessoris opcionals" subPhase is just a wizard UI grouping label for
+      // toggle-based accessories (Escala inox, Dutxa exterior, Plat de dutxa,
+      // Salvavides, Barana) that ARE included once enabled, and must not be
+      // confused with items genuinely excluded from the budget.
+      const isOpt = sp === 'opcionals informatius (no sumen al total)';
       const tag = isOpt ? ' <span style="display:inline-block;background:#fef3c7;color:#92400e;font-size:8pt;font-weight:700;padding:0.5mm 2mm;border-radius:3mm;margin-left:2mm;">OPCIONAL</span>' : '';
       return `<tr><td>${escapeHtml(it.description || '')}${tag}</td><td class="qty">${Number(it.quantity ?? 0).toLocaleString('ca-ES', { maximumFractionDigits: 2 })}</td><td>${escapeHtml(it.unit || 'ud')}</td></tr>`;
     }).join('');
