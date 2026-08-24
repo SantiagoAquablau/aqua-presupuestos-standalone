@@ -74,6 +74,14 @@ export const fmtCents = (cents: number | null | undefined) => {
   return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 };
 
+// Same as fmtCents but keeps the decimals — needed for per-unit prices
+// (e.g. 0,57 €), which fmtCents' maximumFractionDigits: 0 would round to
+// the nearest euro (0,57 -> "1 €").
+export const fmtCentsPrecise = (cents: number | null | undefined) => {
+  const n = (cents ?? 0) / 100;
+  return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+};
+
 export const fmtPct = (pct: number | null | undefined) =>
   `${(pct ?? 0).toFixed(1)}%`;
 

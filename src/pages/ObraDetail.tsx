@@ -12,7 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  fmtCents, fmtPct, marginColorClass,
+  fmtCents, fmtCentsPrecise, fmtPct, marginColorClass,
   obraStatusBadge, phaseStatusBadge, logObraActivity,
   type Obra, type ObraPhase, type ObraCostItem, type ObraStatus, type ObraPhaseStatus, type ObraActivity,
 } from '@/lib/obrasHelpers';
@@ -467,7 +467,7 @@ function CostItemRow({ item, onChange }: { item: ObraCostItem; onChange: () => v
         </div>
       </td>
       <td className="px-2 py-1.5 text-right text-xs text-muted-foreground">{item.estimated_qty ?? '—'}</td>
-      <td className="px-2 py-1.5 text-right text-xs text-muted-foreground">{item.estimated_unit_cost != null ? fmtCents(item.estimated_unit_cost) : '—'}</td>
+      <td className="px-2 py-1.5 text-right text-xs text-muted-foreground">{item.estimated_unit_cost != null ? fmtCentsPrecise(item.estimated_unit_cost) : '—'}</td>
       <td className="px-2 py-1.5 text-right text-xs">{item.estimated_total_cost != null ? fmtCents(item.estimated_total_cost) : '—'}</td>
       <td className="px-2 py-1.5 w-20">
         <input
