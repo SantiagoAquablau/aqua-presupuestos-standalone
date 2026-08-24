@@ -468,7 +468,7 @@ function CostItemRow({ item, onChange }: { item: ObraCostItem; onChange: () => v
       </td>
       <td className="px-2 py-1.5 text-right text-xs text-muted-foreground">{item.estimated_qty ?? '—'}</td>
       <td className="px-2 py-1.5 text-right text-xs text-muted-foreground">{item.estimated_unit_cost != null ? fmtCentsPrecise(item.estimated_unit_cost) : '—'}</td>
-      <td className="px-2 py-1.5 text-right text-xs">{item.estimated_total_cost != null ? fmtCents(item.estimated_total_cost) : '—'}</td>
+      <td className="px-2 py-1.5 text-right text-xs">{item.estimated_total_cost != null ? fmtCentsPrecise(item.estimated_total_cost) : '—'}</td>
       <td className="px-2 py-1.5 w-20">
         <input
           type="number" step="0.01" value={draft.real_qty}
@@ -488,11 +488,11 @@ function CostItemRow({ item, onChange }: { item: ObraCostItem; onChange: () => v
         />
       </td>
       <td className="px-2 py-1.5 text-right text-xs font-semibold">
-        {item.real_total_cost != null ? fmtCents(item.real_total_cost) : <span className="text-muted-foreground italic">Pendent</span>}
+        {item.real_total_cost != null ? fmtCentsPrecise(item.real_total_cost) : <span className="text-muted-foreground italic">Pendent</span>}
         {saved && <span className="ml-1 text-success">✓</span>}
       </td>
       <td className={cn('px-2 py-1.5 text-right text-xs font-semibold', item.is_extra ? 'text-muted-foreground' : (dev >= 0 ? 'text-success' : 'text-destructive'))}>
-        {item.is_extra ? '—' : (item.real_total_cost == null ? '—' : `${dev >= 0 ? '+' : ''}${fmtCents(dev)}`)}
+        {item.is_extra ? '—' : (item.real_total_cost == null ? '—' : `${dev >= 0 ? '+' : ''}${fmtCentsPrecise(dev)}`)}
       </td>
       <td className="px-2 py-1.5 w-32">
         <input value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} onBlur={() => save()} className={inputCls} placeholder="—" />
