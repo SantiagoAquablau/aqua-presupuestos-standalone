@@ -211,6 +211,12 @@ export function StepInstalacions() {
   const [bombaOnoff, setBombaOnoff] = useState<SelectedArticle | null>(null);
   const [bombaVariable, setBombaVariable] = useState<SelectedArticle | null>(null);
   const [dosifStd, setDosifStd] = useState<SelectedArticle | null>(null);
+  // False while the async loadArticle for instalDosificacioStdId is still
+  // in flight (incl. right after mount, before the effect below resolves) —
+  // distinguishes "don't know yet if it's HC" from "confirmed not HC", so the
+  // HC-option cleanup effect doesn't wipe a persisted selection on a false
+  // negative while dosifStd is still null.
+  const [dosifStdLoaded, setDosifStdLoaded] = useState(false);
   const [hidrolisi, setHidrolisi] = useState<SelectedArticle | null>(null);
   const [quadre, setQuadre] = useState<SelectedArticle | null>(null);
   const [prefiltreArticle, setPrefiltreArticle] = useState<{
@@ -244,6 +250,7 @@ export function StepInstalacions() {
   // guards against unmount.
   useEffect(() => {
     let cancelled = false;
+    setDosifStdLoaded(false);
     const load = async () => {
       const [fp, fe, cm, bo, bv, ds, hi, qu] = await Promise.all([
         loadArticle(draft.instalFiltrePoliesId),
@@ -262,6 +269,7 @@ export function StepInstalacions() {
       setBombaOnoff(bo);
       setBombaVariable(bv);
       setDosifStd(ds);
+      setDosifStdLoaded(true);
       setHidrolisi(hi);
       setQuadre(qu);
     };
@@ -340,11 +348,14 @@ export function StepInstalacions() {
   // òrfena que reaparegui si es torna a triar un model HC més endavant.
   const dosifStdIsHc = /\bHC\b/i.test(dosifStd?.name ?? '');
   useEffect(() => {
-    if (!dosifStdIsHc && draft.instalDosificacioHcOption) {
+    // Only clean up once the article load has actually resolved — while
+    // dosifStdLoaded is false, dosifStdIsHc is a meaningless false negative
+    // (dosifStd is still null), not a confirmed "not HC".
+    if (dosifStdLoaded && !dosifStdIsHc && draft.instalDosificacioHcOption) {
       updateDraft({ instalDosificacioHcOption: undefined });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dosifStdIsHc]);
+  }, [dosifStdLoaded, dosifStdIsHc]);
 
   // Keep instalWifiArticleId synced to the auto-found module article so its
   // price is always available in the PDF as the informational "No inclou"

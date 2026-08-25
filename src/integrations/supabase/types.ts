@@ -530,6 +530,7 @@ export type Database = {
           instal_caseta_ubicacio: string | null
           instal_depuracio_enabled: boolean | null
           instal_dosificacio_enabled: boolean | null
+          instal_dosificacio_hc_option: string | null
           instal_dosificacio_std_id: string | null
           instal_dosificacio_std_opcional: boolean | null
           instal_dosificacio_std_qty: number | null
@@ -887,6 +888,7 @@ export type Database = {
           instal_caseta_ubicacio?: string | null
           instal_depuracio_enabled?: boolean | null
           instal_dosificacio_enabled?: boolean | null
+          instal_dosificacio_hc_option?: string | null
           instal_dosificacio_std_id?: string | null
           instal_dosificacio_std_opcional?: boolean | null
           instal_dosificacio_std_qty?: number | null
@@ -1244,6 +1246,7 @@ export type Database = {
           instal_caseta_ubicacio?: string | null
           instal_depuracio_enabled?: boolean | null
           instal_dosificacio_enabled?: boolean | null
+          instal_dosificacio_hc_option?: string | null
           instal_dosificacio_std_id?: string | null
           instal_dosificacio_std_opcional?: boolean | null
           instal_dosificacio_std_qty?: number | null

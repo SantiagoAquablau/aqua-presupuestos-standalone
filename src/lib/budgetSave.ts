@@ -319,6 +319,7 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     instal_bomba_onoff_opcional: draft.instalBombaOnoffOpcional ?? false,
     instal_bomba_variable_opcional: draft.instalBombaVariableOpcional ?? true,
     instal_dosificacio_std_opcional: draft.instalDosificacioStdOpcional ?? false,
+    instal_dosificacio_hc_option: draft.instalDosificacioHcOption ?? null,
     instal_hidrolisi_opcional: draft.instalHidrolisiOpcional ?? false,
     // AFM auto
     instal_afm_qty: draft.instalAfmQty || null,

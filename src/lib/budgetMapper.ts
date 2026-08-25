@@ -215,6 +215,7 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
     instalBombaOnoffOpcional: data.instal_bomba_onoff_opcional ?? undefined,
     instalBombaVariableOpcional: data.instal_bomba_variable_opcional ?? undefined,
     instalDosificacioStdOpcional: data.instal_dosificacio_std_opcional ?? undefined,
+    instalDosificacioHcOption: (data.instal_dosificacio_hc_option as 'redox' | 'kit_clor' | null) ?? undefined,
     instalHidrolisiOpcional: data.instal_hidrolisi_opcional ?? undefined,
     instalAfmQty: data.instal_afm_qty ?? undefined,
     instalCanviMediArticleId: data.instal_canvi_medi_article_id || undefined,
