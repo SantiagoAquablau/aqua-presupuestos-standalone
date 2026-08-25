@@ -389,6 +389,12 @@ export function injectWizardSelectionsIntoContext(
   context.instal_bomba_onoff_name = installations.find((i) => i.key === 'instal_bomba_onoff')?.label ?? '';
   context.instal_bomba_variable_name = installations.find((i) => i.key === 'instal_bomba_variable')?.label ?? '';
   context.instal_dosificacio_std_name = installations.find((i) => i.key === 'instal_dosificacio_std')?.label ?? '';
+  // Detecta si el model de dosificació escollit és de la línia "HC" (a partir
+  // del seu nom, igual que l'extracció de g/h a EquipmentRecommendations) —
+  // permet condicionar regles del motor de fórmules (ex. OPTION REDOX vs.
+  // KIT CLORO LLIURE) sense hardcodejar-ho al codi.
+  context.instal_dosificacio_std_is_hc = /\bHC\b/i.test(context.instal_dosificacio_std_name as string);
+  context.instal_dosificacio_hc_option = draft.instalDosificacioHcOption ?? '';
   context.instal_hidrolisi_name = installations.find((i) => i.key === 'instal_hidrolisi')?.label ?? '';
   context.instal_quadre_name = installations.find((i) => i.key === 'instal_quadre')?.label ?? '';
 

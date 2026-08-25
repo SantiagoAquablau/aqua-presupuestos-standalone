@@ -17,6 +17,7 @@ const STAIRS_LABEL: Record<string, string> = {
 const POOL_TYPE_LABEL: Record<string, string> = {
   particular: "particular",
   comunitaria: "comunitària",
+  publica: "pública",
 };
 
 const POOL_SHAPE_LABEL: Record<string, string> = {
@@ -172,7 +173,9 @@ export function PageCover({ data }: { data: PdfData }) {
                   ? "Comunitària"
                   : data.poolType === "particular"
                     ? "Particular"
-                    : ""
+                    : data.poolType === "publica"
+                      ? "Pública"
+                      : ""
               }`.trim()
             : isA
               ? "Autoportant"

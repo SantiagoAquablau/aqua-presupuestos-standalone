@@ -423,12 +423,12 @@ export function StepEstructura() {
             <div className="pt-4" ref={registerField('poolType')}>
               <label className={labelClass}>Tipus de piscina</label>
               <div className="flex gap-3">
-                {(['particular', 'comunitaria'] as const).map((v) => (
+                {(['particular', 'comunitaria', 'publica'] as const).map((v) => (
                   <button key={v} onClick={() => { updateDraft({ poolType: v }); clearError('poolType'); }}
                     className={cn('flex-1 py-2.5 rounded-lg border-2 text-sm font-medium transition-all min-h-[44px]',
                       draft.poolType === v ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/40',
                       hasError('poolType') && draft.poolType !== v && fieldErrorClass
-                    )}>{v === 'particular' ? 'Particular' : 'Comunitària'}</button>
+                    )}>{v === 'particular' ? 'Particular' : v === 'comunitaria' ? 'Comunitària' : 'Pública'}</button>
                 ))}
               </div>
               {hasError('poolType') && <FieldError message="Selecciona el tipus de piscina" shakeKey={shakeKey} />}

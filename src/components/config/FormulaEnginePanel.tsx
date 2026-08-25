@@ -98,6 +98,8 @@ const CONDITION_FIELDS: { value: string; label: string; options: string[] }[] = 
   { value: 'instal_bomba_variable_opcional', label: 'Bomba variable opcional', options: ['true', 'false'] },
   { value: 'instal_dosificacio_std_enabled', label: 'Dosificació estàndard inclosa', options: ['true', 'false'] },
   { value: 'instal_dosificacio_std_opcional', label: 'Dosificació estàndard opcional', options: ['true', 'false'] },
+  { value: 'instal_dosificacio_std_is_hc', label: 'Model dosificació estàndard és HC', options: ['true', 'false'] },
+  { value: 'instal_dosificacio_hc_option', label: 'Opció HC: Redox / Kit Clor Lliure', options: ['redox', 'kit_clor'] },
   { value: 'instal_hidrolisi_enabled', label: 'Hidròlisi sal inclosa', options: ['true', 'false'] },
   { value: 'instal_hidrolisi_opcional', label: 'Hidròlisi sal opcional', options: ['true', 'false'] },
   // ── Accessoris ──

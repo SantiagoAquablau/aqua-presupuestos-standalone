@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 export type BudgetType = 'obra_nueva' | 'rehabilitacion' | 'mantenimiento' | 'piscina_autoportant';
 export type BudgetStatus = 'borrador' | 'enviat' | 'acceptat' | 'rebutjat';
-export type PoolType = 'particular' | 'comunitaria';
+export type PoolType = 'particular' | 'comunitaria' | 'publica';
 export type PoolShape = 'regular' | 'irregular';
 export type InteriorStairsType = 'estandard' | 'plataforma' | 'banc' | 'tot_ample' | 'sense';
 export type ConstructionSystem = 'gunite' | 'bloc_encofrat';
@@ -264,6 +264,10 @@ export interface BudgetDraft {
   instalBombaVariableOpcional?: boolean;
   instalDosificacioStdOpcional?: boolean;
   instalHidrolisiOpcional?: boolean;
+  // Elecció entre OPTION REDOX i KIT CLOR LLIURE quan el model de dosificació
+  // estàndard escollit és de la línia "HC". Es neteja automàticament quan el
+  // model deixa de ser HC.
+  instalDosificacioHcOption?: 'redox' | 'kit_clor';
   // AFM auto
   instalAfmQty?: number;
   instalAfmIncrement?: number; // +€ differential AFM vs sorra silícia (per-client)

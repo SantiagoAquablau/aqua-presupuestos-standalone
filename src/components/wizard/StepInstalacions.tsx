@@ -333,6 +333,19 @@ export function StepInstalacions() {
     };
   }, [draft.instalDosificacioStdId]);
 
+  // Detecta si el model de dosificació estàndard escollit és de la línia
+  // "HC" (mateix criteri que context.instal_dosificacio_std_is_hc a
+  // wizardEquipment.ts, sobre el nom de l'article). Neteja la selecció
+  // Redox/Kit Clor Lliure quan deixa de ser HC, perquè no quedi una dada
+  // òrfena que reaparegui si es torna a triar un model HC més endavant.
+  const dosifStdIsHc = /\bHC\b/i.test(dosifStd?.name ?? '');
+  useEffect(() => {
+    if (!dosifStdIsHc && draft.instalDosificacioHcOption) {
+      updateDraft({ instalDosificacioHcOption: undefined });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dosifStdIsHc]);
+
   // Keep instalWifiArticleId synced to the auto-found module article so its
   // price is always available in the PDF as the informational "No inclou"
   // alternative — EXCEPT when the chosen equip already has WiFi incorporated
@@ -1256,6 +1269,38 @@ export function StepInstalacions() {
                     No s'ha trobat l'article de mòdul Wi-Fi al catàleg. Afegeix-lo per incloure'l.
                   </p>
                 ) : null)}
+            </div>
+          )}
+
+          {/* Redox vs. Kit Clor Lliure — només quan el model de dosificació
+              estàndard escollit és de la línia "HC" (context
+              instal_dosificacio_hc_option al motor de fórmules). */}
+          {dosifStdIsHc && (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-foreground">Opció Redox / Clor lliure</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md">
+                {[
+                  { value: "redox" as const, title: "Option Redox" },
+                  { value: "kit_clor" as const, title: "Kit Clor Lliure — Sonda Potenciostàtica" },
+                ].map((opt) => {
+                  const active = draft.instalDosificacioHcOption === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => updateDraft({ instalDosificacioHcOption: opt.value })}
+                      className={cn(
+                        "p-3 rounded-xl border-2 text-center transition-all text-sm font-semibold",
+                        active
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border hover:border-muted-foreground/30 text-foreground",
+                      )}
+                    >
+                      {opt.title}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

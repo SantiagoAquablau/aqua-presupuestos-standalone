@@ -40,7 +40,7 @@ interface Props {
   /** draft.poolType. Quan és 'comunitaria' es mostra, a més de la recomanació
    *  "Ideal", una segona opció "Acceptable" (una talla per sota) per al filtre
    *  i la bomba On/Off. */
-  poolType?: "particular" | "comunitaria";
+  poolType?: "particular" | "comunitaria" | "publica";
   /** Notifica el diàmetre (mm) del filtre Ideal recomanat (idealPair.filter)
    *  cada cop que canviï, o null si encara no hi ha recomanació vàlida.
    *  Permet a components pare (ex. l'auto-default del "Filtre especial" a
@@ -234,7 +234,10 @@ export function EquipmentRecommendations({
   onIdealFilterDiametro,
 }: Props) {
   const { isAdmin } = useAuth();
-  const isComunitaria = poolType === "comunitaria";
+  // Comunitària i Pública comparteixen el mateix criteri d'ús intensiu, per
+  // això activen les mateixes targetes "Acceptable" (alternativa amb turnover
+  // 4,5h en lloc de 4h).
+  const isComunitariaOrPublica = poolType === "comunitaria" || poolType === "publica";
   const [expanded, setExpanded] = useState(true);
   const [showDetail, setShowDetail] = useState(false);
   // Previsualització visual del material filtrant: no toca el draft real.
@@ -328,7 +331,7 @@ export function EquipmentRecommendations({
     // després (segons el caudal real de la bomba ja triada). Ideal i Acceptable
     // són parells totalment independents, no un derivat de l'altre.
     const idealPair = selectPair(caudal_necesario, onoffBase, filtersSorted, washMultiplier, true, true);
-    const acceptablePairRaw = isComunitaria
+    const acceptablePairRaw = isComunitariaOrPublica
       ? selectPair(caudal_necesario_acceptable, onoffBase, filtersSorted, washMultiplier, false, false)
       : null;
     // Si el parell Acceptable acaba coincidint exactament (mateixa bomba i
@@ -368,7 +371,9 @@ export function EquipmentRecommendations({
     const gr_per_hora = cloro_dia / 6;
     const chlorinatorEvals = chlorinators
       .map((art) => {
-        const m = art.name.match(/(\d+(?:[.,]\d+)?)\s*G\s*\/\s*H/i);
+        // Accepta tant "50G/H" (format clàssic) com "155 GR" (format usat en
+        // alguns noms d'article sense la barra "/H", ex. AQUARITE LT COMERCIAL).
+        const m = art.name.match(/(\d+(?:[.,]\d+)?)\s*G\s*(?:\/\s*H|R\b)/i);
         const grh = m ? parseFloat(m[1].replace(",", ".")) : 0;
         return { article: art, grh };
       })
@@ -395,7 +400,7 @@ export function EquipmentRecommendations({
       // Ideal triada (el millor filtre disponible encara excedeix vf=42).
       noFilterCovers: idealPair !== null && idealPair.vf_pump > 42,
     };
-  }, [filters, onoffPumps, variablePumps, chlorinators, poolVolumeLiters, effectiveUseAfm, bathers, quadreLinia, isComunitaria]);
+  }, [filters, onoffPumps, variablePumps, chlorinators, poolVolumeLiters, effectiveUseAfm, bathers, quadreLinia, isComunitariaOrPublica]);
 
   // Si l'alternativa Acceptable desapareix (canvi de previsualització, de
   // dimensions, etc.) mentre una targeta estava girada, torna-la a Ideal per
@@ -607,7 +612,7 @@ export function EquipmentRecommendations({
             )}
           </div>
 
-          {isComunitaria && calc.acceptablePair && (
+          {isComunitariaOrPublica && calc.acceptablePair && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-medium text-muted-foreground">
                 Filtre i bomba On/Off:
@@ -911,7 +916,7 @@ export function EquipmentRecommendations({
               <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-violet-700">
                 <Zap className="w-4 h-4" /> Bomba velocitat variable
               </div>
-              {isComunitaria && acceptablePair && calc.acceptableVariablePump ? (
+              {isComunitariaOrPublica && acceptablePair && calc.acceptableVariablePump ? (
                 <div className="[perspective:1200px]">
                   <div
                     className={cn(
