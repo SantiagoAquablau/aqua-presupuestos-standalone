@@ -462,14 +462,38 @@ export function StepAcabats() {
     (opcRevestimentArticle as any)?.beurada_color_epoxi,
   ]);
 
-  const SectionHeader = ({ id, title, emoji }: { id: string; title: string; emoji: string }) => (
-    <button onClick={() => toggle(id)} className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+  const SectionHeader = ({ id, title, emoji, inclos, onToggleInclos }: { id: string; title: string; emoji: string; inclos?: boolean; onToggleInclos?: () => void }) => (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => toggle(id)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(id); } }}
+      className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+    >
       <div className="flex items-center gap-3">
         <span className="text-xl">{emoji}</span>
         <h3 className="font-semibold text-foreground">{title}</h3>
       </div>
-      <ChevronDown className={cn('w-5 h-5 text-muted-foreground transition-transform', openSections[id] && 'rotate-180')} />
-    </button>
+      <div className="flex items-center gap-3">
+        {onToggleInclos && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleInclos(); }}
+            className="flex items-center gap-1.5"
+            title="Inclòs en el pressupost"
+          >
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">Inclòs</span>
+            <span
+              className={cn('relative inline-flex h-5 w-9 items-center rounded-full transition-colors', inclos !== false ? 'bg-primary' : 'bg-muted-foreground/30')}
+              aria-pressed={inclos !== false}
+            >
+              <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', inclos !== false ? 'translate-x-4' : 'translate-x-0.5')} />
+            </span>
+          </button>
+        )}
+        <ChevronDown className={cn('w-5 h-5 text-muted-foreground transition-transform', openSections[id] && 'rotate-180')} />
+      </div>
+    </div>
   );
 
   return (
@@ -481,30 +505,18 @@ export function StepAcabats() {
 
       {/* ═══ SECTION A: CORONAMENT ═══ */}
       <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
-        <SectionHeader id="coronament" title="Coronament" emoji="🧱" />
+        <SectionHeader
+          id="coronament"
+          title="Coronament"
+          emoji="🧱"
+          inclos={draft.coronamentInclos !== false}
+          onToggleInclos={() => updateDraft({ coronamentInclos: draft.coronamentInclos === false })}
+        />
         {openSections.coronament && (
           <div className="p-4 pt-0 space-y-5 border-t border-border">
-            {/* Toggle: include / exclude this section from the budget */}
-            <div className="pt-4 flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border">
-              <div>
-                <div className="text-sm font-medium text-foreground">Inclòs en el pressupost</div>
-                <p className="text-xs text-muted-foreground mt-0.5">Desactiva si aquesta obra no porta coronament. No apareixerà al PDF ni a les partides.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => updateDraft({ coronamentInclos: draft.coronamentInclos === false })}
-                className={cn(
-                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                  draft.coronamentInclos !== false ? 'bg-primary' : 'bg-muted-foreground/30'
-                )}
-                aria-pressed={draft.coronamentInclos !== false}
-              >
-                <span className={cn('inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', draft.coronamentInclos !== false ? 'translate-x-5' : 'translate-x-0.5')} />
-              </button>
-            </div>
             {draft.coronamentInclos === false ? (
               <div className="text-sm text-muted-foreground italic py-4 text-center">
-                Coronament no inclòs en aquest pressupost.
+                Coronament no inclòs en aquest pressupost. No apareixerà al PDF ni a les partides.
               </div>
             ) : (<>
             {/* A1 — Actuació */}
@@ -589,29 +601,18 @@ export function StepAcabats() {
 
       {/* ═══ SECTION B: REVESTIMENT ═══ */}
       <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
-        <SectionHeader id="revestiment" title="Revestiment" emoji="🔷" />
+        <SectionHeader
+          id="revestiment"
+          title="Revestiment"
+          emoji="🔷"
+          inclos={draft.revestimentInclos !== false}
+          onToggleInclos={() => updateDraft({ revestimentInclos: draft.revestimentInclos === false })}
+        />
         {openSections.revestiment && (
           <div className="p-4 pt-0 space-y-5 border-t border-border">
-            <div className="pt-4 flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border">
-              <div>
-                <div className="text-sm font-medium text-foreground">Inclòs en el pressupost</div>
-                <p className="text-xs text-muted-foreground mt-0.5">Desactiva si aquesta obra no porta revestiment interior. No apareixerà al PDF ni a les partides.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => updateDraft({ revestimentInclos: draft.revestimentInclos === false })}
-                className={cn(
-                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                  draft.revestimentInclos !== false ? 'bg-primary' : 'bg-muted-foreground/30'
-                )}
-                aria-pressed={draft.revestimentInclos !== false}
-              >
-                <span className={cn('inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', draft.revestimentInclos !== false ? 'translate-x-5' : 'translate-x-0.5')} />
-              </button>
-            </div>
             {draft.revestimentInclos === false ? (
               <div className="text-sm text-muted-foreground italic py-4 text-center">
-                Revestiment interior no inclòs en aquest pressupost.
+                Revestiment interior no inclòs en aquest pressupost. No apareixerà al PDF ni a les partides.
               </div>
             ) : (<>
             {/* B1 — Actuació */}
