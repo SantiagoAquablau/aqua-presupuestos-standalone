@@ -143,8 +143,9 @@ export function PageElectricitat({ data }: { data: PdfData }) {
             <SectionPillTenor number="5" title="INSTAL·LACIÓ FONTANERIA" amount={fontaneriaSubtotal} />
             <div style={{ padding: "0 4mm", fontSize: "10pt", lineHeight: 1.5, marginBottom: "8mm" }}>
               <p style={{ margin: 0 }}>
-                - Instal·lació de canonades de 10 atm de pressió per a unió Depuradora - Piscina (inclòs tots els
-                accessoris necessaris). Fins a {Math.round(distancia)}m*.
+                {data.fontaneriaText
+                  ? `- ${data.fontaneriaText}`
+                  : `- Instal·lació de canonades de 10 atm de pressió per a unió Depuradora - Piscina (inclòs tots els accessoris necessaris). Fins a ${Math.round(distancia)}m*.`}
               </p>
               {showFontaneriaNote && (
                 <p
@@ -155,7 +156,7 @@ export function PageElectricitat({ data }: { data: PdfData }) {
                     fontSize: "8pt",
                   }}
                 >
-                  *En distàncies superiors o si cal travessar murs amb corona de 63 per fer arribar les canonades fins
+                  *En distàncies superiors o si cal travessar murs amb corona per fer arribar les canonades fins
                   al garatge o una altra ubicació similar, es comptabilitzarà a part.
                 </p>
               )}
