@@ -127,8 +127,7 @@ export function PageAnnexGespa({
   const prefix = "";
   const enumPx = isOpcional ? "" : annexEnumPrefix(annexIndex, annexTotalCount);
 
-  // Force new "45b" (Multidireccional 45mm) model for "opcional" (per spec); use selected mm otherwise.
-  const mm = (isOpcional ? "45b" : data.annexGespaModelMm || 35) as 35 | 38 | 45 | "45b";
+  const mm = (isOpcional ? 35 : data.annexGespaModelMm || 35) as 35 | 38 | 45 | "45b";
   const model = MODELS[mm];
 
   const amount = data.annexGespaAmount ?? 0;
