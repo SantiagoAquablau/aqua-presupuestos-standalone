@@ -160,7 +160,7 @@ export function PdfDocument({ data }: { data: PdfData }) {
 
   const pages = [
     <PageCover key="cover" data={data} />,
-    ...(data.poolShape === 'regular' ? [<PagePlanol key="planol" data={data} />] : []),
+    ...(data.poolShape === 'regular' && data.planolInclos !== false ? [<PagePlanol key="planol" data={data} />] : []),
     <PageEstructura key="estructura" data={data} />,
     // PageElementsEstructurals is dedicated solely to the interior stairs/
     // bench/platform and the exterior access stairs (see its own header

@@ -35,6 +35,10 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
   // if an admin also mentions WiFi manually in feature1-4, that's on them to
   // avoid duplicating; this component does no de-dup between the two.
   const wifiIncorporat = !!data.hidrolisiWifiIncorporat;
+  // Equip doesn't support WiFi at all — no bullet, no module block, same
+  // treatment as wifiIncorporat but without the "inclosa" wording (there's
+  // nothing to include or offer as an add-on).
+  const noPermetWifi = !!data.hidrolisiNoPermetWifi;
   const equipName = data.hidrolisiName || "AQUARITE NEO";
   const equipImg = data.hidrolisiImageUrl || "/pdf/electrolisis-ltneo.webp";
   const wifiName = data.wifiName || "Mòdul Ethernet Hayward Aquarite";
@@ -42,11 +46,14 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
   const featureBullets =
     data.hidrolisiFeatures && data.hidrolisiFeatures.length > 0 ? data.hidrolisiFeatures : FALLBACK_FEATURES;
   const cellHours = data.hidrolisiCellHours || 8000;
-  const wifiBullet = wifiIncorporat
-    ? "Connexió WI-FI inclosa."
-    : wifiOn
-      ? "Connexió WI-FI."
-      : "Connexió WI-FI {{ORANGE:opcional*}}.";
+  // No bullet at all when the equip doesn't support WiFi.
+  const wifiBullet = noPermetWifi
+    ? undefined
+    : wifiIncorporat
+      ? "Connexió WI-FI inclosa."
+      : wifiOn
+        ? "Connexió WI-FI."
+        : "Connexió WI-FI {{ORANGE:opcional*}}.";
 
   return (
     <section style={pageStyle}>
@@ -127,6 +134,11 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
               <div>· Sondas REDOX (ORP) i pH.</div>
               <div>· Injector de reductor de pH + bomba peristàltica.</div>
             </div>
+            {data.hidrolisiAltName && (
+              <div style={{ fontSize: "9pt", fontStyle: "italic", color: PDF_COLORS.textBody, lineHeight: 1.3 }}>
+                Alternativa disponible: {data.hidrolisiAltName}
+              </div>
+            )}
           </div>
 
           {/* Equipment image + model */}
@@ -171,7 +183,7 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
           <div style={{ flex: 0.95, position: "relative", paddingTop: 4 }}>
             <RecommendCardOrange
               title={equipName}
-              bullets={[...featureBullets, wifiBullet]}
+              bullets={wifiBullet ? [...featureBullets, wifiBullet] : featureBullets}
               accentColor="#1f497d"
               iconSrc="/pdf/icono-bomba-variable.webp"
             />
@@ -191,8 +203,9 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
             </InclouLine>
 
             {/* Separate WiFi module Inclou/No inclou line — doesn't apply at
-                all when the equip already has WiFi built in (wifiIncorporat). */}
-            {!wifiIncorporat && (
+                all when the equip already has WiFi built in (wifiIncorporat)
+                or doesn't support WiFi at all (noPermetWifi). */}
+            {!wifiIncorporat && !noPermetWifi && (
               <div style={{ marginTop: "3mm" }}>
                 <InclouLine icon={wifiOn ? "check" : "x"}>
                   <div>
@@ -210,8 +223,9 @@ export function PageDepuracio2({ data }: { data: PdfData }) {
           </div>
 
           {/* Right column: WiFi image aligned under equipment image — hidden
-              when wifiIncorporat, same as the Inclou/No inclou line above. */}
-          {!wifiIncorporat && (
+              when wifiIncorporat or noPermetWifi, same as the Inclou/No
+              inclou line above. */}
+          {!wifiIncorporat && !noPermetWifi && (
             <div style={{ flex: 0.55, textAlign: "center" }}>
               <div style={{ position: "relative", display: "inline-block" }}>
                 <div

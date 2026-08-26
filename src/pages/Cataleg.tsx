@@ -108,6 +108,12 @@ function getTechSpecConfig(category: string, subtipus: string): TechSpecConfig |
         // comprar/instal·lar igualment el mòdul físic — genera una partida
         // normal (sumada al total) sense toggle ni text visible al PDF.
         { key: 'wifi_modul_compra_interna', label: 'Cal comprar mòdul Wi-Fi internament (encara que sigui "incorporat" de cara al client)', step: '', type: 'boolean' },
+        // Mútuament exclusiu amb wifi_incorporat (marcar l'un desmarca
+        // l'altre, vegeu el onChange del checkbox boolean més avall): aquest
+        // equip no admet WiFi de cap manera, ni de sèrie ni per mòdul. Oculta
+        // el toggle de WiFi al wizard i el bullet/bloc "Connexió WI-FI
+        // opcional" al PDF (StepInstalacions.tsx / PageDepuracio2.tsx).
+        { key: 'no_permet_wifi', label: 'No permet WiFi (l\'equip no admet connexió WI-FI, ni incorporada ni per mòdul)', step: '', type: 'boolean' },
       ],
     };
   }
@@ -550,6 +556,15 @@ export default function Cataleg() {
                               onChange={(e) => {
                                 const next = { ...(form.technical_specs || {}) };
                                 next[f.key] = e.target.checked;
+                                // no_permet_wifi and wifi_incorporat are mutually
+                                // exclusive: an equip can't simultaneously "not
+                                // support WiFi at all" and "already have WiFi
+                                // built in" — marking one clears the other.
+                                if (e.target.checked && f.key === 'no_permet_wifi') {
+                                  next.wifi_incorporat = false;
+                                } else if (e.target.checked && f.key === 'wifi_incorporat') {
+                                  next.no_permet_wifi = false;
+                                }
                                 setForm({ ...form, technical_specs: next });
                               }}
                               className="h-4 w-4 rounded border-border"

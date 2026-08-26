@@ -249,6 +249,7 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     revestiment_peces_especials: draft.revestimentPecesEspecials || false,
     revestiment_mig_canya: draft.revestimentMigCanya || false,
     revestiment_inclos: draft.revestimentInclos ?? true,
+    planol_inclos: draft.planolInclos ?? true,
     // Opcional
     opcional_revestiment_tipus: draft.opcionalRevestimentTipus || null,
     opcional_revestiment_format: draft.opcionalRevestimentFormat || null,
@@ -866,6 +867,15 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   // Filtration filtre = polies if set, otherwise especial
   const filtre = a(draft.instalFiltrePoliesId) || a(draft.instalFiltreEspecialId);
   const bomba = a(draft.instalBombaVariableId) || a(draft.instalBombaOnoffId);
+  // Hidròlisi / UV is a conceptually separate equip slot from Dosificació
+  // estàndard (different subtipus filter in the catalog, mutually toggled
+  // "opcional" in StepInstalacions but never swapped as the primary Page 6
+  // equip — see the "NOT the HIDROLISI/UV slot" comment below). It already
+  // generates its own real Partides line (wizardEquipment.ts, wizardKey
+  // "instal_hidrolisi") that correctly feeds the budget total regardless of
+  // the PDF. What was actually missing is surfacing it on Page 6 as the
+  // "non-recommended alternative" (hidrolisiAltName/hidrolisiAltImageUrl
+  // below), which were declared in pdfTypes.ts but never populated.
   const hidrolisi = a(draft.instalHidrolisiId);
   // Gated on dosificacioOn: every hidrolisiName/hidrolisiTotal/hidrolisiFeatures/
   // etc. field below derives from this ONE variable, so gating it here at its
@@ -901,6 +911,10 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   // wifi_incorporat case, where the cost is already bundled into the equip's
   // own price and must NOT be added again.
   const hidrolisiWifiModulCompraInterna = dosificacio?.technical_specs?.wifi_modul_compra_interna === true;
+  // Equip doesn't support WiFi at all (mutually exclusive with wifi_incorporat
+  // in the catalog) — hides the WiFi bullet/module block on the PDF entirely,
+  // same as the wizard hides its toggle (see StepInstalacions.tsx).
+  const hidrolisiNoPermetWifi = dosificacio?.technical_specs?.no_permet_wifi === true;
   // Gated on quadreOn — same reasoning as dosificacio above. Also covers the
   // instalQuadreFinalSale fallback in quadreEquipSale below, which used to
   // bypass this variable entirely and could keep a manually-typed override
@@ -1483,6 +1497,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     revestimentExteriorTotal: revestimentExteriorTotal || undefined,
     coronamentInclos: draft.coronamentInclos !== false,
     revestimentInclos: draft.revestimentInclos !== false,
+    planolInclos: draft.planolInclos !== false,
     // ---- Revestiment interior details for Page 4 ----
     revestimentActuacioLabel:
       (
@@ -1569,9 +1584,10 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
       const cartutxInclos = !!draft.instalFiltreEspecialId && !draft.instalFiltreEspecialOpcional && !sorraInclos;
       const tipus: "sorra" | "cartutx" = cartutxInclos ? "cartutx" : "sorra";
       const art = tipus === "cartutx" ? a(draft.instalFiltreEspecialId) : a(draft.instalFiltrePoliesId);
+      const qty = tipus === "cartutx" ? Number(draft.instalFiltreEspecialQty ?? 1) : Number(draft.instalFiltrePoliesQty ?? 1);
       return {
         filtreInclosTipus: tipus,
-        filtreInclosName: art?.name,
+        filtreInclosName: qty > 1 && art ? `${qty}× ${art.name}` : art?.name,
         filtreInclosImageUrl: art?.image_url || undefined,
       };
     })(),
@@ -1653,17 +1669,21 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
         else if (name.includes("DOLFI 100M")) flow = "13,3m3/h";
         else if (name.includes("DOLFI 150M")) flow = "15m3/h";
       }
-      // Combo de bomba variable (2 o 3 unitats del mateix model treballant en
+      // Combo de bomba (2 o 3 unitats del mateix model treballant en
       // paral·lel, recomanat per EquipmentRecommendations quan cap unitat
-      // individual cobreix el caudal de rentat necessari) — el nom i el text
-      // de cabal del PDF han de deixar clara la quantitat, no només el preu.
-      const isVariableCombo = tipus === "inverter" && qty > 1;
+      // individual cobreix el caudal de rentat necessari, o simplement
+      // qty &gt; 1 escollida manualment) — el nom i el text de cabal del PDF
+      // han de deixar clara la quantitat, no només el preu. Abans només
+      // s'aplicava al tipus "inverter"; ara cobreix també "standard"
+      // (Bomba On/Off) perquè el text reflecteixi la quantitat real
+      // seleccionada independentment del tipus de bomba inclosa.
+      const isMultiCombo = qty > 1;
       return {
         bombaInclosTipus: tipus,
-        bombaInclosName: isVariableCombo && art ? `${qty}× ${art.name}` : art?.name,
+        bombaInclosName: isMultiCombo && art ? `${qty}× ${art.name}` : art?.name,
         bombaInclosImageUrl: art?.image_url || undefined,
         bombaInclosFlowText:
-          isVariableCombo && flow ? `${flow} per unitat (${qty} unitats en paral·lel per cobrir el rentat)` : flow,
+          isMultiCombo && flow ? `${flow} per unitat (${qty} unitats en paral·lel per cobrir el rentat)` : flow,
         bombaInclosTotal: total,
       };
     })(),
@@ -1679,7 +1699,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
         const qty =
           tipus === "cartutx" ? Number(draft.instalFiltreEspecialQty ?? 1) : Number(draft.instalFiltrePoliesQty ?? 1);
         out.filtreOpcionalTipus = tipus;
-        out.filtreOpcionalName = art?.name;
+        out.filtreOpcionalName = qty > 1 && art ? `${qty}× ${art.name}` : art?.name;
         out.filtreOpcionalImageUrl = art?.image_url || undefined;
         // Pill total mirrors the "included" pricing formula so the client
         // sees the same amount the budget would show if this filter were
@@ -1716,15 +1736,15 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
           else if (name.includes("DOLFI 100M")) flow = "13,3m3/h";
           else if (name.includes("DOLFI 150M")) flow = "15m3/h";
         }
-        // Combo de bomba variable (2 o 3 unitats) — mateix criteri que el
-        // bloc "inclosa" de dalt: el nom i el cabal han de reflectir la
-        // quantitat.
-        const isVariableCombo = tipus === "inverter" && qty > 1;
+        // Combo de bomba (2 o 3 unitats) — mateix criteri que el bloc
+        // "inclosa" de dalt: el nom i el cabal han de reflectir la quantitat,
+        // per a qualsevol tipus (standard o inverter).
+        const isMultiCombo = qty > 1;
         out.bombaOpcionalTipus = tipus;
-        out.bombaOpcionalName = isVariableCombo && art ? `${qty}× ${art.name}` : art?.name;
+        out.bombaOpcionalName = isMultiCombo && art ? `${qty}× ${art.name}` : art?.name;
         out.bombaOpcionalImageUrl = art?.image_url || undefined;
         out.bombaOpcionalFlowText =
-          isVariableCombo && flow ? `${flow} per unitat (${qty} unitats en paral·lel per cobrir el rentat)` : flow;
+          isMultiCombo && flow ? `${flow} per unitat (${qty} unitats en paral·lel per cobrir el rentat)` : flow;
         // Same total as if the pump were included: equip + 8h MO.
         const equipSale = art ? Math.ceil(Number(art.sale || 0) * qty) : 0;
         out.bombaOpcionalSale = equipSale + Math.ceil(8 * preuMo);
@@ -1762,13 +1782,26 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     dosificacioEnabled: dosificacioOn,
     // Page 6 (Desinfecció amb electròlisi salina) is dedicated to the
     // standard dosification equipment (clorador salino), NOT the HIDROLISI/UV slot.
-    hidrolisiName: dosificacio?.name,
+    hidrolisiName:
+      dosificacio && Number(draft.instalDosificacioStdQty ?? 1) > 1
+        ? `${Number(draft.instalDosificacioStdQty ?? 1)}× ${dosificacio.name}`
+        : dosificacio?.name,
     hidrolisiImageUrl: dosificacio?.image_url || undefined,
+    // "Hidròlisi / UV" equip, when selected, shown on Page 6 as the
+    // non-recommended alternative (see comment on `hidrolisi` above) — text
+    // only, no dedicated pill of its own.
+    hidrolisiAltName: dosificacioOn && hidrolisi
+      ? Number(draft.instalHidrolisiQty ?? 1) > 1
+        ? `${Number(draft.instalHidrolisiQty ?? 1)}× ${hidrolisi.name}`
+        : hidrolisi.name
+      : undefined,
+    hidrolisiAltImageUrl: dosificacioOn && hidrolisi ? hidrolisi.image_url || undefined : undefined,
     // Section pill amount = equip + subfase "dosificacio" + 12h MO.
     hidrolisiTotal: dosificacio ? electrolisiSectionAmount : undefined,
     hidrolisiFeatures,
     hidrolisiCellHours,
     hidrolisiWifiIncorporat,
+    hidrolisiNoPermetWifi,
     // Mòdul Ethernet / WIFI add-on
     wifiEnabled: !!draft.instalWifiEnabled,
     wifiName: wifiArt?.name,

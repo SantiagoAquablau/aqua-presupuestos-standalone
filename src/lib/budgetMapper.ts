@@ -156,6 +156,7 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
     revestimentPecesEspecials: data.revestiment_peces_especials ?? undefined,
     revestimentMigCanya: data.revestiment_mig_canya ?? undefined,
     revestimentInclos: (data as any).revestiment_inclos ?? true,
+    planolInclos: (data as any).planol_inclos ?? true,
     opcionalRevestimentTipus: data.opcional_revestiment_tipus || undefined,
     opcionalRevestimentFormat: data.opcional_revestiment_format || undefined,
     opcionalRevestimentModelId: data.opcional_revestiment_model_id || undefined,

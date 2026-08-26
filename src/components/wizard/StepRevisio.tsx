@@ -1527,6 +1527,36 @@ export function StepRevisio() {
         />
       )}
 
+      {/* Plànol tècnic — manual include/exclude toggle */}
+      {!isIrregularShape && (
+        <div className="bg-card rounded-xl border border-border p-5 shadow-card">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-foreground">Incloure plànol tècnic al PDF</div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Desactiva-ho per no generar la pàgina de plànol tècnic en aquest pressupost.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => updateDraft({ planolInclos: draft.planolInclos === false })}
+              className={cn(
+                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                draft.planolInclos !== false ? "bg-primary" : "bg-muted-foreground/30",
+              )}
+              aria-pressed={draft.planolInclos !== false}
+            >
+              <span
+                className={cn(
+                  "inline-block h-5 w-5 rounded-full bg-white shadow transition-transform",
+                  draft.planolInclos !== false ? "translate-x-5" : "translate-x-0.5",
+                )}
+              />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Observations */}
       <div className="bg-card rounded-xl border border-border p-5 shadow-card space-y-3">
         <h3 className="font-semibold text-foreground">Observacions</h3>

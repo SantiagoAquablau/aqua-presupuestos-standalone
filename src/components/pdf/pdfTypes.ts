@@ -87,6 +87,8 @@ export interface PdfData {
   coronamentInclos?: boolean;
   /** When false, the REVESTIMENT INTERIOR section + partides are excluded. */
   revestimentInclos?: boolean;
+  /** When false, the Plànol tècnic page is excluded even if poolShape === 'regular'. */
+  planolInclos?: boolean;
   // Revestiment interior details (Page 4 — Acabats)
   revestimentActuacioLabel?: string;  // "Subministrament i col·locació" | "Subministrament" | "Col·locació"
   revestimentSurfaceText?: string;    // "de mosaic vitri en tota la superfície interior de la piscina" | porcelànic variant
@@ -199,6 +201,7 @@ export interface PdfData {
   hidrolisiFeatures?: string[]; // catalog-defined characteristics (technical_specs.feature1..4)
   hidrolisiCellHours?: number; // cell electrode warranty hours (technical_specs.garantia_cellula_hores), fallback 8000
   hidrolisiWifiIncorporat?: boolean; // technical_specs.wifi_incorporat — equip already has WiFi built in, no separate module add-on applies
+  hidrolisiNoPermetWifi?: boolean; // technical_specs.no_permet_wifi — equip doesn't support WiFi at all; hides the WiFi bullet/module block entirely
   // Mòdul Ethernet / WIFI (optional add-on)
   wifiEnabled?: boolean;
   wifiName?: string;

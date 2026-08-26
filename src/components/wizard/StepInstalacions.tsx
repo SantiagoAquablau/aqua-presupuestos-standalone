@@ -237,6 +237,11 @@ export function StepInstalacions() {
   // buying/installing the module internally — no toggle, no PDF text, but a
   // real cost that must still be summed into the total.
   const [dosifWifiModulCompraInterna, setDosifWifiModulCompraInterna] = useState(false);
+  // technical_specs.no_permet_wifi: the chosen equip doesn't support WiFi at
+  // all (neither built in nor via module) — mutually exclusive with
+  // wifi_incorporat in the catalog (Cataleg.tsx). Hides the WiFi toggle
+  // entirely and prevents the module id/price from being attached.
+  const [dosifNoPermetWifi, setDosifNoPermetWifi] = useState(false);
   const [afmAutoArticle, setAfmAutoArticle] = useState<{ id: string; name: string; sale_price: number } | null>(null);
   const [afmNotFound, setAfmNotFound] = useState(false);
 
@@ -327,6 +332,7 @@ export function StepInstalacions() {
     if (!id) {
       setDosifWifiIncorporat(false);
       setDosifWifiModulCompraInterna(false);
+      setDosifNoPermetWifi(false);
       return;
     }
     (async () => {
@@ -335,6 +341,7 @@ export function StepInstalacions() {
       const specs = (data?.technical_specs as any) || {};
       setDosifWifiIncorporat(specs?.wifi_incorporat === true);
       setDosifWifiModulCompraInterna(specs?.wifi_modul_compra_interna === true);
+      setDosifNoPermetWifi(specs?.no_permet_wifi === true);
     })();
     return () => {
       cancelled = true;
@@ -367,7 +374,13 @@ export function StepInstalacions() {
   // could leave the id undefined and the PDF price blank even for equips
   // that don't have WiFi incorporated.
   useEffect(() => {
-    if (dosifWifiIncorporat) {
+    if (dosifNoPermetWifi) {
+      // Equip doesn't support WiFi at all — no toggle, no module id/price,
+      // not even as the informational "no inclou" alternative.
+      if (draft.instalWifiEnabled || draft.instalWifiArticleId) {
+        updateDraft({ instalWifiEnabled: false, instalWifiArticleId: undefined });
+      }
+    } else if (dosifWifiIncorporat) {
       if (dosifWifiModulCompraInterna) {
         // Client sees WiFi as built-in (no toggle, no PDF text — governed by
         // wifi_incorporat elsewhere), but the module still needs to be bought
@@ -383,6 +396,7 @@ export function StepInstalacions() {
       updateDraft({ instalWifiArticleId: wifiAutoArticle.id });
     }
   }, [
+    dosifNoPermetWifi,
     dosifWifiIncorporat,
     dosifWifiModulCompraInterna,
     wifiAutoArticle,
@@ -1254,7 +1268,7 @@ export function StepInstalacions() {
 
           {/* Wi-Fi module - moved here from Bomba. Hidden entirely when the
               chosen dosificació estàndard already has WiFi incorporated. */}
-          {!dosifWifiIncorporat && (
+          {!dosifWifiIncorporat && !dosifNoPermetWifi && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-foreground">Afegir mòdul ethernet / Wi-Fi</label>

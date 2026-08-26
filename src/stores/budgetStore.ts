@@ -150,6 +150,9 @@ export interface BudgetDraft {
   phases?: BudgetPhase[];
   paymentConditions?: string;
   observations?: string;
+  /** When false, excludes the Plànol tècnic page from the PDF even if the
+   *  automatic conditions (poolShape === 'regular') would otherwise include it. */
+  planolInclos?: boolean;
   // Acabats — Coronament
   coronamentActuacio?: string;
   coronamentTipus?: string;
