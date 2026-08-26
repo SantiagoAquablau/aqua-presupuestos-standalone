@@ -482,7 +482,9 @@ export function StepPartides() {
                     <div className="flex-1">
                       <div className="text-foreground">{s.label}</div>
                       <div className="text-xs text-muted-foreground">
-                        {s.qty > 1 ? `${s.qty} unitats × ` : ''}{s.horesTotal} h
+                        {s.qty > 1
+                          ? `${s.qty} unitats × ${s.horesPerUnitat}h/ud = ${s.horesTotal} h`
+                          : `${s.horesTotal} h`}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
