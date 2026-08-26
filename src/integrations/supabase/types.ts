@@ -224,6 +224,7 @@ export type Database = {
         Row: {
           article_id: string | null
           description: string
+          formula_rule_id: string | null
           id: string
           order: number | null
           phase_id: string
@@ -239,6 +240,7 @@ export type Database = {
         Insert: {
           article_id?: string | null
           description?: string
+          formula_rule_id?: string | null
           id?: string
           order?: number | null
           phase_id: string
@@ -254,6 +256,7 @@ export type Database = {
         Update: {
           article_id?: string | null
           description?: string
+          formula_rule_id?: string | null
           id?: string
           order?: number | null
           phase_id?: string

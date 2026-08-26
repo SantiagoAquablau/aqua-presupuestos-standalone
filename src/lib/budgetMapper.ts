@@ -17,8 +17,10 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
   const { data, error } = await supabase.from('budgets').select('*').eq('id', budgetId).single();
   if (error || !data) throw new Error('Pressupost no trobat');
 
-  // Persisted phases (only manual items survive here; formula items are
-  // recomputed on-the-fly by the formula engine).
+  // Persisted phases (manual/wizard items always survive here; unedited
+  // formula items are recomputed on-the-fly by the formula engine and only
+  // survive when the user has manually edited one — see formulaRuleId/
+  // userEdited below, matched against formulaPhases.ts's merge logic).
   const { data: dbPhases } = await supabase
     .from('budget_phases')
     .select('*, budget_items(*)')
@@ -52,6 +54,7 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
         unitSale: (it.unit_sale ?? 0) / 100,
         source: (it.source === 'formula' || it.source === 'wizard' || it.source === 'manual' ? it.source : 'manual') as any,
         wizardKey: it.wizard_key || undefined,
+        formulaRuleId: it.formula_rule_id || undefined,
         subPhase: it.sub_phase ?? null,
         userEdited: it.user_edited === true,
       })),

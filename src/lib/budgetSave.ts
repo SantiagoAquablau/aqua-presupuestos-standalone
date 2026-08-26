@@ -669,7 +669,15 @@ export async function saveBudget(
           throw phaseError;
         }
 
-        const manualItems = phase.items.filter((item) => item.source !== "formula");
+        // Formula-generated items are normally recomputed on the fly by the
+        // formula engine on every load, so they're excluded here to avoid
+        // stale duplicates. The exception is a formula item the user has
+        // manually edited (userEdited === true): that override must be
+        // persisted, same as a wizard-item edit, or it silently reverts to
+        // the catalog default the next time the budget is opened.
+        const manualItems = phase.items.filter(
+          (item) => item.source !== "formula" || (item as any).userEdited === true,
+        );
 
         if (manualItems.length > 0 && phaseData) {
           const itemRows = manualItems.map((it, idx) => ({
@@ -681,6 +689,7 @@ export async function saveBudget(
             unit_sale: Math.round(it.unitSale * 100),
             source: it.source || "manual",
             wizard_key: (it as any).wizardKey || null,
+            formula_rule_id: (it as any).formulaRuleId || null,
             sub_phase: (it as any).subPhase || null,
             user_edited: (it as any).userEdited === true,
             order: idx,
@@ -862,6 +871,12 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   // electricaSale/fontaneriaTotal below.
   const bombaOn = draft.instalBombaEnabled !== false;
   const fontaneriaOn = draft.instalFontaneriaEnabled !== false;
+  // Manual price edit on the Partides line for fontaneria (wizardKey
+  // instal_fontaneria) — when present, it must win over the live
+  // perimeter/distance recompute below, same as any other user override.
+  const editedFontaneriaItem = (draft.phases || [])
+    .flatMap((ph) => ph.items || [])
+    .find((it: any) => it.wizardKey === "instal_fontaneria" && it.userEdited === true);
   const electricaOn = draft.instalElectricaEnabled !== false;
 
   // Filtration filtre = polies if set, otherwise especial
@@ -1599,15 +1614,25 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     // "+xxx €" price even when AFM is NOT included in the budget.
     // Rounded to whole euros so the PDF bullet ("+165 €") agrees with
     // afmDiffAmount above (no lingering decimals like "+164,70 €").
-    afmExtraSale:
-      typeof draft.instalAfmIncrement === "number"
+    // A manual price edit on the AFM Partides line (the formula-engine-
+    // generated increment item, matched by description since it has no
+    // stable wizardKey) takes priority over the live differential below.
+    afmExtraSale: (() => {
+      const editedAfmItem = (draft.phases || [])
+        .flatMap((ph) => ph.items || [])
+        .find((it: any) => it.source === "formula" && it.userEdited === true && /afm/i.test(it.description || ""));
+      if (editedAfmItem) {
+        return Math.round(Number(editedAfmItem.quantity || 0) * Number(editedAfmItem.unitSale || 0));
+      }
+      return typeof draft.instalAfmIncrement === "number"
         ? Math.round(draft.instalAfmIncrement)
         : (() => {
             const art = a(draft.instalAfmArticleId);
             const qty = Number(draft.instalAfmQty ?? 0);
             if (!art || !qty) return undefined;
             return Math.round(Number(art.sale || 0) * qty);
-          })(),
+          })();
+    })(),
     // Prefiltre HYDROSPIN COMPACT
     prefiltreEnabled: !!draft.instalPrefiltreEnabled,
     prefiltreName: a(draft.instalPrefiltreArticleId)?.name,
@@ -1862,6 +1887,12 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     fontaneriaTotal: (() => {
       // Gated on fontaneriaOn — same bug/fix as the other 4 sections above.
       if (!fontaneriaOn) return 0;
+      // A manual price edit on the Partides line takes priority over the
+      // live recompute — otherwise editing the sale price there would never
+      // show up in the PDF.
+      if (editedFontaneriaItem) {
+        return Number(editedFontaneriaItem.quantity || 0) * Number(editedFontaneriaItem.unitSale || 0);
+      }
       // Recompute live (mirrors src/lib/wizardLines.ts) so toggling
       // perforacions in the wizard is always reflected in the PDF, even
       // if the user never clicked Next/Back to persist instalFontaneriaTotal.
