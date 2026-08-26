@@ -3,6 +3,7 @@ import type { BudgetDraft, BudgetPhase } from "@/stores/budgetStore";
 import { buildPdfHtml, type PdfPhase } from "@/lib/pdfTemplate";
 import type { PdfData as NewPdfData, PdfTextSegment } from "@/components/pdf/pdfTypes";
 import { AUTOPORTANT_PAYMENT_CONDITIONS } from "@/lib/paymentConditions";
+import { computeMoHores, MO_HORES_DEFAULTS } from "@/lib/instalMoHores";
 
 // Article names are stored ALL-CAPS in the catalog; this renders them in
 // normal sentence-style capitalization for PDF prose (e.g. "DUTXA JARDÍ" →
@@ -332,6 +333,12 @@ export function draftToRow(draft: BudgetDraft, userId: string) {
     instal_bomba_enabled: draft.instalBombaEnabled ?? true,
     instal_dosificacio_enabled: draft.instalDosificacioEnabled ?? true,
     instal_quadre_enabled: draft.instalQuadreEnabled ?? true,
+    // Mà d'obra tècnic instal·lador — hores per unitat editables per secció
+    // (null = usar el valor per defecte, veure instalMoHores.ts).
+    instal_mo_hores_depuracio: draft.instalMoHoresPerUnitat?.depuracio ?? null,
+    instal_mo_hores_dosificacio: draft.instalMoHoresPerUnitat?.dosificacio ?? null,
+    instal_mo_hores_quadre: draft.instalMoHoresPerUnitat?.quadre ?? null,
+    instal_mo_hores_bomba: draft.instalMoHoresPerUnitat?.bomba ?? null,
     // Fontaneria
     instal_fontaneria_enabled: draft.instalFontaneriaEnabled ?? true,
     instal_fontaneria_text: draft.instalFontaneriaText || null,
@@ -948,6 +955,14 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   let preuMo = 0;
   let depuracioSubTotal = 0;
   let dosificacioSubTotal = 0;
+  // Hores d'instal·lador per secció (editables a Partides, veure
+  // instalMoHores.ts). moHoresByKey ja incorpora la quantitat de l'equip
+  // realment inclòs a cada secció — substitueix les constants 11/18/4/8 que
+  // hi havia hardcodejades aquí.
+  const moHoresPerUnitat = draft.instalMoHoresPerUnitat || {};
+  const moHoresByKey = Object.fromEntries(
+    computeMoHores(draft).seccions.map((s) => [s.key, s.horesTotal]),
+  ) as Record<"depuracio" | "dosificacio" | "quadre" | "bomba", number>;
   if (instalPhase) {
     for (const it of instalPhase.items as any[]) {
       const sp = norm(it.subPhase);
@@ -1025,7 +1040,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   const depuracioSectionAmount = depuracioOn
     ? Math.ceil(filtreInclosSale) +
       (filtreInclosArt.tipus === "sorra" ? depuracioSubTotal : 0) +
-      Math.ceil(11 * preuMo) +
+      Math.ceil(moHoresByKey.depuracio * preuMo) +
       (prefiltreOn ? Math.ceil(prefiltreSaleVal) : 0)
     : 0;
 
@@ -1043,7 +1058,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     const fallback = art ? Number(art.sale || 0) * qty : 0;
     return editedEquipSale(key, fallback);
   })();
-  const bombaSectionAmount = Math.ceil(bombaSaleVal) + Math.ceil(8 * preuMo);
+  const bombaSectionAmount = Math.ceil(bombaSaleVal) + Math.ceil(moHoresByKey.bomba * preuMo);
 
   // Electrolisi salina — equip + subfase dosificacio + 12h MO + WiFi add-on
   // (only when enabled AND not already bundled into the equip itself via
@@ -1067,7 +1082,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   const electrolisiSectionAmount = dosificacioOn
     ? Math.ceil(dosificacioEquipSale) +
       dosificacioSubTotal +
-      Math.ceil(18 * preuMo) +
+      Math.ceil(moHoresByKey.dosificacio * preuMo) +
       (wifiOn && typeof wifiSaleAmount === "number" ? Math.ceil(wifiSaleAmount) : 0)
     : 0;
 
@@ -1086,7 +1101,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
             : 0,
       )
     : 0;
-  const quadreRowAmount = quadreOn ? Math.ceil(quadreEquipSale) + Math.ceil(4 * preuMo) : 0;
+  const quadreRowAmount = quadreOn ? Math.ceil(quadreEquipSale) + Math.ceil(moHoresByKey.quadre * preuMo) : 0;
 
   // Company settings
   let company: any = {};
@@ -1677,7 +1692,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
       // Respect user-edited unitSale from the Partides step.
       const key = tipus === "inverter" ? "instal_bomba_variable" : "instal_bomba_onoff";
       const equipSale = editedEquipSale(key, art ? Number(art.sale || 0) * qty : 0);
-      const total = art ? Math.ceil(equipSale) + Math.ceil(8 * preuMo) : undefined;
+      const total = art ? Math.ceil(equipSale) + Math.ceil(moHoresByKey.bomba * preuMo) : undefined;
       let flow: string | undefined;
       if (tipus === "inverter") {
         if (name.includes("IP 20") || name.includes("IP20")) flow = "5 a 20m3/h";
@@ -1734,7 +1749,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
         out.filtreOpcionalSale =
           equipSale +
           (tipus === "sorra" ? depuracioSubTotal : 0) +
-          Math.ceil(11 * preuMo) +
+          Math.ceil((moHoresPerUnitat.depuracio ?? MO_HORES_DEFAULTS.depuracio) * qty * preuMo) +
           (prefiltreOn ? Math.ceil(prefiltreSaleVal) : 0);
       }
       // Bomba opcional
@@ -1773,7 +1788,8 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
           isMultiCombo && flow ? `${flow} per unitat (${qty} unitats en paral·lel per cobrir el rentat)` : flow;
         // Same total as if the pump were included: equip + 8h MO.
         const equipSale = art ? Math.ceil(Number(art.sale || 0) * qty) : 0;
-        out.bombaOpcionalSale = equipSale + Math.ceil(8 * preuMo);
+        out.bombaOpcionalSale =
+          equipSale + Math.ceil((moHoresPerUnitat.bomba ?? MO_HORES_DEFAULTS.bomba) * qty * preuMo);
       }
       return out;
     })(),

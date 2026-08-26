@@ -720,8 +720,9 @@ export function StepInstalacions() {
 
   const afmQty = useMemo(() => {
     if (!filtrePolies) return 0;
-    return calcAfmQty(filtrePolies.name);
-  }, [filtrePolies]);
+    // Escala amb la quantitat de filtres inclosos (2 filtres = doble de sacs).
+    return calcAfmQty(filtrePolies.name) * Number(draft.instalFiltrePoliesQty ?? 1);
+  }, [filtrePolies, draft.instalFiltrePoliesQty]);
 
   const afmTotalPrice = useMemo(() => {
     if (!afmAutoArticle) return 0;

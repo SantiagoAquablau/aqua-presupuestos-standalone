@@ -15,6 +15,7 @@ import {
 } from '@/lib/budgetFinancials';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useShowMargins } from '@/hooks/useShowMargins';
+import { computeMoHores, MO_HORES_DEFAULTS, type MoHoresPerUnitat } from '@/lib/instalMoHores';
 interface LineItem {
   id: string;
   description: string;
@@ -166,6 +167,32 @@ export function StepPartides() {
   const totalSale = grandTotal.sale;
   const markup = grandTotal.marginPct;
   const phaseTotalsByName = new Map(computePhaseTotals(phases, adjustmentPct).map((p) => [p.name, p]));
+
+  // Hores d'instal·lador per secció (Depuració/Dosificació/Quadre/Bomba) —
+  // veure src/lib/instalMoHores.ts. preuMo (€/h) es llega de la mateixa
+  // partida "MANO DE OBRA TECNICO INSTALADOR" que genera la línia (subPhase
+  // "General"), igual que budgetSave.ts, per mostrar el total en € coherent
+  // amb el PDF.
+  const moHores = computeMoHores(draft);
+  const preuMo = (() => {
+    const instalPhase = phases.find((p) => /instal/i.test(p.name));
+    if (!instalPhase) return 0;
+    let best = 0;
+    for (const it of instalPhase.items) {
+      const sp = String(it.subPhase ?? '').toLowerCase();
+      const desc = String(it.description ?? '').toLowerCase();
+      if (sp.includes('general') && desc.includes('mano de obra') && desc.includes('tecnico instalador')) {
+        if (it.unitSale > best) best = it.unitSale;
+      }
+    }
+    return best;
+  })();
+  const updateMoHoresPerUnitat = (key: keyof MoHoresPerUnitat, value: number | null) => {
+    const next: MoHoresPerUnitat = { ...(draft.instalMoHoresPerUnitat || {}) };
+    if (value === null) delete next[key];
+    else next[key] = value;
+    updateDraft({ instalMoHoresPerUnitat: next });
+  };
 
   const inputClass = 'w-full px-2 py-1.5 rounded border border-input bg-card text-sm focus:outline-none focus:ring-1 focus:ring-ring/20 min-h-[44px]';
 
@@ -445,6 +472,39 @@ export function StepPartides() {
               </div>
             </div>
           </div>
+
+          {moHores.seccions.some((s) => s.qty > 0) && (
+            <div className="bg-card rounded-xl border border-border shadow-card p-5 mt-4 space-y-3">
+              <h3 className="font-semibold text-foreground">Hores instal·lador</h3>
+              <div className="space-y-2">
+                {moHores.seccions.filter((s) => s.qty > 0).map((s) => (
+                  <div key={s.key} className="flex items-center justify-between gap-2 text-sm">
+                    <div className="flex-1">
+                      <div className="text-foreground">{s.label}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {s.qty > 1 ? `${s.qty} unitats × ` : ''}{s.horesTotal} h
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <NumberInput
+                        value={s.horesPerUnitat}
+                        onChange={(v) => updateMoHoresPerUnitat(s.key, v ?? null)}
+                        className="w-16 px-1 py-1.5 rounded border border-input bg-card text-sm text-center min-h-[36px]"
+                        placeholder={String(MO_HORES_DEFAULTS[s.key])}
+                      />
+                      <span className="text-xs text-muted-foreground">h/ud</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-border pt-2 flex justify-between text-sm font-bold">
+                <span className="text-foreground">Total hores</span>
+                <span className="text-primary">
+                  {moHores.total} h{preuMo > 0 ? ` · ${formatEUR(Math.ceil(moHores.total * preuMo))}` : ''}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

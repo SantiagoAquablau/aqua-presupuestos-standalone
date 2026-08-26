@@ -120,7 +120,10 @@ export function getInstallationSelections(
       key: 'instal_canvi_medi',
       label: canviMedi.name || 'Canvi medi filtrant',
       articleId: canviMedi.id,
-      qty: 1,
+      // Escala amb la quantitat real de filtres inclosos (2 filtres = 2
+      // canvis de medi) — abans sempre era 1 encara que hi hagués més d'un
+      // filtre.
+      qty: Number(draft.instalFiltrePoliesQty ?? 1),
       unit: canviMedi.unit,
       unitSale: canviMedi.sale,
       unitCost: canviMedi.cost,

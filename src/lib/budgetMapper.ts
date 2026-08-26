@@ -228,6 +228,20 @@ export async function loadBudgetAsDraft(budgetId: string): Promise<LoadedBudget>
     instalBombaEnabled: data.instal_bomba_enabled ?? undefined,
     instalDosificacioEnabled: data.instal_dosificacio_enabled ?? undefined,
     instalQuadreEnabled: data.instal_quadre_enabled ?? undefined,
+    instalMoHoresPerUnitat: (() => {
+      const d = data as any;
+      const depuracio = d.instal_mo_hores_depuracio;
+      const dosificacio = d.instal_mo_hores_dosificacio;
+      const quadre = d.instal_mo_hores_quadre;
+      const bomba = d.instal_mo_hores_bomba;
+      if (depuracio == null && dosificacio == null && quadre == null && bomba == null) return undefined;
+      return {
+        depuracio: depuracio != null ? Number(depuracio) : undefined,
+        dosificacio: dosificacio != null ? Number(dosificacio) : undefined,
+        quadre: quadre != null ? Number(quadre) : undefined,
+        bomba: bomba != null ? Number(bomba) : undefined,
+      };
+    })(),
     guniteMangueraMetres: (data as any).gunite_manguera_metres != null ? Number((data as any).gunite_manguera_metres) : undefined,
     guniteDistanciaKm: (data as any).gunite_distancia_km != null ? Number((data as any).gunite_distancia_km) : undefined,
     instalFontaneriaEnabled: data.instal_fontaneria_enabled ?? undefined,

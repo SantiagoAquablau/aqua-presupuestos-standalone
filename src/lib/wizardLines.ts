@@ -6,9 +6,35 @@ import {
   indexArticlesById,
   resolveArticle,
 } from '@/lib/wizardEquipment';
+import { computeMoHores } from '@/lib/instalMoHores';
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function normalizeArticleName(value: string): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
+/** Find a catalog article by name substrings (all must match, order-independent). */
+function findArticleByName(
+  articles: any[],
+  mustIncludeAll: string[]
+): { id: string; name: string; sale: number; cost: number } | null {
+  const match = (articles || []).find((a) => {
+    const n = normalizeArticleName(a?.name || '');
+    return mustIncludeAll.every((token) => n.includes(token));
+  });
+  if (!match) return null;
+  return {
+    id: String(match.id),
+    name: match.name || '',
+    sale: Number(match.sale_price ?? 0) / 100,
+    cost: Number(match.cost_price ?? 0) / 100,
+  };
 }
 
 /**
@@ -144,6 +170,29 @@ export function buildInstallationLines(
         subPhase: 'Equips seleccionats',
       });
     }
+  }
+
+  // Mà d'obra tècnic instal·lador — abans una regla del Motor de Càlcul amb
+  // 41h fixes (11 Depuració + 18 Dosificació + 4 Quadre + 8 Bomba); ara les
+  // hores es calculen per secció (draft.instalMoHoresPerUnitat, editables a
+  // Partides) i es multipliquen per la quantitat d'equip realment inclòs a
+  // cada secció. El preu/hora es llegeix de l'article de catàleg "MANO DE
+  // OBRA TECNICO INSTALADOR" (no hi ha camp d'ID dedicat, es busca pel nom,
+  // igual que altres articles resolts per ilike a StepInstalacions.tsx).
+  const moHoresTotal = computeMoHores(draft).total;
+  if (moHoresTotal > 0) {
+    const moArticle = findArticleByName(articles, ['mano de obra', 'tecnico instalador']);
+    items.push({
+      id: 'wizard-instal_mo_tecnic',
+      description: moArticle?.name || 'MANO DE OBRA TECNICO INSTALADOR',
+      unit: 'h',
+      quantity: moHoresTotal,
+      unitCost: round2(moArticle?.cost ?? 0),
+      unitSale: round2(moArticle?.sale ?? 0),
+      source: 'wizard',
+      wizardKey: 'instal_mo_tecnic',
+      subPhase: 'General',
+    });
   }
 
   return items;

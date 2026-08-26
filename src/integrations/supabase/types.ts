@@ -573,6 +573,10 @@ export type Database = {
           instal_quadre_base_cost: number | null
           instal_quadre_base_sale: number | null
           instal_quadre_display_text: string | null
+          instal_mo_hores_bomba: number | null
+          instal_mo_hores_depuracio: number | null
+          instal_mo_hores_dosificacio: number | null
+          instal_mo_hores_quadre: number | null
           instal_quadre_enabled: boolean | null
           instal_quadre_final_cost: number | null
           instal_quadre_final_sale: number | null
@@ -931,6 +935,10 @@ export type Database = {
           instal_quadre_base_cost?: number | null
           instal_quadre_base_sale?: number | null
           instal_quadre_display_text?: string | null
+          instal_mo_hores_bomba?: number | null
+          instal_mo_hores_depuracio?: number | null
+          instal_mo_hores_dosificacio?: number | null
+          instal_mo_hores_quadre?: number | null
           instal_quadre_enabled?: boolean | null
           instal_quadre_final_cost?: number | null
           instal_quadre_final_sale?: number | null
@@ -1289,6 +1297,10 @@ export type Database = {
           instal_quadre_base_cost?: number | null
           instal_quadre_base_sale?: number | null
           instal_quadre_display_text?: string | null
+          instal_mo_hores_bomba?: number | null
+          instal_mo_hores_depuracio?: number | null
+          instal_mo_hores_dosificacio?: number | null
+          instal_mo_hores_quadre?: number | null
           instal_quadre_enabled?: boolean | null
           instal_quadre_final_cost?: number | null
           instal_quadre_final_sale?: number | null

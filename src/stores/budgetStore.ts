@@ -282,6 +282,15 @@ export interface BudgetDraft {
   instalBombaEnabled?: boolean;
   instalDosificacioEnabled?: boolean;
   instalQuadreEnabled?: boolean;
+  // Mà d'obra tècnic instal·lador — hores per unitat d'equip, editables per
+  // secció a Partides. undefined = usar el valor per defecte (veure
+  // MO_HORES_DEFAULTS a src/lib/instalMoHores.ts).
+  instalMoHoresPerUnitat?: {
+    depuracio?: number;
+    dosificacio?: number;
+    quadre?: number;
+    bomba?: number;
+  };
   // Fontaneria
   instalFontaneriaEnabled?: boolean;
   instalFontaneriaText?: string;
