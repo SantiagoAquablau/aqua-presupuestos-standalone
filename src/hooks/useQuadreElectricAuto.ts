@@ -131,6 +131,14 @@ export function useQuadreElectricAuto() {
         const baseSale = matched ? matched.sale_price / 100 : 0;
 
         let displayText = baseName;
+        const bombaQty = onoffIncluded
+          ? Number(draft.instalBombaOnoffQty ?? 1)
+          : variableIncluded
+            ? Number(draft.instalBombaVariableQty ?? 1)
+            : 1;
+        if (bombaQty > 1) {
+          displayText += ` (per a ${bombaQty} bombes)`;
+        }
         let addonNfCost = 0;
         let addonNfSale = 0;
         let addonBcCost = 0;
@@ -227,8 +235,10 @@ export function useQuadreElectricAuto() {
     draft.accProjectorMiniLedQty,
     draft.instalBombaOnoffId,
     draft.instalBombaOnoffOpcional,
+    draft.instalBombaOnoffQty,
     draft.instalBombaVariableId,
     draft.instalBombaVariableOpcional,
+    draft.instalBombaVariableQty,
     draft.annexNetejafonsEstat,
     draft.annexNetejafonsTotal,
     draft.instalFontaneriaDistancia,

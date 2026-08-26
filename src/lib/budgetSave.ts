@@ -1244,6 +1244,7 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   // or is merged with Plat de dutxa below.
   const dutxaModelName = dutxaArt?.name ? toDisplayCase(dutxaArt.name) : "Dutxa exterior";
   const dutxaBulletSegments = [
+    ...(dutxaQty > 1 ? [{ text: `${dutxaQty}× ` }] : []),
     { text: "Subministrament i col·locació de dutxa exterior model " },
     { text: dutxaModelName, bold: true },
     ...(dutxaArt?.reference ? [{ text: ` — Ref. ${dutxaArt.reference}` }] : []),
