@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.17"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -329,6 +354,8 @@ export type Database = {
           acc_basics_color: string | null
           acc_cascada_bomba_article_id: string | null
           acc_cascada_enabled: boolean | null
+          acc_cascada_mano_obra_hores: number | null
+          acc_cascada_mano_obra_preu_hora: number | null
           acc_cascada_model_id: string | null
           acc_cascada_pulsador_article_id: string | null
           acc_cascada_pulsador_qty: number | null
@@ -563,6 +590,10 @@ export type Database = {
           instal_hidrolisi_id: string | null
           instal_hidrolisi_opcional: boolean | null
           instal_hidrolisi_qty: number | null
+          instal_mo_hores_bomba: number | null
+          instal_mo_hores_depuracio: number | null
+          instal_mo_hores_dosificacio: number | null
+          instal_mo_hores_quadre: number | null
           instal_prefiltre_article_id: string | null
           instal_prefiltre_enabled: boolean | null
           instal_prefiltre_qty: number | null
@@ -573,10 +604,6 @@ export type Database = {
           instal_quadre_base_cost: number | null
           instal_quadre_base_sale: number | null
           instal_quadre_display_text: string | null
-          instal_mo_hores_bomba: number | null
-          instal_mo_hores_depuracio: number | null
-          instal_mo_hores_dosificacio: number | null
-          instal_mo_hores_quadre: number | null
           instal_quadre_enabled: boolean | null
           instal_quadre_final_cost: number | null
           instal_quadre_final_sale: number | null
@@ -637,6 +664,7 @@ export type Database = {
           opcional_revestiment_tipus: string | null
           payment_conditions: string | null
           photo_url: string | null
+          planol_inclos: boolean
           platform_height: number | null
           platform_length: number | null
           platform_width: number | null
@@ -691,6 +719,8 @@ export type Database = {
           acc_basics_color?: string | null
           acc_cascada_bomba_article_id?: string | null
           acc_cascada_enabled?: boolean | null
+          acc_cascada_mano_obra_hores?: number | null
+          acc_cascada_mano_obra_preu_hora?: number | null
           acc_cascada_model_id?: string | null
           acc_cascada_pulsador_article_id?: string | null
           acc_cascada_pulsador_qty?: number | null
@@ -925,6 +955,10 @@ export type Database = {
           instal_hidrolisi_id?: string | null
           instal_hidrolisi_opcional?: boolean | null
           instal_hidrolisi_qty?: number | null
+          instal_mo_hores_bomba?: number | null
+          instal_mo_hores_depuracio?: number | null
+          instal_mo_hores_dosificacio?: number | null
+          instal_mo_hores_quadre?: number | null
           instal_prefiltre_article_id?: string | null
           instal_prefiltre_enabled?: boolean | null
           instal_prefiltre_qty?: number | null
@@ -935,10 +969,6 @@ export type Database = {
           instal_quadre_base_cost?: number | null
           instal_quadre_base_sale?: number | null
           instal_quadre_display_text?: string | null
-          instal_mo_hores_bomba?: number | null
-          instal_mo_hores_depuracio?: number | null
-          instal_mo_hores_dosificacio?: number | null
-          instal_mo_hores_quadre?: number | null
           instal_quadre_enabled?: boolean | null
           instal_quadre_final_cost?: number | null
           instal_quadre_final_sale?: number | null
@@ -999,6 +1029,7 @@ export type Database = {
           opcional_revestiment_tipus?: string | null
           payment_conditions?: string | null
           photo_url?: string | null
+          planol_inclos?: boolean
           platform_height?: number | null
           platform_length?: number | null
           platform_width?: number | null
@@ -1053,6 +1084,8 @@ export type Database = {
           acc_basics_color?: string | null
           acc_cascada_bomba_article_id?: string | null
           acc_cascada_enabled?: boolean | null
+          acc_cascada_mano_obra_hores?: number | null
+          acc_cascada_mano_obra_preu_hora?: number | null
           acc_cascada_model_id?: string | null
           acc_cascada_pulsador_article_id?: string | null
           acc_cascada_pulsador_qty?: number | null
@@ -1287,6 +1320,10 @@ export type Database = {
           instal_hidrolisi_id?: string | null
           instal_hidrolisi_opcional?: boolean | null
           instal_hidrolisi_qty?: number | null
+          instal_mo_hores_bomba?: number | null
+          instal_mo_hores_depuracio?: number | null
+          instal_mo_hores_dosificacio?: number | null
+          instal_mo_hores_quadre?: number | null
           instal_prefiltre_article_id?: string | null
           instal_prefiltre_enabled?: boolean | null
           instal_prefiltre_qty?: number | null
@@ -1297,10 +1334,6 @@ export type Database = {
           instal_quadre_base_cost?: number | null
           instal_quadre_base_sale?: number | null
           instal_quadre_display_text?: string | null
-          instal_mo_hores_bomba?: number | null
-          instal_mo_hores_depuracio?: number | null
-          instal_mo_hores_dosificacio?: number | null
-          instal_mo_hores_quadre?: number | null
           instal_quadre_enabled?: boolean | null
           instal_quadre_final_cost?: number | null
           instal_quadre_final_sale?: number | null
@@ -1361,6 +1394,7 @@ export type Database = {
           opcional_revestiment_tipus?: string | null
           payment_conditions?: string | null
           photo_url?: string | null
+          planol_inclos?: boolean
           platform_height?: number | null
           platform_length?: number | null
           platform_width?: number | null
@@ -1438,8 +1472,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "budgets_jacuzzi_water_pump_article_id_fkey"
-            columns: ["jacuzzi_water_pump_article_id"]
+            foreignKeyName: "budgets_jacuzzi_filter_article_id_fkey"
+            columns: ["jacuzzi_filter_article_id"]
             isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
@@ -1452,8 +1486,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "budgets_jacuzzi_filter_article_id_fkey"
-            columns: ["jacuzzi_filter_article_id"]
+            foreignKeyName: "budgets_jacuzzi_heat_pump_article_id_fkey"
+            columns: ["jacuzzi_heat_pump_article_id"]
             isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
@@ -1466,15 +1500,15 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "budgets_jacuzzi_heat_pump_article_id_fkey"
-            columns: ["jacuzzi_heat_pump_article_id"]
+            foreignKeyName: "budgets_jacuzzi_saline_electrolysis_article_id_fkey"
+            columns: ["jacuzzi_saline_electrolysis_article_id"]
             isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "budgets_jacuzzi_saline_electrolysis_article_id_fkey"
-            columns: ["jacuzzi_saline_electrolysis_article_id"]
+            foreignKeyName: "budgets_jacuzzi_water_pump_article_id_fkey"
+            columns: ["jacuzzi_water_pump_article_id"]
             isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
@@ -1926,6 +1960,76 @@ export type Database = {
           },
         ]
       }
+      obra_cost_item_purchases: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_ref: string | null
+          item_id: string
+          note: string | null
+          obra_id: string
+          purchased_at: string
+          qty: number
+          supplier_id: string | null
+          supplier_label: string | null
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_ref?: string | null
+          item_id: string
+          note?: string | null
+          obra_id: string
+          purchased_at?: string
+          qty: number
+          supplier_id?: string | null
+          supplier_label?: string | null
+          unit_cost: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_ref?: string | null
+          item_id?: string
+          note?: string | null
+          obra_id?: string
+          purchased_at?: string
+          qty?: number
+          supplier_id?: string | null
+          supplier_label?: string | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_cost_item_purchases_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "obra_cost_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obra_cost_item_purchases_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obra_cost_item_purchases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       obra_cost_items: {
         Row: {
           article_id: string | null
@@ -1936,8 +2040,6 @@ export type Database = {
           estimated_total_cost: number | null
           estimated_unit_cost: number | null
           id: string
-          invoice_date: string | null
-          invoice_ref: string | null
           is_extra: boolean
           notes: string | null
           obra_id: string
@@ -1945,7 +2047,8 @@ export type Database = {
           real_qty: number | null
           real_total_cost: number | null
           real_unit_cost: number | null
-          supplier_name: string | null
+          sort_order: number | null
+          sub_phase: string | null
           updated_at: string
         }
         Insert: {
@@ -1957,8 +2060,6 @@ export type Database = {
           estimated_total_cost?: number | null
           estimated_unit_cost?: number | null
           id?: string
-          invoice_date?: string | null
-          invoice_ref?: string | null
           is_extra?: boolean
           notes?: string | null
           obra_id: string
@@ -1966,7 +2067,8 @@ export type Database = {
           real_qty?: number | null
           real_total_cost?: number | null
           real_unit_cost?: number | null
-          supplier_name?: string | null
+          sort_order?: number | null
+          sub_phase?: string | null
           updated_at?: string
         }
         Update: {
@@ -1978,8 +2080,6 @@ export type Database = {
           estimated_total_cost?: number | null
           estimated_unit_cost?: number | null
           id?: string
-          invoice_date?: string | null
-          invoice_ref?: string | null
           is_extra?: boolean
           notes?: string | null
           obra_id?: string
@@ -1987,7 +2087,8 @@ export type Database = {
           real_qty?: number | null
           real_total_cost?: number | null
           real_unit_cost?: number | null
-          supplier_name?: string | null
+          sort_order?: number | null
+          sub_phase?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2361,6 +2462,10 @@ export type Database = {
       }
       recalc_annex_totals: { Args: { _annex_id: string }; Returns: undefined }
       recalc_obra_totals: { Args: { _obra_id: string }; Returns: undefined }
+      recompute_obra_cost_item_from_purchases: {
+        Args: { _item_id: string }
+        Returns: undefined
+      }
       recompute_obra_realtime: {
         Args: { _obra_id: string }
         Returns: undefined
@@ -2493,6 +2598,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "comercial", "administrativa"],

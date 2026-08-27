@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChevronLeft, ChevronDown, ChevronRight, Plus, Loader2, FileSpreadsheet, Trash2, Search } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronRight, Plus, Loader2, FileSpreadsheet, Trash2, Search, ShoppingCart, Pencil, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx-js-style';
@@ -14,8 +14,10 @@ import {
 import {
   fmtCents, fmtCentsPrecise, fmtPct, marginColorClass,
   obraStatusBadge, phaseStatusBadge, logObraActivity,
-  type Obra, type ObraPhase, type ObraCostItem, type ObraStatus, type ObraPhaseStatus, type ObraActivity,
+  type Obra, type ObraPhase, type ObraCostItem, type ObraCostItemPurchase, type ObraStatus, type ObraPhaseStatus, type ObraActivity,
 } from '@/lib/obrasHelpers';
+
+interface SupplierOption { id: string; name: string; }
 
 export default function ObraDetail() {
   const { id } = useParams<{ id: string }>();
@@ -66,11 +68,39 @@ export default function ObraDetail() {
     enabled: !!id,
   });
 
+  const { data: purchases = [] } = useQuery({
+    queryKey: ['obra-purchases', id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('obra_cost_item_purchases' as any).select('*').eq('obra_id', id)
+        .order('purchased_at', { ascending: true }).order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as ObraCostItemPurchase[];
+    },
+    enabled: !!id,
+  });
+
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('suppliers').select('id, name').order('name');
+      if (error) throw error;
+      return (data || []) as SupplierOption[];
+    },
+  });
+
+  const purchasesByItem = new Map<string, ObraCostItemPurchase[]>();
+  for (const p of purchases) {
+    const arr = purchasesByItem.get(p.item_id) ?? [];
+    arr.push(p);
+    purchasesByItem.set(p.item_id, arr);
+  }
+
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ['obra', id] });
     qc.invalidateQueries({ queryKey: ['obra-phases', id] });
     qc.invalidateQueries({ queryKey: ['obra-items', id] });
     qc.invalidateQueries({ queryKey: ['obra-activity', id] });
+    qc.invalidateQueries({ queryKey: ['obra-purchases', id] });
   };
 
   // Realtime updates
@@ -81,6 +111,7 @@ export default function ObraDetail() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'obras', filter: `id=eq.${id}` }, () => refreshAll())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'obra_phases', filter: `obra_id=eq.${id}` }, () => refreshAll())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'obra_cost_items', filter: `obra_id=eq.${id}` }, () => refreshAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'obra_cost_item_purchases', filter: `obra_id=eq.${id}` }, () => refreshAll())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'obra_activity', filter: `obra_id=eq.${id}` }, () => refreshAll())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -304,6 +335,8 @@ export default function ObraDetail() {
               forceOpen={searchTerm.length > 0 && visibleItems.length > 0}
               onChange={refreshAll}
               currentUser={{ id: user?.id, name: profile?.full_name }}
+              purchasesByItem={purchasesByItem}
+              suppliers={suppliers}
             />
           );
         })}
@@ -361,7 +394,7 @@ function groupBySubPhase(items: ObraCostItem[]): { label: string | null; items: 
   return result;
 }
 
-function PhaseSection({ obraId, phase, items, visibleItems, forceOpen, onChange, currentUser }: {
+function PhaseSection({ obraId, phase, items, visibleItems, forceOpen, onChange, currentUser, purchasesByItem, suppliers }: {
   obraId: string;
   phase: ObraPhase;
   items: ObraCostItem[];
@@ -369,6 +402,8 @@ function PhaseSection({ obraId, phase, items, visibleItems, forceOpen, onChange,
   forceOpen?: boolean;
   onChange: () => void;
   currentUser: { id?: string; name?: string };
+  purchasesByItem: Map<string, ObraCostItemPurchase[]>;
+  suppliers: SupplierOption[];
 }) {
   const [open, setOpen] = useState(true);
   const [showExtra, setShowExtra] = useState(false);
@@ -440,12 +475,14 @@ function PhaseSection({ obraId, phase, items, visibleItems, forceOpen, onChange,
                           </td>
                         </tr>
                         {group.items.map((it) => (
-                          <CostItemRow key={it.id} item={it} onChange={onChange} />
+                          <CostItemRow key={it.id} item={it} onChange={onChange}
+                            purchases={purchasesByItem.get(it.id) ?? []} suppliers={suppliers} currentUser={currentUser} />
                         ))}
                       </Fragment>
                     ))
                   : subPhaseGroups.flatMap((group) => group.items).map((it) => (
-                      <CostItemRow key={it.id} item={it} onChange={onChange} />
+                      <CostItemRow key={it.id} item={it} onChange={onChange}
+                        purchases={purchasesByItem.get(it.id) ?? []} suppliers={suppliers} currentUser={currentUser} />
                     ))}
                 {displayItems.length === 0 && (
                   <tr><td colSpan={10} className="text-center text-muted-foreground py-4 text-xs">
@@ -491,7 +528,14 @@ function PhaseSection({ obraId, phase, items, visibleItems, forceOpen, onChange,
   );
 }
 
-function CostItemRow({ item, onChange }: { item: ObraCostItem; onChange: () => void }) {
+function CostItemRow({ item, onChange, purchases, suppliers, currentUser }: {
+  item: ObraCostItem;
+  onChange: () => void;
+  purchases: ObraCostItemPurchase[];
+  suppliers: SupplierOption[];
+  currentUser: { id?: string; name?: string };
+}) {
+  const hasPurchases = purchases.length > 0;
   const [draft, setDraft] = useState({
     real_qty: item.real_qty?.toString() ?? '',
     real_unit_cost: item.real_unit_cost != null ? (item.real_unit_cost / 100).toString() : '',
@@ -500,6 +544,7 @@ function CostItemRow({ item, onChange }: { item: ObraCostItem; onChange: () => v
   const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     setDraft({
@@ -509,17 +554,21 @@ function CostItemRow({ item, onChange }: { item: ObraCostItem; onChange: () => v
     });
   }, [item.id, item.real_qty, item.real_unit_cost, item.notes]);
 
+  // Direct inline edit of real_qty / real_unit_cost. Only reachable when the
+  // item has no purchase history; once history exists the DB trigger owns
+  // those fields and the cells become read-only.
   const save = async (overrides: Partial<typeof draft> = {}) => {
     const d = { ...draft, ...overrides };
     const qty = d.real_qty === '' ? null : Number(d.real_qty);
     const unit = d.real_unit_cost === '' ? null : Math.round(Number(d.real_unit_cost) * 100);
     const total = (qty != null && unit != null) ? qty * unit : null;
-    const { error } = await supabase.from('obra_cost_items' as any).update({
-      real_qty: qty,
-      real_unit_cost: unit,
-      real_total_cost: total,
-      notes: d.notes || null,
-    }).eq('id', item.id);
+    const patch: Record<string, unknown> = { notes: d.notes || null };
+    if (!hasPurchases) {
+      patch.real_qty = qty;
+      patch.real_unit_cost = unit;
+      patch.real_total_cost = total;
+    }
+    const { error } = await supabase.from('obra_cost_items' as any).update(patch).eq('id', item.id);
     if (error) {
       toast.error('Error en desar: ' + error.message);
       return;
@@ -541,35 +590,65 @@ function CostItemRow({ item, onChange }: { item: ObraCostItem; onChange: () => v
 
   const dev = (item.estimated_total_cost ?? 0) - (item.real_total_cost ?? 0);
   const inputCls = 'w-full px-1.5 py-1 rounded border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary/40';
+  const readonlyCls = 'w-full px-1.5 py-1 text-xs text-right text-muted-foreground cursor-pointer hover:text-foreground';
 
   return (
     <tr className={cn('hover:bg-muted/20', item.is_extra && 'bg-warning/5')}>
       <td className="px-2 py-1.5 max-w-[280px]">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {item.is_extra && <span className="text-[9px] px-1.5 py-0.5 rounded bg-warning/20 text-warning font-bold">EXTRA</span>}
           <span className="text-xs">{item.description}</span>
+          {hasPurchases ? (
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold hover:bg-primary/20"
+              title="Veure historial de compres"
+            >
+              <ShoppingCart className="w-3 h-3" /> {purchases.length} {purchases.length === 1 ? 'compra' : 'compres'}
+            </button>
+          ) : (
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground font-medium hover:bg-muted"
+              title="Registrar compres per proveïdor"
+            >
+              <ShoppingCart className="w-3 h-3" /> Compres
+            </button>
+          )}
         </div>
       </td>
       <td className="px-2 py-1.5 text-right text-xs text-muted-foreground">{item.estimated_qty ?? '—'}</td>
       <td className="px-2 py-1.5 text-right text-xs text-muted-foreground">{item.estimated_unit_cost != null ? fmtCentsPrecise(item.estimated_unit_cost) : '—'}</td>
       <td className="px-2 py-1.5 text-right text-xs">{item.estimated_total_cost != null ? fmtCentsPrecise(item.estimated_total_cost) : '—'}</td>
       <td className="px-2 py-1.5 w-20">
-        <input
-          type="number" step="0.01" value={draft.real_qty}
-          onChange={(e) => setDraft({ ...draft, real_qty: e.target.value })}
-          onBlur={() => save()}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-          className={inputCls} placeholder="—"
-        />
+        {hasPurchases ? (
+          <div className={readonlyCls} onClick={() => setHistoryOpen(true)} title="Suma de les compres">
+            {item.real_qty ?? '—'}
+          </div>
+        ) : (
+          <input
+            type="number" step="0.01" value={draft.real_qty}
+            onChange={(e) => setDraft({ ...draft, real_qty: e.target.value })}
+            onBlur={() => save()}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            className={inputCls} placeholder="—"
+          />
+        )}
       </td>
       <td className="px-2 py-1.5 w-24">
-        <input
-          type="number" step="0.01" value={draft.real_unit_cost}
-          onChange={(e) => setDraft({ ...draft, real_unit_cost: e.target.value })}
-          onBlur={() => save()}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-          className={inputCls} placeholder="€/u"
-        />
+        {hasPurchases ? (
+          <div className={readonlyCls} onClick={() => setHistoryOpen(true)} title="Mitjana ponderada de les compres">
+            {item.real_unit_cost != null ? fmtCentsPrecise(item.real_unit_cost) : '—'}
+          </div>
+        ) : (
+          <input
+            type="number" step="0.01" value={draft.real_unit_cost}
+            onChange={(e) => setDraft({ ...draft, real_unit_cost: e.target.value })}
+            onBlur={() => save()}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            className={inputCls} placeholder="€/u"
+          />
+        )}
       </td>
       <td className="px-2 py-1.5 text-right text-xs font-semibold">
         {item.real_total_cost != null ? fmtCentsPrecise(item.real_total_cost) : <span className="text-muted-foreground italic">Pendent</span>}
@@ -615,7 +694,265 @@ function CostItemRow({ item, onChange }: { item: ObraCostItem; onChange: () => v
           </>
         )}
       </td>
+
+      {historyOpen && (
+        <td className="p-0">
+          <PurchaseHistoryModal
+            item={item}
+            purchases={purchases}
+            suppliers={suppliers}
+            currentUser={currentUser}
+            onClose={() => setHistoryOpen(false)}
+            onChange={onChange}
+          />
+        </td>
+      )}
     </tr>
+  );
+}
+
+function PurchaseHistoryModal({ item, purchases, suppliers, currentUser, onClose, onChange }: {
+  item: ObraCostItem;
+  purchases: ObraCostItemPurchase[];
+  suppliers: SupplierOption[];
+  currentUser: { id?: string; name?: string };
+  onClose: () => void;
+  onChange: () => void;
+}) {
+  const emptyForm = {
+    qty: '', unit_cost: '', supplier: '', invoice_ref: '',
+    purchased_at: new Date().toISOString().slice(0, 10), note: '',
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [busyRow, setBusyRow] = useState<string | null>(null);
+
+  const listId = `suppliers-dl-${item.id}`;
+
+  // Resolve the free-text / picked supplier value into { supplier_id, supplier_label }.
+  const resolveSupplier = (value: string) => {
+    const v = value.trim();
+    if (!v) return { supplier_id: null as string | null, supplier_label: null as string | null };
+    const match = suppliers.find((s) => s.name.toLowerCase() === v.toLowerCase());
+    return { supplier_id: match?.id ?? null, supplier_label: match?.name ?? v };
+  };
+
+  const supplierValue = (p: ObraCostItemPurchase) =>
+    p.supplier_label ?? suppliers.find((s) => s.id === p.supplier_id)?.name ?? '';
+
+  const parsed = (f: typeof emptyForm) => {
+    const qty = Number(f.qty);
+    const unit = Math.round(Number(f.unit_cost) * 100);
+    return { qty, unit, valid: f.qty !== '' && f.unit_cost !== '' && qty > 0 && Number.isFinite(unit) };
+  };
+
+  const totalQty = purchases.reduce((s, p) => s + p.qty, 0);
+  const totalSpend = purchases.reduce((s, p) => s + p.qty * p.unit_cost, 0);
+  const avgUnit = totalQty !== 0 ? totalSpend / totalQty : 0;
+  const estTotal = item.estimated_total_cost ?? 0;
+  const dev = estTotal - totalSpend;
+
+  const addEntry = async () => {
+    const p = parsed(form);
+    if (!p.valid) return toast.error('Quantitat i cost unitari són obligatoris');
+    setSaving(true);
+    const { supplier_id, supplier_label } = resolveSupplier(form.supplier);
+    const { error } = await supabase.from('obra_cost_item_purchases' as any).insert({
+      item_id: item.id, obra_id: item.obra_id,
+      qty: p.qty, unit_cost: p.unit,
+      supplier_id, supplier_label,
+      invoice_ref: form.invoice_ref.trim() || null,
+      purchased_at: form.purchased_at,
+      note: form.note.trim() || null,
+      created_by: currentUser.id ?? null,
+    });
+    setSaving(false);
+    if (error) return toast.error('Error afegint la compra: ' + error.message);
+    setForm({ ...emptyForm, purchased_at: form.purchased_at });
+    onChange();
+  };
+
+  const startEdit = (p: ObraCostItemPurchase) => {
+    setEditId(p.id);
+    setEditForm({
+      qty: String(p.qty),
+      unit_cost: String(p.unit_cost / 100),
+      supplier: supplierValue(p),
+      invoice_ref: p.invoice_ref ?? '',
+      purchased_at: p.purchased_at,
+      note: p.note ?? '',
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editId) return;
+    const p = parsed(editForm);
+    if (!p.valid) return toast.error('Quantitat i cost unitari són obligatoris');
+    setBusyRow(editId);
+    const { supplier_id, supplier_label } = resolveSupplier(editForm.supplier);
+    const { error } = await supabase.from('obra_cost_item_purchases' as any).update({
+      qty: p.qty, unit_cost: p.unit,
+      supplier_id, supplier_label,
+      invoice_ref: editForm.invoice_ref.trim() || null,
+      purchased_at: editForm.purchased_at,
+      note: editForm.note.trim() || null,
+    }).eq('id', editId);
+    setBusyRow(null);
+    if (error) return toast.error('Error desant la compra: ' + error.message);
+    setEditId(null);
+    onChange();
+  };
+
+  const removeEntry = async (pid: string) => {
+    setBusyRow(pid);
+    const { error } = await supabase.from('obra_cost_item_purchases' as any).delete().eq('id', pid);
+    setBusyRow(null);
+    if (error) return toast.error('Error eliminant la compra: ' + error.message);
+    if (editId === pid) setEditId(null);
+    onChange();
+  };
+
+  const prefillFromManual = () => {
+    if (item.real_qty == null) return;
+    setForm({
+      ...emptyForm,
+      qty: String(item.real_qty),
+      unit_cost: item.real_unit_cost != null ? String(item.real_unit_cost / 100) : '',
+    });
+  };
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30';
+  const cellInputCls = 'w-full px-2 py-1 rounded border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary/40';
+  const labelCls = 'text-xs font-medium text-muted-foreground mb-1 block';
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-3xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold">Historial de compres</h3>
+            <p className="text-sm text-muted-foreground">{item.description}</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+
+        {/* Aggregates */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-muted/40 border border-border rounded-lg p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Qty real</p>
+            <p className="text-base font-bold">{purchases.length ? totalQty : '—'}</p>
+          </div>
+          <div className="bg-muted/40 border border-border rounded-lg p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">€/u mitjà pond.</p>
+            <p className="text-base font-bold">{purchases.length ? fmtCentsPrecise(avgUnit) : '—'}</p>
+          </div>
+          <div className="bg-muted/40 border border-border rounded-lg p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Total real</p>
+            <p className="text-base font-bold">{purchases.length ? fmtCentsPrecise(totalSpend) : '—'}</p>
+          </div>
+          <div className="bg-muted/40 border border-border rounded-lg p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Desviació vs estimat</p>
+            <p className={cn('text-base font-bold', dev >= 0 ? 'text-success' : 'text-destructive')}>
+              {purchases.length ? `${dev >= 0 ? '+' : ''}${fmtCentsPrecise(dev)}` : '—'}
+            </p>
+          </div>
+        </div>
+
+        {/* Entries table */}
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/40 border-b border-border">
+              <tr>
+                {['Data', 'Proveïdor', 'Qty', '€/u', 'Subtotal', 'Ref.', 'Nota', ''].map((h) => (
+                  <th key={h} className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {purchases.map((p) => {
+                const editing = editId === p.id;
+                return (
+                  <tr key={p.id} className="align-top">
+                    {editing ? (
+                      <>
+                        <td className="px-2 py-1.5 w-28"><input type="date" value={editForm.purchased_at} onChange={(e) => setEditForm({ ...editForm, purchased_at: e.target.value })} className={cellInputCls} /></td>
+                        <td className="px-2 py-1.5 min-w-[140px]"><input list={listId} value={editForm.supplier} onChange={(e) => setEditForm({ ...editForm, supplier: e.target.value })} className={cellInputCls} placeholder="Proveïdor" /></td>
+                        <td className="px-2 py-1.5 w-16"><input type="number" step="0.01" value={editForm.qty} onChange={(e) => setEditForm({ ...editForm, qty: e.target.value })} className={cellInputCls} /></td>
+                        <td className="px-2 py-1.5 w-20"><input type="number" step="0.01" value={editForm.unit_cost} onChange={(e) => setEditForm({ ...editForm, unit_cost: e.target.value })} className={cellInputCls} /></td>
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">{parsed(editForm).valid ? fmtCentsPrecise(parsed(editForm).qty * parsed(editForm).unit) : '—'}</td>
+                        <td className="px-2 py-1.5 w-24"><input value={editForm.invoice_ref} onChange={(e) => setEditForm({ ...editForm, invoice_ref: e.target.value })} className={cellInputCls} /></td>
+                        <td className="px-2 py-1.5 min-w-[120px]"><input value={editForm.note} onChange={(e) => setEditForm({ ...editForm, note: e.target.value })} className={cellInputCls} /></td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            <button onClick={saveEdit} disabled={busyRow === p.id} className="px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] font-medium disabled:opacity-50">Desar</button>
+                            <button onClick={() => setEditId(null)} className="px-2 py-1 rounded border border-border text-[11px]">Cancel·lar</button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground">{new Date(p.purchased_at).toLocaleDateString('ca-ES')}</td>
+                        <td className="px-2 py-1.5">{supplierValue(p) || <span className="text-muted-foreground italic">—</span>}</td>
+                        <td className="px-2 py-1.5 text-right">{p.qty}</td>
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtCentsPrecise(p.unit_cost)}</td>
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap font-semibold">{fmtCentsPrecise(p.qty * p.unit_cost)}</td>
+                        <td className="px-2 py-1.5 text-muted-foreground">{p.invoice_ref || '—'}</td>
+                        <td className="px-2 py-1.5 text-muted-foreground max-w-[160px] truncate">{p.note || '—'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => startEdit(p)} className="text-muted-foreground hover:text-primary" title="Editar"><Pencil className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => removeEntry(p.id)} disabled={busyRow === p.id} className="text-muted-foreground hover:text-destructive disabled:opacity-50" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
+              {purchases.length === 0 && (
+                <tr><td colSpan={8} className="text-center text-muted-foreground py-4">Cap compra registrada. En afegir la primera, la partida deixarà d'editar-se manualment.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <datalist id={listId}>
+          {suppliers.map((s) => <option key={s.id} value={s.name} />)}
+        </datalist>
+
+        {/* Add form */}
+        <div className="border border-border rounded-lg p-4 space-y-3 bg-muted/20">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold">Afegir compra</h4>
+            {purchases.length === 0 && item.real_qty != null && (
+              <button onClick={prefillFromManual} className="text-xs text-primary hover:underline">
+                Usar el valor manual actual com a primera compra
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div><label className={labelCls}>Data</label><input type="date" value={form.purchased_at} onChange={(e) => setForm({ ...form, purchased_at: e.target.value })} className={inputCls} /></div>
+            <div className="md:col-span-2"><label className={labelCls}>Proveïdor</label><input list={listId} value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className={inputCls} placeholder="Escull o escriu un nom..." /></div>
+            <div><label className={labelCls}>Quantitat *</label><input type="number" step="0.01" value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} className={inputCls} /></div>
+            <div><label className={labelCls}>Cost unitari (€) *</label><input type="number" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} className={inputCls} /></div>
+            <div><label className={labelCls}>Subtotal</label><div className="px-3 py-2 text-sm font-semibold">{parsed(form).valid ? fmtCentsPrecise(parsed(form).qty * parsed(form).unit) : '—'}</div></div>
+            <div><label className={labelCls}>Ref. albarà / factura</label><input value={form.invoice_ref} onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })} className={inputCls} /></div>
+            <div className="md:col-span-2"><label className={labelCls}>Nota</label><input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className={inputCls} /></div>
+          </div>
+          <div className="flex justify-end">
+            <button onClick={addEntry} disabled={saving || !parsed(form).valid} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />} Afegir compra
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-1">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Tancar</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

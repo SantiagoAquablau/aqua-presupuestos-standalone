@@ -47,13 +47,30 @@ export interface ObraCostItem {
   real_qty: number | null;
   real_unit_cost: number | null;
   real_total_cost: number | null;
-  invoice_ref: string | null;
-  invoice_date: string | null;
-  supplier_name: string | null;
   notes: string | null;
   is_extra: boolean;
   sort_order: number | null;
   sub_phase: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// One row per purchase of a cost item. When a cost item has >= 1 of these,
+// its real_qty / real_unit_cost / real_total_cost are computed by a DB
+// trigger (weighted average) and become read-only in the UI; with zero
+// rows the item falls back to direct inline editing.
+export interface ObraCostItemPurchase {
+  id: string;
+  item_id: string;
+  obra_id: string;
+  qty: number;
+  unit_cost: number;        // cents
+  supplier_id: string | null;
+  supplier_label: string | null;
+  invoice_ref: string | null;
+  purchased_at: string;     // date
+  note: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
