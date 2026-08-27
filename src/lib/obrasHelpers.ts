@@ -53,6 +53,7 @@ export interface ObraCostItem {
   notes: string | null;
   is_extra: boolean;
   sort_order: number | null;
+  sub_phase: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

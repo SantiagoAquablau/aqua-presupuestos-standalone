@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChevronLeft, ChevronDown, ChevronRight, Plus, Loader2, FileSpreadsheet, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronRight, Plus, Loader2, FileSpreadsheet, Trash2, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx-js-style';
@@ -22,6 +22,7 @@ export default function ObraDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { profile, user } = useAuth();
+  const [search, setSearch] = useState('');
 
   const { data: obra, isLoading: loadingObra } = useQuery({
     queryKey: ['obra', id],
@@ -278,18 +279,34 @@ export default function ObraDetail() {
         </div>
       </div>
 
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input type="text" placeholder="Cercar partida per descripció..." value={search} onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
+      </div>
+
       {/* Phases */}
       <div className="space-y-4">
-        {phases.map((ph) => (
-          <PhaseSection
-            key={ph.id}
-            obraId={obra.id}
-            phase={ph}
-            items={items.filter((it) => it.phase_id === ph.id)}
-            onChange={refreshAll}
-            currentUser={{ id: user?.id, name: profile?.full_name }}
-          />
-        ))}
+        {phases.map((ph) => {
+          const phaseItems = items.filter((it) => it.phase_id === ph.id);
+          const searchTerm = search.trim().toLowerCase();
+          const visibleItems = searchTerm
+            ? phaseItems.filter((it) => (it.description || '').toLowerCase().includes(searchTerm))
+            : phaseItems;
+          return (
+            <PhaseSection
+              key={ph.id}
+              obraId={obra.id}
+              phase={ph}
+              items={phaseItems}
+              visibleItems={visibleItems}
+              forceOpen={searchTerm.length > 0 && visibleItems.length > 0}
+              onChange={refreshAll}
+              currentUser={{ id: user?.id, name: profile?.full_name }}
+            />
+          );
+        })}
         {phases.length === 0 && (
           <p className="text-center text-muted-foreground py-8">Aquesta obra no té fases.</p>
         )}
@@ -301,15 +318,67 @@ export default function ObraDetail() {
   );
 }
 
-function PhaseSection({ obraId, phase, items, onChange, currentUser }: {
+const ALTRES_PARTIDES_LABEL = 'Altres partides';
+
+// Same substring criterion already established elsewhere in the codebase
+// (wizardLines.ts, StepPartides.tsx, budgetSave.ts, formulaPhases.ts) to
+// tell a mà d'obra line from a materials line — there's no dedicated
+// item_type/category field, only the description text.
+function isManoObra(description: string): boolean {
+  return (description || '').toLowerCase().includes('mano de obra');
+}
+
+/**
+ * Mà d'obra lines first, materials after. Array.prototype.sort is stable
+ * (guaranteed since ES2019), so items already ordered by sort_order/
+ * created_at (the query in ObraDetail.tsx) keep that relative order within
+ * each of the two buckets -- this doesn't disturb the sort_order tie-break
+ * fixed earlier, it just adds a coarser grouping on top of it.
+ */
+function sortManoObraFirst(items: ObraCostItem[]): ObraCostItem[] {
+  return [...items].sort((a, b) => Number(isManoObra(b.description)) - Number(isManoObra(a.description)));
+}
+
+/**
+ * Group items by sub_phase, preserving first-seen order among the named
+ * groups. Items with no sub_phase (old obres created before this field
+ * existed) are collected under a generic "Altres partides" group, always
+ * placed last regardless of where they first appear. Within each group,
+ * mà d'obra lines are sorted first (see sortManoObraFirst).
+ */
+function groupBySubPhase(items: ObraCostItem[]): { label: string | null; items: ObraCostItem[] }[] {
+  const order: string[] = [];
+  const groups = new Map<string, ObraCostItem[]>();
+  let ungrouped: ObraCostItem[] = [];
+  for (const it of items) {
+    const sp = (it.sub_phase || '').trim();
+    if (!sp) { ungrouped.push(it); continue; }
+    if (!groups.has(sp)) { groups.set(sp, []); order.push(sp); }
+    groups.get(sp)!.push(it);
+  }
+  const result = order.map((label) => ({ label, items: sortManoObraFirst(groups.get(label)!) }));
+  if (ungrouped.length > 0) result.push({ label: null, items: sortManoObraFirst(ungrouped) });
+  return result;
+}
+
+function PhaseSection({ obraId, phase, items, visibleItems, forceOpen, onChange, currentUser }: {
   obraId: string;
   phase: ObraPhase;
   items: ObraCostItem[];
+  visibleItems?: ObraCostItem[];
+  forceOpen?: boolean;
   onChange: () => void;
   currentUser: { id?: string; name?: string };
 }) {
   const [open, setOpen] = useState(true);
   const [showExtra, setShowExtra] = useState(false);
+  const displayItems = visibleItems ?? items;
+  const isOpen = open || !!forceOpen;
+  const subPhaseGroups = groupBySubPhase(displayItems);
+  // Only show subgroup headers when there's more than one group -- for old
+  // obres where every item lacks sub_phase (a single "Altres partides"
+  // group), render the flat table as before to avoid visual noise.
+  const showSubPhaseHeaders = subPhaseGroups.length > 1;
 
   const totalEst = items.reduce((s, it) => s + (it.estimated_total_cost ?? 0), 0);
   const totalReal = items.reduce((s, it) => s + (it.real_total_cost ?? 0), 0);
@@ -325,7 +394,7 @@ function PhaseSection({ obraId, phase, items, onChange, currentUser }: {
     <div className="bg-card border border-border rounded-xl shadow-card overflow-hidden">
       <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
         <div className="flex items-center gap-3">
-          {open ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}
+          {isOpen ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}
           <h3 className="font-semibold text-foreground">{phase.phase_name}</h3>
           <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', sb.className)}>{sb.label}</span>
         </div>
@@ -337,7 +406,7 @@ function PhaseSection({ obraId, phase, items, onChange, currentUser }: {
           </span>
         </div>
       </button>
-      {open && (
+      {isOpen && (
         <div className="border-t border-border">
           <div className="px-4 py-2 flex items-center gap-2 border-b border-border bg-muted/20">
             <span className="text-xs text-muted-foreground">Estat fase:</span>
@@ -362,11 +431,26 @@ function PhaseSection({ obraId, phase, items, onChange, currentUser }: {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {items.map((it) => (
-                  <CostItemRow key={it.id} item={it} onChange={onChange} />
-                ))}
-                {items.length === 0 && (
-                  <tr><td colSpan={10} className="text-center text-muted-foreground py-4 text-xs">Cap partida en aquesta fase.</td></tr>
+                {showSubPhaseHeaders
+                  ? subPhaseGroups.map((group) => (
+                      <Fragment key={`sp-${group.label ?? ALTRES_PARTIDES_LABEL}`}>
+                        <tr className="bg-muted/30">
+                          <td colSpan={10} className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-foreground/80">
+                            {group.label ?? ALTRES_PARTIDES_LABEL}
+                          </td>
+                        </tr>
+                        {group.items.map((it) => (
+                          <CostItemRow key={it.id} item={it} onChange={onChange} />
+                        ))}
+                      </Fragment>
+                    ))
+                  : subPhaseGroups.flatMap((group) => group.items).map((it) => (
+                      <CostItemRow key={it.id} item={it} onChange={onChange} />
+                    ))}
+                {displayItems.length === 0 && (
+                  <tr><td colSpan={10} className="text-center text-muted-foreground py-4 text-xs">
+                    {items.length === 0 ? 'Cap partida en aquesta fase.' : 'Cap partida coincideix amb la cerca.'}
+                  </td></tr>
                 )}
               </tbody>
               <tfoot className="bg-muted/30 border-t border-border">

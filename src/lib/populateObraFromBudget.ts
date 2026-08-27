@@ -101,6 +101,7 @@ export async function populateObraFromBudget(budgetId: string): Promise<void> {
         estimated_total_cost: Math.round(qty * unit),
         is_extra: false,
         sort_order: index,
+        sub_phase: it.subPhase ?? null,
       };
     });
     const { error: itemsErr } = await supabase.from('obra_cost_items' as any).insert(itemRows as any);
