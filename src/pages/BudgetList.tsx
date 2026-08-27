@@ -3,7 +3,7 @@ import { Search, Plus, Pencil, Copy, Trash2, Download, FileText, Loader2, AlertC
 import { Skeleton } from '@/components/ui/skeleton';
 import type { BudgetStatus } from '@/stores/budgetStore';
 import { useBudgetStore } from '@/stores/budgetStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -100,10 +100,23 @@ export default function BudgetList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Deep link from the wizard's duplicate-client banner: /pressupostos?q=<number>.
+  // Seed both the input and the debounced value so the list filters on arrival
+  // without waiting for the debounce, then drop the param from the URL.
+  const initialQ = searchParams.get('q') ?? '';
+  const [search, setSearch] = useState(initialQ);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQ);
   const [statusFilter, setStatusFilter] = useState<BudgetStatus | 'tots'>('tots');
-  const [comercialFilter, setComercialFilter] = useState<string>('me');
+  const [comercialFilter, setComercialFilter] = useState<string>(initialQ ? 'tots' : 'me');
+
+  useEffect(() => {
+    if (searchParams.has('q')) {
+      searchParams.delete('q');
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounce the free-text search before it hits the SQL query, so we don't
   // fire a request on every keystroke.

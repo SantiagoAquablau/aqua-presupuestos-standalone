@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { DuplicateClientBanner } from '@/components/wizard/DuplicateClientBanner';
 
 const schema = z.object({
   clientName: z.string().min(1, 'El nom del client és obligatori'),
@@ -87,6 +88,8 @@ export function StepClient() {
 
   const budgetDate = watch('budgetDate');
   const budgetNumber = watch('budgetNumber');
+  const clientEmail = watch('clientEmail');
+  const clientPhone = watch('clientPhone');
 
   // Auto-generate budget number on mount if empty
   useEffect(() => {
@@ -153,6 +156,13 @@ export function StepClient() {
             <input {...register('clientEmail')} type="email" className={inputClass} placeholder="client@email.com" />
             {errors.clientEmail && <p className={errorClass}>{errors.clientEmail.message}</p>}
           </div>
+          <DuplicateClientBanner
+            email={clientEmail}
+            phone={clientPhone}
+            currentType={draft.type}
+            currentBudgetId={draft.id}
+            currentBudgetNumber={budgetNumber}
+          />
           <div>
             <label className={labelClass}>Data del Pressupost *</label>
             <input {...register('budgetDate')} type="date" className={inputClass} />
