@@ -1188,13 +1188,39 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   const accBasicsColor: "blanc" | "color" = draft.accBasicsColor === "color" ? "color" : "blanc";
   const focusLedColorSurcharge = String(draft.accFocusLedVariant ?? "").split("|")[0] === "color" ? 14 : 0;
 
+  // Accessoris bàsics lines are read from pdfPhases (subPhase "Accessoris
+  // bàsics") whenever a matching wizardKey line already exists there, so an
+  // amount the user edited manually in Partides — either its unit price or
+  // its description — is reflected as-is in the PDF instead of being
+  // recalculated from the catalog price. Same pattern as cascadaLines above,
+  // and the fix already applied for Fontaneria/AFM. Falls back to the old
+  // catalog-based calculation only when no such line exists yet (e.g. a
+  // draft saved before wizardKey was persisted on every line).
+  const accBasicItemByKey = new Map<string, { description: string; quantity: number; total: number }>();
+  pdfPhases
+    .flatMap((ph) => ph.items || [])
+    .forEach((it: any) => {
+      if (String(it.subPhase || "").toLowerCase() === "accessoris bàsics" && it.wizardKey) {
+        accBasicItemByKey.set(it.wizardKey, it);
+      }
+    });
+
   const buildBasicLine = (
+    wizardKey: string,
     label: string,
     qty: number | undefined,
     modelId: string | undefined | null,
     extraUnit = 0,
     overrideLabel?: string,
   ): { label: string; qty: number; total: number } | null => {
+    const phaseItem = accBasicItemByKey.get(wizardKey);
+    if (phaseItem && Number(phaseItem.quantity || 0) > 0) {
+      return {
+        label: String(phaseItem.description || overrideLabel || label),
+        qty: Number(phaseItem.quantity) || 0,
+        total: Number(phaseItem.total) || 0,
+      };
+    }
     const q = Number(qty ?? 0);
     if (q <= 0) return null;
     const art = a(modelId || undefined);
@@ -1203,21 +1229,22 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
   };
 
   const accBasicLines = [
-    buildBasicLine("Impulsors", draft.accImpulsorsQty, draft.accImpulsorsModelId),
-    buildBasicLine("Skimmers", draft.accSkimmersQty, draft.accSkimmersModelId),
-    buildBasicLine("Embornal", draft.accEmbornalQty, draft.accEmbornalModelId),
+    buildBasicLine("acc_impulsors", "Impulsors", draft.accImpulsorsQty, draft.accImpulsorsModelId),
+    buildBasicLine("acc_skimmers", "Skimmers", draft.accSkimmersQty, draft.accSkimmersModelId),
+    buildBasicLine("acc_embornal", "Embornal", draft.accEmbornalQty, draft.accEmbornalModelId),
     buildBasicLine(
+      "acc_focus_led",
       "Focus LED",
       draft.accFocusLedQty,
       draft.accFocusLedModelId,
       focusLedColorSurcharge,
       draft.accFocusLedText || undefined,
     ),
-    buildBasicLine("Projector Mini LED", draft.accProjectorMiniLedQty, draft.accProjectorMiniLedModelId),
-    buildBasicLine("Regulador de nivell + boquilla", draft.accReguladorQty, draft.accReguladorModelId),
-    buildBasicLine("Presa netejafons", draft.accNetejafonsQty, draft.accNetejafonsModelId),
+    buildBasicLine("acc_projector_mini_led", "Projector Mini LED", draft.accProjectorMiniLedQty, draft.accProjectorMiniLedModelId),
+    buildBasicLine("acc_regulador", "Regulador de nivell + boquilla", draft.accReguladorQty, draft.accReguladorModelId),
+    buildBasicLine("acc_netejafons", "Presa netejafons", draft.accNetejafonsQty, draft.accNetejafonsModelId),
     draft.accControlRgbModelId
-      ? buildBasicLine("Sistema de control RGB", draft.accControlRgbQty, draft.accControlRgbModelId)
+      ? buildBasicLine("acc_control_rgb", "Sistema de control RGB", draft.accControlRgbQty, draft.accControlRgbModelId)
       : null,
   ].filter(Boolean) as Array<{ label: string; qty: number; total: number }>;
   const accBasicTotal = accBasicLines.reduce((s, l) => s + l.total, 0);
