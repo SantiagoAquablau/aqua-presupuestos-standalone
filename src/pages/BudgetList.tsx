@@ -244,14 +244,17 @@ export default function BudgetList() {
     mutationFn: async (id: string) => {
       const { data: full } = await supabase.from('budgets').select('*').eq('id', id).single();
       if (!full) throw new Error('Not found');
-      const { id: _id, created_at, updated_at, number, ...rest } = full as any;
+      const { id: _id, created_at, updated_at, number, comercial_id, ...rest } = full as any;
       // `number` has a UNIQUE constraint and is NOT NULL — generate a temporary
       // placeholder so duplicates do not collide. The user assigns a final
       // number later from the wizard.
       const placeholder = `COPIA-${Date.now().toString(36).toUpperCase()}`;
+      // The copy always belongs to whoever duplicates it, regardless of who
+      // owned the original — this is what satisfies the RLS insert policy
+      // (comercial_id = auth.uid()) when duplicating someone else's budget.
       const { error } = await supabase
         .from('budgets')
-        .insert({ ...rest, number: placeholder, status: 'borrador', deleted: false } as any);
+        .insert({ ...rest, comercial_id: user?.id, number: placeholder, status: 'borrador', deleted: false } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -260,7 +263,8 @@ export default function BudgetList() {
     },
     onError: (err: any) => {
       console.error('[duplicateMutation]', err);
-      toast.error(`Error duplicant${err?.message ? `: ${err.message}` : ''}`);
+      const isRlsError = err?.code === '42501' || (typeof err?.message === 'string' && err.message.includes('row-level security'));
+      toast.error(isRlsError ? 'No tens permisos per duplicar aquest pressupost' : `Error duplicant${err?.message ? `: ${err.message}` : ''}`);
     },
   });
 
