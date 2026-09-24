@@ -211,6 +211,14 @@ export function StepAnnex() {
   // patró que userClearedFiltreEspecialRef a StepInstalacions.tsx i
   // userClearedCascadaBombaRef/PulsadorRef a StepAccessoris.tsx.
   const userClearedRobotNetejafonsRef = useRef(false);
+  // Mateix patró aplicat als 4 camps de text d'Excavació: es precarreguen amb
+  // el text real per defecte (no un placeholder) perquè l'usuari el pugui
+  // editar parcialment. Si l'usuari els buida intencionadament, aquests refs
+  // eviten que el següent render els torni a omplir.
+  const userClearedExcavacioPill1TitleRef = useRef(false);
+  const userClearedExcavacioText1Ref = useRef(false);
+  const userClearedExcavacioPill2TitleRef = useRef(false);
+  const userClearedExcavacioText2Ref = useRef(false);
 
   // Load existing articles on mount
   useEffect(() => {
@@ -249,6 +257,30 @@ export function StepAnnex() {
       updateDraft({ annexExcavacioReompliment: reomplimentCalc.reompliment });
     }
   }, [reomplimentCalc?.reompliment, draft.annexExcavacioEstat]);
+
+  // Precarrega els 4 camps de text d'Excavació amb el text real per defecte
+  // (el mateix que fa servir el PDF quan el camp és buit) en lloc de mostrar-lo
+  // com a placeholder, perquè l'usuari el pugui editar parcialment en comptes
+  // d'escriure'l tot de nou. Guardat pels refs userCleared*Ref de dalt.
+  useEffect(() => {
+    if (!draft.annexExcavacioEstat || draft.annexExcavacioEstat === "no") return;
+    const updates: Record<string, string> = {};
+    if (draft.annexExcavacioPill1Title === undefined && !userClearedExcavacioPill1TitleRef.current) {
+      updates.annexExcavacioPill1Title = "1.- EXCAVACIÓ";
+    }
+    if (draft.annexExcavacioText1 === undefined && !userClearedExcavacioText1Ref.current) {
+      updates.annexExcavacioText1 =
+        "Excavació piscina, anivellament i transport de terres a l'abocador autoritzat, cànon inclòs.";
+    }
+    if (draft.annexExcavacioPill2Title === undefined && !userClearedExcavacioPill2TitleRef.current) {
+      updates.annexExcavacioPill2Title = "2.- RE-OMPLIMENT PERIMETRAL DE TERRES";
+    }
+    if (draft.annexExcavacioText2 === undefined && !userClearedExcavacioText2Ref.current) {
+      updates.annexExcavacioText2 =
+        "Re-ompliment de forats laterals de la piscina amb graves després de la construcció del vas.";
+    }
+    if (Object.keys(updates).length > 0) updateDraft(updates);
+  }, [draft.annexExcavacioEstat]);
 
   const manoObraExcavacio = useMemo(
     () => computeManoObraExcavacio(poolLength, poolWidth, poolDepthAvg),
@@ -1081,9 +1113,12 @@ export function StepAnnex() {
                         <input
                           type="text"
                           className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
-                          placeholder="1.- EXCAVACIÓ"
                           value={draft.annexExcavacioPill1Title ?? ""}
-                          onChange={(e) => updateDraft({ annexExcavacioPill1Title: e.target.value || undefined })}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (!v) userClearedExcavacioPill1TitleRef.current = true;
+                            updateDraft({ annexExcavacioPill1Title: v || undefined });
+                          }}
                         />
                       </div>
                       <NumberInput
@@ -1097,9 +1132,12 @@ export function StepAnnex() {
                         <textarea
                           rows={2}
                           className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
-                          placeholder="Excavació piscina, anivellament i transport de terres a l'abocador autoritzat, cànon inclòs."
                           value={draft.annexExcavacioText1 ?? ""}
-                          onChange={(e) => updateDraft({ annexExcavacioText1: e.target.value || undefined })}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (!v) userClearedExcavacioText1Ref.current = true;
+                            updateDraft({ annexExcavacioText1: v || undefined });
+                          }}
                         />
                       </div>
                       {draft.annexExcavacioManoObraOverride != null && (
@@ -1121,9 +1159,12 @@ export function StepAnnex() {
                         <input
                           type="text"
                           className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
-                          placeholder="2.- RE-OMPLIMENT PERIMETRAL DE TERRES"
                           value={draft.annexExcavacioPill2Title ?? ""}
-                          onChange={(e) => updateDraft({ annexExcavacioPill2Title: e.target.value || undefined })}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (!v) userClearedExcavacioPill2TitleRef.current = true;
+                            updateDraft({ annexExcavacioPill2Title: v || undefined });
+                          }}
                         />
                       </div>
                       <NumberInput
@@ -1137,9 +1178,12 @@ export function StepAnnex() {
                         <textarea
                           rows={2}
                           className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
-                          placeholder="Re-ompliment de forats laterals de la piscina amb graves després de la construcció del vas."
                           value={draft.annexExcavacioText2 ?? ""}
-                          onChange={(e) => updateDraft({ annexExcavacioText2: e.target.value || undefined })}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (!v) userClearedExcavacioText2Ref.current = true;
+                            updateDraft({ annexExcavacioText2: v || undefined });
+                          }}
                         />
                       </div>
                       {draft.annexExcavacioReomplimentOverride != null && (
