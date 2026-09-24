@@ -127,7 +127,7 @@ export function PageAnnexGespa({
   const prefix = "";
   const enumPx = isOpcional ? "" : annexEnumPrefix(annexIndex, annexTotalCount);
 
-  const mm = (isOpcional ? 35 : data.annexGespaModelMm || 35) as 35 | 38 | 45 | "45b";
+  const mm = (data.annexGespaModelMm || 35) as 35 | 38 | 45 | "45b";
   const model = MODELS[mm];
 
   const amount = data.annexGespaAmount ?? 0;
@@ -135,7 +135,14 @@ export function PageAnnexGespa({
   const pricePerM2 = Number(data.annexGespaPricePerM2 || 0);
   const preparacioInclosa = !!data.annexGespaPreparacioIncluded;
 
-  const pillAmountText = isOpcional ? `${prefix}${formatEuro(pricePerM2)}/m²` : `${formatEuro(amount)}`;
+  // "Opcional" without real m² (comercial hasn't filled them in yet): show
+  // the per-m² reference price instead of a total, since amount = m2 ×
+  // pricePerM2 would just be 0,00 €. Once m² are filled, show the real total
+  // like "inclòs" always does.
+  const pillAmountText =
+    isOpcional && m2 <= 0
+      ? `${formatEuro(pricePerM2)}/m²`
+      : `${prefix}${formatEuro(amount)}`;
 
   const specRows: Array<[string, string | undefined]> = [
     ["Altura", model.altura],
@@ -227,7 +234,9 @@ export function PageAnnexGespa({
           }}
         >
           {isOpcional
-            ? "Renovació dels espais exteriors amb gespa artificial"
+            ? m2 > 0
+              ? `Renovació dels espais exteriors amb ${m2.toLocaleString("ca-ES")} m² de gespa artificial`
+              : "Renovació dels espais exteriors amb gespa artificial"
             : `Renovació dels espais exteriors amb ${m2.toLocaleString("ca-ES")} m² de gespa artificial${
                 preparacioInclosa ? " — preparació de terreny inclosa" : " — sense preparació de terreny"
               }`}

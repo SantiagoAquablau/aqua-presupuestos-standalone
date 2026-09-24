@@ -404,6 +404,14 @@ export interface BudgetDraft {
   annexPavimentM2?: number;
   annexPavimentModelId?: string;
   annexPavimentModelADeterminar?: boolean;
+  // Transient (never persisted): formula-engine results for sub_phase
+  // 'paviment' BEFORE filterAcabatsInclusion strips them out of
+  // draft.phases when annexPavimentEstat !== 'inclos'. Populated by
+  // recomputeDraftPhases (StepRevisio.tsx / budgetPdfPrep.ts) so
+  // buildBudgetPdf can still compute the informational annexPavimentAmount
+  // for the "opcional" PDF page, independently of the (correctly) filtered
+  // draft.phases that feeds Partides/the total.
+  annexPavimentRawItems?: Array<{ description: string; quantity: number; unitSale: number }>;
   // Annex — Gespa artificial
   annexGespaEstat?: string;
   annexGespaPreparacioEnabled?: boolean;

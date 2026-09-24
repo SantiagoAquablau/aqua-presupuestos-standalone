@@ -15,7 +15,12 @@ import { saveBlobWithPicker } from "@/lib/saveFile";
 import { buildBudgetPdf } from "@/lib/budgetSave";
 import { buildWizardLinesByPhase } from "@/lib/wizardLines";
 import { evaluateFormulaRules, type FormulaRule } from "@/lib/formulaEngine";
-import { mergeFormulaResultsIntoPhases, serializeBudgetPhases, filterAcabatsInclusion } from "@/lib/formulaPhases";
+import {
+  mergeFormulaResultsIntoPhases,
+  serializeBudgetPhases,
+  filterAcabatsInclusion,
+  computeAnnexPavimentRawItems,
+} from "@/lib/formulaPhases";
 import { computeManoObraExcavacio } from "@/lib/excavacioCalc";
 import { computePhaseTotals, computeGrandTotal } from "@/lib/budgetFinancials";
 import { PaymentConditionsEditor } from "@/components/wizard/PaymentConditionsEditor";
@@ -274,10 +279,23 @@ export function StepRevisio() {
       const results = filterAcabatsInclusion(rawResults, current);
       const wizardLines = buildWizardLinesByPhase(current, articleRows as Parameters<typeof buildWizardLinesByPhase>[1]);
       const mergedPhases = mergeFormulaResultsIntoPhases(results, current.phases, current, wizardLines);
+      // Evaluated with annexPavimentEstat forced to 'inclos' — several real
+      // paviment formula_rules only fire under that estat (confirmed via a
+      // live trace: 16 rules under 'inclos' vs 3 under 'opcional' for the
+      // same m²/format), so using the real ('opcional') context here would
+      // yield a badly incomplete informational total. See
+      // computeAnnexPavimentRawItems for the full rationale. This never
+      // touches draft.phases/Partides/the total, which stay on `results`
+      // (the real, unforced context) via mergedPhases above.
+      const annexPavimentRawItems = computeAnnexPavimentRawItems(
+        (rules || []) as FormulaRule[],
+        articleRows,
+        current,
+      );
       if (serializeBudgetPhases(mergedPhases) === serializeBudgetPhases(current.phases || [])) {
-        return current;
+        return { ...current, annexPavimentRawItems };
       }
-      return { ...current, phases: mergedPhases };
+      return { ...current, phases: mergedPhases, annexPavimentRawItems };
     } catch (e) {
       console.error("[StepRevisio] recomputeDraftPhases failed", e);
       return current;

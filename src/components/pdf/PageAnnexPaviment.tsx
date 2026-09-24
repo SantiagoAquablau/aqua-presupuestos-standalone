@@ -43,8 +43,9 @@ export function PageAnnexPaviment({
   const pillText = isOpcional ? "#ffffff" : NAVY;
   const enumPx = isOpcional ? "" : annexEnumPrefix(annexIndex, annexTotalCount);
 
-  // OPCIONAL: static catalogue of 3 prices
-  const opcionalRows: { label: string; price: string }[] = [
+  // Static catalogue of 3 prices — fallback for "opcional" when the comercial
+  // hasn't filled in any real paviment data (m², model, format, actuació).
+  const fallbackOpcionalRows: { label: string; price: string }[] = [
     {
       label: "Compactació i formació de llosa de formigó de 10 - 15 cm de gruix",
       price: "47,00 €/m²",
@@ -59,12 +60,13 @@ export function PageAnnexPaviment({
     },
   ];
 
-  // INCLOS: build dynamic rows from wizard data
+  // Build dynamic rows from real wizard data — used by "inclos" always, and by
+  // "opcional" whenever the comercial has actually filled in paviment data.
   type Row = { label: string; total: number };
-  const inclosRows: Row[] = [];
-  let inclosSubtitle = "Compactació, formació de llosa i aplacat amb porcellànic de zona perimetral de la piscina.";
+  const dynamicRows: Row[] = [];
+  let dynamicSubtitle = "Compactació, formació de llosa i aplacat amb porcellànic de zona perimetral de la piscina.";
 
-  if (!isOpcional) {
+  {
     const reforma = !!data.annexPavimentReformaEnabled;
     const retirada = reforma && !!data.annexPavimentRetiradaEnabled;
     const regular = reforma && !!data.annexPavimentRegularitzacioEnabled;
@@ -82,42 +84,42 @@ export function PageAnnexPaviment({
     // Build subtitle
     if (reforma && nou) {
       if (material === "fusta") {
-        inclosSubtitle =
+        dynamicSubtitle =
           "Regularització de llosa existent i realització de tarima de fusta tecnològica de zona perimetral de la piscina.";
       } else {
-        inclosSubtitle = "Regularització de llosa existent i aplacat amb porcellànic de zona perimetral de la piscina.";
+        dynamicSubtitle = "Regularització de llosa existent i aplacat amb porcellànic de zona perimetral de la piscina.";
       }
     } else if (nou && formigo) {
       if (material === "fusta") {
-        inclosSubtitle =
+        dynamicSubtitle =
           "Compactació, formació de llosa i realització de tarima de fusta tecnològica de zona perimetral de la piscina.";
       } else {
-        inclosSubtitle = "Compactació, formació de llosa i aplacat amb porcellànic de zona perimetral de la piscina.";
+        dynamicSubtitle = "Compactació, formació de llosa i aplacat amb porcellànic de zona perimetral de la piscina.";
       }
     } else if (nou && !formigo && !reforma) {
       // Paviment nou directly over existing
       if (material === "fusta") {
-        inclosSubtitle = "Realització de tarima de fusta tecnològica de zona perimetral de la piscina.";
+        dynamicSubtitle = "Realització de tarima de fusta tecnològica de zona perimetral de la piscina.";
       } else {
-        inclosSubtitle = "Aplacat amb porcellànic de zona perimetral de la piscina.";
+        dynamicSubtitle = "Aplacat amb porcellànic de zona perimetral de la piscina.";
       }
     }
 
     // Build rows in order
     if (retirada) {
-      inclosRows.push({
+      dynamicRows.push({
         label: `Picar per retirar ${m2Retirada}m² de ceràmica existent.`,
         total: Number(data.annexPavimentRetiradaTotal || 0),
       });
     }
     if (regular) {
-      inclosRows.push({
+      dynamicRows.push({
         label: `Regularitzar superfície de ${m2Regular}m².`,
         total: Number(data.annexPavimentRegularitzacioTotal || 0),
       });
     }
     if (formigo) {
-      inclosRows.push({
+      dynamicRows.push({
         label: `Compactació i formació ${m2Formigo}m² de llosa de formigó de 10 - 15 cm de gruix.`,
         total: Number(data.annexPavimentFormigoTotal || 0),
       });
@@ -128,7 +130,7 @@ export function PageAnnexPaviment({
         if (actuacio === "col") actLabel = "Col·locació de";
         else if (actuacio === "suministre") actLabel = "Subministrament de";
         else actLabel = "Subministrament i col·locació de";
-        inclosRows.push({
+        dynamicRows.push({
           label: `${actLabel} ${m2Paviment}m² de tarima de fusta tecnològica sintètica.`,
           total: Number(data.annexPavimentNouTotal || 0),
         });
@@ -141,7 +143,7 @@ export function PageAnnexPaviment({
         const label = is31
           ? `${actLabel} ${m2Paviment}m² de paviment de gres extrusionat natural.${modelPart}`
           : `${actLabel} ${m2Paviment}m² de paviment amb porcellànic de la casa Rosa Gres mides ${mides || "—"}.${modelPart}`;
-        inclosRows.push({
+        dynamicRows.push({
           label,
           total: Number(data.annexPavimentNouTotal || 0),
         });
@@ -149,7 +151,16 @@ export function PageAnnexPaviment({
     }
   }
 
-  const pillAmount = !isOpcional ? Number(data.annexPavimentAmount || 0) : null;
+  // "opcional" falls back to the static catalogue only when nothing real was captured.
+  const useFallback = isOpcional && dynamicRows.length === 0;
+  const opcionalRows = useFallback ? fallbackOpcionalRows : dynamicRows.map((r) => ({ label: r.label, price: fmtEuro(r.total) }));
+  const inclosRows = dynamicRows;
+  const inclosSubtitle = dynamicSubtitle;
+
+  // "opcional" shows the total only when real wizard data was captured
+  // (dynamicRows) — falling back to the static 3-price catalogue (no single
+  // total makes sense there), same convention as Gespa's pill.
+  const pillAmount = !isOpcional || !useFallback ? Number(data.annexPavimentAmount || 0) : null;
 
   return (
     <section style={pdfPageStyle}>
@@ -229,7 +240,7 @@ export function PageAnnexPaviment({
             fontWeight: 700,
           }}
         >
-          {isOpcional
+          {isOpcional && useFallback
             ? "Compactació, formació de llosa i aplacat amb porcellànic de zona perimetral de la piscina."
             : inclosSubtitle}
         </div>

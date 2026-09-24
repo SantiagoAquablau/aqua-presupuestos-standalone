@@ -1,10 +1,29 @@
-import type { FormulaResult } from '@/lib/formulaEngine';
+import { evaluateFormulaRules, type FormulaResult, type FormulaRule } from '@/lib/formulaEngine';
 import type { BudgetItem, BudgetPhase, BudgetDraft } from '@/stores/budgetStore';
 
 /**
- * Drop coronament / revestiment formula results when the wizard has marked
- * those sub-phases as "no inclòs". Returns the same array reference when no
- * filtering is required.
+ * Drop formula results for sections the wizard has explicitly excluded from
+ * the budget total, regardless of which individual toggles fed into the
+ * formula-engine conditions that produced them. Two independent guards:
+ *
+ * 1. Coronament / revestiment when marked "no inclòs".
+ * 2. Annex "Paviment perimetral" (sub_phase 'paviment') whenever
+ *    `annexPavimentEstat !== 'inclos'`. The DB-configured formula_rules for
+ *    this sub-phase only condition on the individual booleans
+ *    (annex_paviment_nou_enabled, _formigo_enabled, _retirada_enabled,
+ *    _regularitzacio_enabled) plus material/format — they never check the
+ *    annex estat itself. Those booleans stay editable (and get re-filled by
+ *    the comercial) while the annex is "opcional", so without this guard any
+ *    formula rule that matches would leak a real line into draft.phases /
+ *    Partides / totalSale even though the annex is informational-only.
+ *
+ * This is the single choke point every formula-engine entry point (StepRevisio,
+ * NewBudget, populateObraFromBudget, technicalSheet, budgetPdfPrep) already
+ * calls right after evaluateFormulaRules, so any future annex section with the
+ * same "toggles survive outside of estat === 'inclos'" shape should add its
+ * guard here rather than at each call site.
+ *
+ * Returns the same array reference when no filtering is required.
  */
 export function filterAcabatsInclusion(
   results: FormulaResult[],
@@ -12,14 +31,62 @@ export function filterAcabatsInclusion(
 ): FormulaResult[] {
   const coronaOff = draft.coronamentInclos === false;
   const revestOff = draft.revestimentInclos === false;
-  if (!coronaOff && !revestOff) return results;
+  const pavimentEstat = (draft as any).annexPavimentEstat;
+  const pavimentOff = pavimentEstat !== 'inclos';
+  if (!coronaOff && !revestOff && !pavimentOff) return results;
   return results.filter((r) => {
+    if (pavimentOff && r.phase === 'annex' && String(r.subPhase || '').toLowerCase() === 'paviment') return false;
     if (r.phase !== 'acabats') return true;
     const sp = String(r.subPhase || '').toLowerCase();
     if (coronaOff && sp.includes('coronament')) return false;
     if (revestOff && sp.includes('revestiment')) return false;
     return true;
   });
+}
+
+/**
+ * Compute the informational "opcional" paviment amount for the PDF using a
+ * SEPARATE formula-engine pass with `annexPavimentEstat` forced to 'inclos'.
+ *
+ * Why: several real DB `formula_rules` for sub_phase 'paviment' (materials,
+ * mà d'obra, transport — confirmed via a live trace: 16 rules fire under
+ * `annex_paviment_estat = 'inclos'` vs only 3 under `= 'opcional'`) are
+ * explicitly conditioned on `annex_paviment_estat` in their BD conditions.
+ * Evaluating with the real ('opcional') context therefore yields a much
+ * smaller, incomplete set of lines — not a rounding-level difference. This
+ * second pass evaluates as if the client had accepted the option (same m²,
+ * format, and toggles the comercial actually entered — only the estat is
+ * overridden), so the informational PDF total matches what "inclòs" would
+ * actually charge for the same underlying data.
+ *
+ * This is purely for the PDF's informational display — it must never feed
+ * draft.phases/Partides/the total, which stay on the real ('opcional')
+ * context and are protected by filterAcabatsInclusion's paviment guard above.
+ */
+export function computeAnnexPavimentRawItems(
+  rules: FormulaRule[],
+  articleRows: any[],
+  current: Partial<BudgetDraft>,
+): Array<{ description: string; quantity: number; unitSale: number }> {
+  const forcedContext = { ...current, annexPavimentEstat: 'inclos' } as any;
+  const rawResultsForced = evaluateFormulaRules(rules, forcedContext, articleRows);
+
+  const pavimentResults = rawResultsForced.filter(
+    (r) => r.phase === 'annex' && String(r.subPhase || '').toLowerCase() === 'paviment',
+  );
+
+  return pavimentResults
+    .filter((r) => !r.error && r.quantity > 0 && (r.sale > 0 || r.cost > 0))
+    .map((r) => {
+      const existing = (current.phases || [])
+        .flatMap((ph) => ph.items || [])
+        .find((it: any) => it.formulaRuleId === r.ruleId && it.userEdited === true);
+      return {
+        description: r.displayName || r.ruleName,
+        quantity: existing ? Number(existing.quantity) : r.quantity,
+        unitSale: existing ? Number(existing.unitSale) : r.unitSale,
+      };
+    });
 }
 
 function normalizeName(value: string): string {

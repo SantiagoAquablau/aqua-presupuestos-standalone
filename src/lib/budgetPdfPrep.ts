@@ -15,6 +15,7 @@ import {
   mergeFormulaResultsIntoPhases,
   serializeBudgetPhases,
   filterAcabatsInclusion,
+  computeAnnexPavimentRawItems,
 } from "@/lib/formulaPhases";
 import { buildWizardLinesByPhase } from "@/lib/wizardLines";
 
@@ -31,26 +32,40 @@ export async function recomputeDraftPhases(current: BudgetDraft): Promise<Budget
         .order("phase")
         .order("order_index"),
     ]);
+    const articleRows = (arts || []) as any;
     const rawResults = evaluateFormulaRules(
       (rules || []) as FormulaRule[],
       current,
-      (arts || []) as any,
+      articleRows,
     );
     const results = filterAcabatsInclusion(rawResults, current);
-    const wizardLines = buildWizardLinesByPhase(current, (arts || []) as any);
+    const wizardLines = buildWizardLinesByPhase(current, articleRows);
     const mergedPhases = mergeFormulaResultsIntoPhases(
       results,
       current.phases,
       current,
       wizardLines,
     );
+    // Evaluated with annexPavimentEstat forced to 'inclos' — several real
+    // paviment formula_rules only fire under that estat (confirmed via a
+    // live trace: 16 rules under 'inclos' vs 3 under 'opcional' for the
+    // same m²/format), so using the real ('opcional') context here would
+    // yield a badly incomplete informational total. See
+    // computeAnnexPavimentRawItems for the full rationale. This never
+    // touches draft.phases/Partides/the total, which stay on `results`
+    // (the real, unforced context) via mergedPhases above.
+    const annexPavimentRawItems = computeAnnexPavimentRawItems(
+      (rules || []) as FormulaRule[],
+      articleRows,
+      current,
+    );
     if (
       serializeBudgetPhases(mergedPhases) ===
       serializeBudgetPhases(current.phases || [])
     ) {
-      return current;
+      return { ...current, annexPavimentRawItems };
     }
-    return { ...current, phases: mergedPhases };
+    return { ...current, phases: mergedPhases, annexPavimentRawItems };
   } catch (e) {
     console.error("[budgetPdfPrep] recomputeDraftPhases failed", e);
     return current;

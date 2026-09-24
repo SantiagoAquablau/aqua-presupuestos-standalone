@@ -2364,12 +2364,9 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
         modelName = modelName || selected.name;
         pricePerM2 = Number(selected.sale || 0);
         imageUrl = selected.image_url;
-      }
-
-      // For "opcional", always show 35 MM and use that article's sale_price.
-      let mm: 35 | 38 | 45 = detectMm(modelName);
-      if (estat === "opcional") {
-        mm = 35;
+      } else if (estat === "opcional") {
+        // No model chosen (comercial marked "opcional" without picking one) — fall
+        // back to the generic 35mm reference article so the PDF never shows 0,00 €.
         try {
           const { data: arts } = await supabase
             .from("articles")
@@ -2386,8 +2383,12 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
         }
       }
 
-      // Amount: for "inclos" sum every item under subPhase = "gespa";
-      // for "opcional" fall back to pricePerM2 (per m²).
+      // Use the real model/article the comercial selected, for both "inclos" and "opcional".
+      const mm: 35 | 38 | 45 = detectMm(modelName);
+
+      // Amount: for "inclos" sum every item under subPhase = "gespa" (falling back to
+      // m2 × pricePerM2 + preparació); for "opcional" always use m2 real × pricePerM2,
+      // since no items are ever generated in that state.
       let amount = 0;
       if (estat === "inclos") {
         const allItems = (draft.phases || []).flatMap((ph) => ph.items || []);
@@ -2401,7 +2402,8 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
             (draft.annexGespaPreparacioEnabled ? Math.ceil(Number(draft.annexGespaPreparacioM2 || 0)) : 0);
         }
       } else {
-        amount = Math.ceil(pricePerM2);
+        const m2 = Number(draft.annexGespaM2 || 0);
+        amount = Math.ceil(m2 * pricePerM2);
       }
 
       return {
@@ -2419,46 +2421,53 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
     ...((): Partial<NewPdfData> => {
       const estat = (draft.annexPavimentEstat as any) || "no";
       if (estat !== "inclos" && estat !== "opcional") return {};
-      // Paviment subphase total (sum of items with subPhase === 'paviment' in Annex phase)
+      // Paviment subphase total (sum of items with subPhase === 'paviment' in Annex phase).
+      // For "opcional", draft.phases has these lines deliberately stripped out by
+      // filterAcabatsInclusion (so they never leak into Partides/the total) — the
+      // PDF's informational amount reads instead from annexPavimentRawItems, the
+      // formula-engine results captured before that filter ran (see BudgetDraft).
+      // For "inclos" the lines are real and live in draft.phases as usual.
+      const pavimentSourceItems: Array<{ description?: string; quantity: number; unitSale: number }> =
+        estat === "opcional" && draft.annexPavimentRawItems
+          ? draft.annexPavimentRawItems
+          : (draft.phases || []).flatMap((ph) =>
+              (ph.items || []).filter((it: any) => (it.subPhase || "").toLowerCase() === "paviment"),
+            );
       let pavimentAmount = 0;
       let retiradaTotal = 0;
       let regularTotal = 0;
       let formigoTotal = 0;
       let nouTotal = 0;
-      for (const ph of draft.phases || []) {
-        for (const it of ph.items || []) {
-          if (((it as any).subPhase || "").toLowerCase() === "paviment") {
-            const lineTotal = Math.ceil(Number(it.quantity || 0) * Number(it.unitSale || 0));
-            pavimentAmount += lineTotal;
-            const desc = String(it.description || "").toUpperCase();
-            // Classify by article keywords
-            if (
-              desc.includes("RETIRAR CERAMICA") ||
-              desc.includes("RETIRAR CERÀMICA") ||
-              desc.includes("MOVER SACOS RUNA") ||
-              desc.includes("TRANSPORTE RUNA")
-            ) {
-              retiradaTotal += lineTotal;
-            } else if (desc.includes("REGULARITZAR LLOSA") || (desc.includes("MORTERO") && desc.includes("25"))) {
-              regularTotal += lineTotal;
-            } else if (
-              desc.includes("PAVIMENTO HORMIGON") ||
-              desc.includes("PAVIMENT HORMIGON") ||
-              desc.includes("MALLAZO") ||
-              desc.includes("MALLAZOS") ||
-              (desc.includes("HORMIGON") && !desc.includes("PAVIMENT")) ||
-              desc === "GRAVA" ||
-              desc.startsWith("GRAVA ") ||
-              desc.includes(" GRAVA")
-            ) {
-              formigoTotal += lineTotal;
-            } else {
-              // Everything else inside paviment subphase belongs to "Paviment nou"
-              // (model, cemento cola, borada, fix, estropajo, esponja, cuñas, crucetas,
-              //  transporte, mano de obra paviment perimetral porcelanico, etc.)
-              nouTotal += lineTotal;
-            }
-          }
+      for (const it of pavimentSourceItems) {
+        const lineTotal = Math.ceil(Number(it.quantity || 0) * Number(it.unitSale || 0));
+        pavimentAmount += lineTotal;
+        const desc = String(it.description || "").toUpperCase();
+        // Classify by article keywords
+        if (
+          desc.includes("RETIRAR CERAMICA") ||
+          desc.includes("RETIRAR CERÀMICA") ||
+          desc.includes("MOVER SACOS RUNA") ||
+          desc.includes("TRANSPORTE RUNA")
+        ) {
+          retiradaTotal += lineTotal;
+        } else if (desc.includes("REGULARITZAR LLOSA") || (desc.includes("MORTERO") && desc.includes("25"))) {
+          regularTotal += lineTotal;
+        } else if (
+          desc.includes("PAVIMENTO HORMIGON") ||
+          desc.includes("PAVIMENT HORMIGON") ||
+          desc.includes("MALLAZO") ||
+          desc.includes("MALLAZOS") ||
+          (desc.includes("HORMIGON") && !desc.includes("PAVIMENT")) ||
+          desc === "GRAVA" ||
+          desc.startsWith("GRAVA ") ||
+          desc.includes(" GRAVA")
+        ) {
+          formigoTotal += lineTotal;
+        } else {
+          // Everything else inside paviment subphase belongs to "Paviment nou"
+          // (model, cemento cola, borada, fix, estropajo, esponja, cuñas, crucetas,
+          //  transporte, mano de obra paviment perimetral porcelanico, etc.)
+          nouTotal += lineTotal;
         }
       }
       const modelArt = a(draft.annexPavimentModelId);
