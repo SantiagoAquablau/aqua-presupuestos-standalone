@@ -37,7 +37,7 @@ export function PageCascada({ data, pillNumber }: { data: PdfData; pillNumber: n
     { pre: "Polsador piezoelèctric en acer inoxidable, protecció i maniobra." },
     { pre: "Bomba ", strong: bombaName },
     { pre: `Canonada i accessoris PVC D.${diametreMm} per a connexió aspiració i retorn.` },
-    ...(encastada ? [{ pre: "Mà d'obra paleteria per a col·locació." }] : []),
+    ...(encastada ? [{ pre: "Col·locació" }] : []),
   ];
 
   return (
@@ -136,6 +136,11 @@ export function PageCascada({ data, pillNumber }: { data: PdfData; pillNumber: n
                 </div>
               ))}
             </div>
+            {encastada && (
+              <div style={{ fontSize: "7.5pt", color: NAVY, fontStyle: "italic", marginTop: "2mm" }}>
+                * Els treballs de paleteria, execució de mur, acabats, etc. es valoraran a part.
+              </div>
+            )}
           </div>
 
           {/* RIGHT — model image, large, never stretched */}
