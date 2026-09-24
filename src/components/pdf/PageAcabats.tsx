@@ -41,6 +41,8 @@ export function PageAcabats({ data }: { data: PdfData }) {
       ? data.revestimentBeuradaColor
       : "a determinar segons model";
   const revBeuradaIsEpoxi = (data.revestimentBeuradaLabel || "").toLowerCase().includes("epoxi");
+  const hasInteriorStairs = !!data.interiorStairsType && data.interiorStairsType !== "sense";
+  const showRevestimentStairsNote = data.revestimentTipusLabel === "PORCELÀNIC" && hasInteriorStairs;
 
   return (
     <section style={pdfPageStyle}>
@@ -225,6 +227,13 @@ export function PageAcabats({ data }: { data: PdfData }) {
                   <span style={{ marginRight: 6 }}>-</span>
                   {revActuacio} {revSurface}.
                 </li>
+                {showRevestimentStairsNote && (
+                  <li style={{ marginBottom: 2 }}>
+                    <span style={{ marginRight: 6 }}></span>
+                    Amb capa de recrescut/regularització extra per a major encaix i amb peça remat d'esgraó per a
+                    escales i plataforma/banc (L62).
+                  </li>
+                )}
                 <li style={{ marginBottom: 2 }}>
                   <span style={{ marginRight: 6 }}></span>
                   {revBeuradaLabel} color:{" "}
