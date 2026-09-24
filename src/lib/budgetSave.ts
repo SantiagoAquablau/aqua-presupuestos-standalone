@@ -1567,9 +1567,9 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
       )[draft.revestimentActuacio || ""] || undefined,
     revestimentSurfaceText:
       draft.revestimentTipus === "gressite"
-        ? "de mosaic vitri en tota la superfície interior de la piscina"
+        ? "de mosaic vitri de la casa Ezarri en tota la superfície interior de la piscina"
         : draft.revestimentTipus === "porcelanic"
-          ? "de gres porcellànic antilliscant en tota la superfície interior de la piscina"
+          ? "de gres porcellànic antilliscant de la casa Rosagres en tota la superfície interior de la piscina"
           : undefined,
     revestimentTipusLabel:
       draft.revestimentTipus === "gressite"
@@ -1599,9 +1599,9 @@ export async function buildBudgetPdf(draft: BudgetDraft): Promise<{ blob: Blob; 
       REV_FORMAT_LABELS[draft.opcionalRevestimentFormat || ""] || draft.opcionalRevestimentFormat || undefined,
     annexOpcionalRevestimentSurfaceText:
       draft.opcionalRevestimentTipus === "gressite"
-        ? "de mosaic vitri en tota la superfície interior de la piscina"
+        ? "de mosaic vitri de la casa Ezarri en tota la superfície interior de la piscina"
         : draft.opcionalRevestimentTipus === "porcelanic"
-          ? "de gres porcellànic antilliscant en tota la superfície interior de la piscina"
+          ? "de gres porcellànic antilliscant de la casa Rosagres en tota la superfície interior de la piscina"
           : undefined,
     annexOpcionalRevestimentActuacioLabel:
       (

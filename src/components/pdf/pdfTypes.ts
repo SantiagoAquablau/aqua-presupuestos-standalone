@@ -91,7 +91,7 @@ export interface PdfData {
   planolInclos?: boolean;
   // Revestiment interior details (Page 4 — Acabats)
   revestimentActuacioLabel?: string;  // "Subministrament i col·locació" | "Subministrament" | "Col·locació"
-  revestimentSurfaceText?: string;    // "de mosaic vitri en tota la superfície interior de la piscina" | porcelànic variant
+  revestimentSurfaceText?: string;    // "de mosaic vitri de la casa Ezarri en tota la superfície interior de la piscina" | porcelànic variant
   revestimentTipusLabel?: string;     // "GRESSITE" | "PORCELÀNIC"
   revestimentTipusFormat?: string;    // "2,5 × 2,5 cm" etc.
   revestimentBeuradaLabel?: string;   // "Beurada cimentosa" | "Beurada epoxi"
